@@ -476,7 +476,7 @@ export default function VideoPlayer({
 
   // subtitleSizeClass sudah digantikan dengan versi responsif di bawah
 
-  const subtitleTextShadow = "0 2px 8px rgba(0,0,0,0.9)";
+  const subtitleTextShadow = "";
 
   const episodeList = useMemo(() => (Array.isArray(episodes) ? episodes : []), [episodes]);
   const hasEpisodes = episodeList.length > 0;
@@ -780,7 +780,7 @@ export default function VideoPlayer({
 
   const requestFullscreen = async () => {
     const video = videoRef.current;
-    const container = video?.parentElement;
+    const container = containerRef.current;
     if (!video || !container) return;
 
     try {
@@ -789,23 +789,25 @@ export default function VideoPlayer({
           await document.exitFullscreen();
         } else if (document.webkitExitFullscreen) {
           await document.webkitExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+          await document.mozCancelFullScreen();
+        } else if (document.msExitFullscreen) {
+          await document.msExitFullscreen();
         }
       } else {
-        // iOS Safari specific method
-        if (video.webkitEnterFullscreen) {
+        // iOS Safari specific method - only if we really need native controls
+        if (isIOS && video.webkitEnterFullscreen) {
           await video.webkitEnterFullscreen();
         }
-        // Standard Fullscreen API
-        else if (video.requestFullscreen) {
-          await video.requestFullscreen();
-        } else if (video.webkitRequestFullscreen) {
-          await video.webkitRequestFullscreen();
-        }
-        // Fallback to container
+        // Standard Fullscreen API on container for custom controls
         else if (container.requestFullscreen) {
           await container.requestFullscreen();
         } else if (container.webkitRequestFullscreen) {
           await container.webkitRequestFullscreen();
+        } else if (container.mozRequestFullScreen) {
+          await container.mozRequestFullScreen();
+        } else if (container.msRequestFullscreen) {
+          await container.msRequestFullscreen();
         }
 
         // Try to force landscape on supported devices
@@ -959,6 +961,28 @@ export default function VideoPlayer({
       media.removeEventListener("ended", handleEnded);
     };
   }, [onEnded, onProgress, videoSrc]);
+
+  // Track fullscreen state changes
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const handleFullscreenChange = () => {
+      const isInFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+      setIsFullscreen(isInFullscreen);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+    };
+  }, []);
 
   useEffect(() => {
     const handler = (event) => {
@@ -1164,7 +1188,19 @@ export default function VideoPlayer({
         </video>
       ) : (
         // Custom player untuk browser lain
-        <video ref={videoRef} className="w-full h-full object-contain bg-black" poster={poster || undefined} title={title} muted={isMuted} playsInline x-webkit-airplay="allow" webkit-playsinline="true" x-webkit-playsinline="true">
+        <video
+          ref={videoRef}
+          className="w-full h-full object-contain bg-black"
+          poster={poster || undefined}
+          title={title}
+          muted={isMuted}
+          playsInline
+          x-webkit-airplay="allow"
+          webkit-playsinline="true"
+          x-webkit-playsinline="true"
+          disablePictureInPicture
+          controlsList="nodownload noplaybackrate"
+        >
           {subtitleTracks.map((track) => (
             <track
               key={`${track.lang}-${track.url}`}
