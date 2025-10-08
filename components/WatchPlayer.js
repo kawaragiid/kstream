@@ -17,6 +17,7 @@ export default function WatchPlayer({
   currentEpisode = null,
   series = null,
   autoplay = false,
+  backHref,
 }) {
   const { user } = useAuth();
   const router = useRouter();
@@ -117,7 +118,7 @@ export default function WatchPlayer({
       episodes={episodes}
       currentEpisode={currentEpisode}
       autoplay={autoplay}
-      backHref="/"
+      backHref={backHref || video?.href || '/'}
       defaultSubtitleLang={defaultSubtitleLang}
       onSelectEpisode={handleEpisodeSelect}
       onAutoAdvance={nextEpisode ? handleAutoAdvance : undefined}

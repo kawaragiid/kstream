@@ -99,6 +99,7 @@ export default async function PlayerPage(props) {
         <div className="w-full max-w-[120rem]">
           <WatchPlayer
             video={trackerVideo}
+            backHref={seriesHref}
             playbackId={currentEpisode.playbackId || video.playbackId}
             src={currentEpisode.streamUrl || video.streamUrl}
             poster={currentEpisode.thumbnail || video.backdropUrl || video.posterUrl}
@@ -125,6 +126,7 @@ export default async function PlayerPage(props) {
       <div className="w-full max-w-[120rem]">
         <WatchPlayer
           video={trackerMovie}
+          backHref={trackerMovie.href}
           playbackId={video.playbackId}
           src={video.streamUrl}
           poster={video.backdropUrl || video.posterUrl}
