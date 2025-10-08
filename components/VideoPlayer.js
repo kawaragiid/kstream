@@ -357,7 +357,7 @@ export default function VideoPlayer({
 
   // subtitleSizeClass sudah digantikan dengan versi responsif di bawah
 
-  const subtitleTextShadow = "0 3px 12px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9)";
+  const subtitleTextShadow = "0 2px 8px rgba(0,0,0,0.9)";
 
   const episodeList = useMemo(() => (Array.isArray(episodes) ? episodes : []), [episodes]);
   const hasEpisodes = episodeList.length > 0;
