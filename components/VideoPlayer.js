@@ -399,6 +399,23 @@ export default function VideoPlayer({
     };
   }, [playbackId, videoSrc]);
 
+  // Auto fullscreen when playing on mobile
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handlePlay = () => {
+      if (window.innerWidth <= MOBILE_SCREEN_WIDTH) {
+        requestFullscreen();
+      }
+    };
+
+    const video = videoRef.current;
+    if (video) {
+      video.addEventListener("play", handlePlay);
+      return () => video.removeEventListener("play", handlePlay);
+    }
+  }, []);
+
   useEffect(() => {
     if (!subtitleTracks.length) {
       setActiveSubtitle("off");
@@ -571,13 +588,37 @@ export default function VideoPlayer({
     showControlsTemporarily();
   };
 
-  const requestFullscreen = () => {
-    const container = videoRef.current?.parentElement;
-    if (!container) return;
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => undefined);
-    } else {
-      container.requestFullscreen?.();
+  const requestFullscreen = async () => {
+    const video = videoRef.current;
+    const container = video?.parentElement;
+    if (!video || !container) return;
+
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        // Try video element first for better mobile compatibility
+        if (video.requestFullscreen) {
+          await video.requestFullscreen();
+        } else if (video.webkitRequestFullscreen) {
+          await video.webkitRequestFullscreen();
+        } else if (container.requestFullscreen) {
+          await container.requestFullscreen();
+        } else if (container.webkitRequestFullscreen) {
+          await container.webkitRequestFullscreen();
+        }
+
+        // If on mobile, try to force landscape orientation
+        if (window.innerWidth <= MOBILE_SCREEN_WIDTH && screen.orientation?.lock) {
+          try {
+            await screen.orientation.lock("landscape");
+          } catch (err) {
+            console.warn("Failed to lock orientation:", err);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Fullscreen request failed:", err);
     }
     showControlsTemporarily();
   };
