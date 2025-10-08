@@ -1,0 +1,900 @@
+"use client";
+
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getSignedPlaybackUrl } from '../lib/mux';
+
+const formatTime = (seconds = 0) => {
+  const total = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  const pad = (value) => String(value).padStart(2, '0');
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(secs)}` : `${minutes}:${pad(secs)}`;
+};
+
+const attributeRegex = /([A-Z0-9-]+)=("[^"]*"|[^,]*)/gi;
+
+const parseAttributeList = (line) => {
+  attributeRegex.lastIndex = 0;
+  const attributes = {};
+  let match = attributeRegex.exec(line);
+  while (match) {
+    const key = match[1];
+    let value = match[2] || '';
+    if (value.startsWith('"') && value.endsWith('"')) {
+      value = value.slice(1, -1);
+    }
+    attributes[key] = value;
+    match = attributeRegex.exec(line);
+  }
+  return attributes;
+};
+
+const parseMuxSubtitleTracks = (manifestText = '', manifestUrl = '') => {
+  if (!manifestText) return [];
+  const lines = manifestText.split(/\r?\n/);
+  const tracks = [];
+  const seen = new Set();
+
+  lines.forEach((line) => {
+    if (!line.startsWith('#EXT-X-MEDIA') || !line.includes('TYPE=SUBTITLES')) return;
+    const attrs = parseAttributeList(line);
+    if (!attrs.URI) return;
+
+    const absoluteUri = (() => {
+      try {
+        return new URL(attrs.URI, manifestUrl).toString();
+      } catch (error) {
+        return attrs.URI;
+      }
+    })();
+
+    const vttUrl = absoluteUri.endsWith('.m3u8')
+      ? `${absoluteUri}?format=webvtt`
+      : absoluteUri;
+
+    const key = `${attrs.LANGUAGE || attrs.NAME || vttUrl}`.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    tracks.push({
+      lang: attrs.LANGUAGE || attrs.NAME || key,
+      label: attrs.NAME || attrs.LANGUAGE || key.toUpperCase(),
+      url: vttUrl,
+      sourceUrl: absoluteUri,
+      default: attrs.DEFAULT === 'YES',
+    });
+  });
+
+  return tracks;
+};
+
+const PLAY_LABEL = 'Play';
+const PAUSE_LABEL = 'Pause';
+const MUTE_LABEL = 'Mute';
+const UNMUTE_LABEL = 'Unmute';
+const FULLSCREEN_LABEL = 'Fullscreen';
+const subtitleSizeOptions = [
+  { value: 'small', label: 'Subtitles: Small' },
+  { value: 'medium', label: 'Subtitles: Medium' },
+  { value: 'large', label: 'Subtitles: Large' },
+  { value: 'xlarge', label: 'Subtitles: Extra Large' },
+];
+
+export default function VideoPlayer({
+  playbackId = '',
+  src = '',
+  poster = '',
+  title = 'Video',
+  subtitles = [],
+  episodes = [],
+  currentEpisode = null,
+  autoplay = false,
+  defaultSubtitleLang = 'en',
+  backHref = '/',
+  onSelectEpisode,
+  onAutoAdvance,
+  onProgress,
+  onEnded,
+}) {
+  const videoRef = useRef(null);
+  const hlsRef = useRef(null);
+  const controlsTimerRef = useRef(null);
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [showControls, setShowControls] = useState(true);
+  const [volume, setVolume] = useState(1);
+  const [activeSubtitle, setActiveSubtitle] = useState('off');
+  const [muxSubtitles, setMuxSubtitles] = useState([]);
+  const [isEpisodePanelOpen, setEpisodePanelOpen] = useState(false);
+  const [subtitleSize, setSubtitleSize] = useState('medium');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const subtitleStylesRef = useRef(null);
+
+  const videoSrc = useMemo(() => {
+    if (src) return src;
+    if (playbackId) {
+      try {
+        return getSignedPlaybackUrl(playbackId, defaultSubtitleLang) || '';
+      } catch (error) {
+        console.error('Failed to generate playback URL', error);
+      }
+    }
+    return '';
+  }, [playbackId, src, defaultSubtitleLang]);
+
+  const subtitleTracks = useMemo(() => {
+    const unique = new Map();
+    [...(subtitles || []), ...(muxSubtitles || [])].forEach((track) => {
+      if (!track) return;
+      const key = `${track.lang || track.label || track.url}`.toLowerCase();
+      if (!unique.has(key)) {
+        unique.set(key, {
+          ...track,
+          lang: track.lang || track.label || key,
+          label: track.label || track.lang || key.toUpperCase(),
+        });
+      }
+    });
+    return Array.from(unique.values());
+  }, [subtitles, muxSubtitles]);
+
+  const episodeList = useMemo(() => (Array.isArray(episodes) ? episodes : []), [episodes]);
+  const hasEpisodes = episodeList.length > 0;
+  const nextEpisode = useMemo(() => {
+    if (!hasEpisodes || !currentEpisode?.id) return null;
+    const index = episodeList.findIndex((episode) => episode.id === currentEpisode.id);
+    if (index === -1) return null;
+    return episodeList[index + 1] || null;
+  }, [episodeList, hasEpisodes, currentEpisode]);
+
+  const detachHls = useCallback(() => {
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+  }, []);
+
+  const attachSource = useCallback(async () => {
+    const media = videoRef.current;
+    if (!media || !videoSrc) return;
+
+    if (videoSrc.includes('.m3u8')) {
+      try {
+        const { default: Hls } = await import('hls.js');
+        if (Hls?.isSupported()) {
+          detachHls();
+          const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+          hls.loadSource(videoSrc);
+          hls.attachMedia(media);
+          hlsRef.current = hls;
+          return;
+        }
+        if (media.canPlayType('application/vnd.apple.mpegurl')) {
+          media.src = videoSrc;
+          return;
+        }
+      } catch (error) {
+        console.warn('HLS.js failed to load, falling back to native playback', error);
+      }
+    }
+
+    media.src = videoSrc;
+  }, [detachHls, videoSrc]);
+
+  useEffect(() => {
+    attachSource();
+    return () => detachHls();
+  }, [attachSource, detachHls]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    if (!subtitleStylesRef.current) {
+      const style = document.createElement('style');
+      style.dataset.kstreamSubtitleStyles = 'true';
+      style.textContent = `
+        video[data-subtitle-size="small"]::cue { font-size: 0.85em; }
+        video[data-subtitle-size="medium"]::cue { font-size: 1em; }
+        video[data-subtitle-size="large"]::cue { font-size: 1.25em; }
+        video[data-subtitle-size="xlarge"]::cue { font-size: 1.5em; }
+        video[data-subtitle-size="small"]::-webkit-media-text-track-display { font-size: 0.85em; }
+        video[data-subtitle-size="medium"]::-webkit-media-text-track-display { font-size: 1em; }
+        video[data-subtitle-size="large"]::-webkit-media-text-track-display { font-size: 1.25em; }
+        video[data-subtitle-size="xlarge"]::-webkit-media-text-track-display { font-size: 1.5em; }
+      `;
+      document.head.appendChild(style);
+      subtitleStylesRef.current = style;
+    }
+  }, []);
+
+  useEffect(() => {
+    const looksLikeMux = playbackId || (videoSrc && videoSrc.includes('stream.mux.com'));
+    if (!looksLikeMux) {
+      setMuxSubtitles([]);
+      return;
+    }
+    const manifestUrl = videoSrc && videoSrc.endsWith('.m3u8')
+      ? videoSrc
+      : playbackId
+        ? `https://stream.mux.com/${playbackId}.m3u8`
+        : '';
+    if (!manifestUrl) return;
+
+    let cancelled = false;
+    console.info('[VideoPlayer] Fetching Mux manifest', manifestUrl);
+    fetch(manifestUrl)
+      .then((response) => {
+        if (!response.ok) {
+          console.warn('[VideoPlayer] Manifest request failed', manifestUrl, response.status, response.statusText);
+          return null;
+        }
+        return response.text();
+      })
+      .then((text) => {
+        if (cancelled || !text) {
+          if (!cancelled) {
+            console.info('[VideoPlayer] No subtitle manifest returned for', manifestUrl);
+            setMuxSubtitles([]);
+          }
+          return;
+        }
+        const tracks = parseMuxSubtitleTracks(text, manifestUrl);
+        console.info('[VideoPlayer] Discovered subtitle tracks', tracks);
+        setMuxSubtitles(tracks);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.warn('[VideoPlayer] Subtitle manifest fetch error', error);
+          setMuxSubtitles([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [playbackId, videoSrc]);
+
+  useEffect(() => {
+    if (!subtitleTracks.length) {
+      setActiveSubtitle('off');
+      return;
+    }
+    setActiveSubtitle((prev) => {
+      if (prev && prev !== 'off') {
+        const stillExists = subtitleTracks.some((track) => track.lang === prev || track.label === prev);
+        if (stillExists) return prev;
+      }
+      const defaultSubtitle = subtitleTracks.find((track) => track.default) || subtitleTracks[0];
+      return defaultSubtitle?.lang || defaultSubtitle?.label || 'off';
+    });
+  }, [subtitleTracks]);
+
+  useEffect(() => {
+    if (!subtitleTracks.length) return;
+    const tracksNeedingValidation = subtitleTracks.filter(
+      (track) => track.sourceUrl && track.url && track.url !== track.sourceUrl
+    );
+    if (!tracksNeedingValidation.length) return;
+
+    let cancelled = false;
+    Promise.all(
+      tracksNeedingValidation.map(async (track) => {
+        try {
+          const response = await fetch(track.url, { method: 'HEAD' });
+          if (!response.ok) {
+            throw new Error(`status ${response.status}`);
+          }
+          return null;
+        } catch (error) {
+          console.warn(
+            '[VideoPlayer] Subtitle URL failed, falling back to original manifest URI',
+            { attempted: track.url, fallback: track.sourceUrl, reason: error?.message }
+          );
+          return track.sourceUrl;
+        }
+      })
+    ).then((fallbackUrls) => {
+      if (cancelled) return;
+      const fallbackMap = new Map();
+      fallbackUrls.forEach((url, index) => {
+        if (url) {
+          fallbackMap.set(tracksNeedingValidation[index].sourceUrl, url);
+        }
+      });
+      if (!fallbackMap.size) return;
+      setMuxSubtitles((prev) =>
+        prev.map((track) => {
+          if (track.sourceUrl && fallbackMap.has(track.sourceUrl)) {
+            return { ...track, url: fallbackMap.get(track.sourceUrl) };
+          }
+          return track;
+        })
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [subtitleTracks]);
+
+  useEffect(() => {
+    const media = videoRef.current;
+    if (!media) return undefined;
+    media.setAttribute('data-subtitle-size', subtitleSize);
+    return () => {
+      media.removeAttribute('data-subtitle-size');
+    };
+  }, [subtitleSize]);
+
+  const showControlsTemporarily = useCallback(() => {
+    setShowControls(true);
+    if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    controlsTimerRef.current = window.setTimeout(() => setShowControls(false), 2500);
+  }, []);
+
+  useEffect(() => {
+    showControlsTemporarily();
+    return () => {
+      if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
+    };
+  }, [videoSrc, showControlsTemporarily]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const full = Boolean(document.fullscreenElement);
+      setIsFullscreen(full);
+      if (!full) {
+        showControlsTemporarily();
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, [showControlsTemporarily]);
+
+  const togglePlay = () => {
+    const media = videoRef.current;
+    if (!media) return;
+    showControlsTemporarily();
+    if (media.paused) {
+      media.play().catch(() => undefined);
+    } else {
+      media.pause();
+    }
+  };
+
+  const toggleMute = () => {
+    const media = videoRef.current;
+    if (!media) return;
+    media.muted = !media.muted;
+    setIsMuted(media.muted);
+  };
+
+  const seekBy = useCallback(
+    (offset) => {
+      const media = videoRef.current;
+      if (!media || Number.isNaN(offset)) return;
+      const targetTime = Math.min(Math.max(0, media.currentTime + offset), media.duration || Infinity);
+      media.currentTime = targetTime;
+      if (media.duration) {
+        setProgress((targetTime / media.duration) * 100);
+      }
+      setCurrentTime(targetTime);
+      showControlsTemporarily();
+    },
+    [showControlsTemporarily]
+  );
+
+  const handleEpisodePanelToggle = useCallback(() => {
+    if (!hasEpisodes) return;
+    setEpisodePanelOpen((prev) => !prev);
+    showControlsTemporarily();
+  }, [hasEpisodes, showControlsTemporarily]);
+
+  const handleEpisodeSelection = useCallback(
+    (episode) => {
+      if (!episode) return;
+      onSelectEpisode?.(episode);
+      setEpisodePanelOpen(false);
+      showControlsTemporarily();
+    },
+    [onSelectEpisode, showControlsTemporarily]
+  );
+
+  const handleNextEpisode = useCallback(() => {
+    if (onAutoAdvance) {
+      onAutoAdvance();
+      return;
+    }
+    if (nextEpisode) {
+      onSelectEpisode?.(nextEpisode);
+    }
+  }, [nextEpisode, onAutoAdvance, onSelectEpisode]);
+
+  const handleProgressChange = (event) => {
+    const value = Number(event.target.value);
+    const media = videoRef.current;
+    if (!media || Number.isNaN(value)) return;
+    media.currentTime = (value / 100) * (media.duration || 0);
+    setProgress(value);
+    setCurrentTime(media.currentTime);
+    showControlsTemporarily();
+  };
+
+  const handleVolumeChange = (event) => {
+    const value = Number(event.target.value);
+    const media = videoRef.current;
+    if (!media || Number.isNaN(value)) return;
+    media.volume = value;
+    media.muted = value === 0;
+    setVolume(value);
+    setIsMuted(media.muted);
+    showControlsTemporarily();
+  };
+
+  const requestFullscreen = () => {
+    const container = videoRef.current?.parentElement;
+    if (!container) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => undefined);
+    } else {
+      container.requestFullscreen?.();
+    }
+    showControlsTemporarily();
+  };
+
+  useEffect(() => {
+    const media = videoRef.current;
+    if (!media) return;
+    const tracks = Array.from(media.textTracks || []);
+    tracks.forEach((track) => {
+      if (!activeSubtitle || activeSubtitle === 'off') {
+        track.mode = 'disabled';
+      } else if (track.language === activeSubtitle || track.label === activeSubtitle) {
+        track.mode = 'showing';
+      } else {
+        track.mode = 'disabled';
+      }
+    });
+  }, [activeSubtitle, subtitleTracks]);
+
+  useEffect(() => {
+    if (!autoplay) return;
+    const media = videoRef.current;
+    if (!media) return;
+
+    const attemptPlay = () => {
+      media.play().catch((error) => {
+        if (error?.name === 'NotAllowedError' && !media.muted) {
+          media.muted = true;
+          setIsMuted(true);
+          media.play().catch(() => undefined);
+        }
+      });
+    };
+
+    if (media.readyState >= 2) {
+      attemptPlay();
+      return undefined;
+    }
+
+    const handleLoaded = () => {
+      attemptPlay();
+    };
+
+    media.addEventListener('loadeddata', handleLoaded, { once: true });
+    return () => media.removeEventListener('loadeddata', handleLoaded);
+  }, [autoplay, videoSrc]);
+
+  useEffect(() => {
+    if (!hasEpisodes) {
+      setEpisodePanelOpen(false);
+    }
+  }, [hasEpisodes]);
+
+  useEffect(() => {
+    if (currentEpisode?.id) {
+      setEpisodePanelOpen(false);
+    }
+  }, [currentEpisode?.id]);
+
+  useEffect(() => {
+    if (isEpisodePanelOpen) {
+      setShowControls(true);
+      if (controlsTimerRef.current) {
+        clearTimeout(controlsTimerRef.current);
+        controlsTimerRef.current = null;
+      }
+    }
+  }, [isEpisodePanelOpen]);
+
+  useEffect(() => {
+    const media = videoRef.current;
+    if (!media) return;
+
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    const handleTimeUpdate = () => {
+      if (!media.duration) return;
+      const ratio = (media.currentTime / media.duration) * 100;
+      setProgress(ratio);
+      setCurrentTime(media.currentTime);
+      onProgress?.({
+        progress: media.currentTime / media.duration,
+        currentTime: media.currentTime,
+        duration: media.duration,
+      });
+    };
+    const handleLoadedMetadata = () => {
+      setDuration(media.duration || 0);
+      setCurrentTime(media.currentTime || 0);
+    };
+    const handleVolumeUpdate = () => {
+      setVolume(media.volume);
+      setIsMuted(media.muted);
+    };
+    const handleEnded = () => {
+      setIsPlaying(false);
+      onEnded?.();
+    };
+
+    media.addEventListener('play', handlePlay);
+    media.addEventListener('pause', handlePause);
+    media.addEventListener('timeupdate', handleTimeUpdate);
+    media.addEventListener('loadedmetadata', handleLoadedMetadata);
+    media.addEventListener('volumechange', handleVolumeUpdate);
+    media.addEventListener('ended', handleEnded);
+
+    return () => {
+      media.removeEventListener('play', handlePlay);
+      media.removeEventListener('pause', handlePause);
+      media.removeEventListener('timeupdate', handleTimeUpdate);
+      media.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      media.removeEventListener('volumechange', handleVolumeUpdate);
+      media.removeEventListener('ended', handleEnded);
+    };
+  }, [onEnded, onProgress, videoSrc]);
+
+  useEffect(() => {
+    const handler = (event) => {
+      const tagName = event.target?.tagName?.toLowerCase?.();
+      if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || event.target?.isContentEditable) return;
+      const media = videoRef.current;
+      if (!media) return;
+      switch (event.key.toLowerCase()) {
+        case ' ':
+        case 'k':
+          event.preventDefault();
+          togglePlay();
+          break;
+        case 'arrowright':
+          media.currentTime = Math.min(media.duration || Infinity, media.currentTime + (event.shiftKey ? 30 : 10));
+          showControlsTemporarily();
+          break;
+        case 'arrowleft':
+          media.currentTime = Math.max(0, media.currentTime - (event.shiftKey ? 30 : 10));
+          showControlsTemporarily();
+          break;
+        case 'arrowup':
+          event.preventDefault();
+          handleVolumeChange({ target: { value: Math.min(1, volume + 0.1) } });
+          break;
+        case 'arrowdown':
+          event.preventDefault();
+          handleVolumeChange({ target: { value: Math.max(0, volume - 0.1) } });
+          break;
+        case 'm':
+          toggleMute();
+          break;
+        case 'f':
+          requestFullscreen();
+          break;
+        case 'c':
+          if (subtitleTracks.length) {
+            const currentIndex = subtitleTracks.findIndex((sub) => sub.lang === activeSubtitle || sub.label === activeSubtitle);
+            const nextIndex = (currentIndex + 1) % (subtitleTracks.length + 1);
+            if (nextIndex === subtitleTracks.length) {
+              setActiveSubtitle('off');
+            } else {
+              const next = subtitleTracks[nextIndex];
+              setActiveSubtitle(next.lang || next.label);
+            }
+            showControlsTemporarily();
+          }
+          break;
+        case 'n':
+          if (nextEpisode) {
+            event.preventDefault();
+            handleNextEpisode();
+          }
+          break;
+        case 'e':
+          if (hasEpisodes) {
+            event.preventDefault();
+            handleEpisodePanelToggle();
+          }
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [
+    activeSubtitle,
+    subtitleTracks,
+    togglePlay,
+    requestFullscreen,
+    toggleMute,
+    handleVolumeChange,
+    volume,
+    showControlsTemporarily,
+    nextEpisode,
+    handleNextEpisode,
+    hasEpisodes,
+    handleEpisodePanelToggle,
+  ]);
+
+  const overlayBackgroundClass = isFullscreen ? 'bg-transparent' : 'bg-gradient-to-b from-black/80 via-black/10 to-black/90';
+  const showOverlay = showControls || isEpisodePanelOpen;
+  const controlButtonClass =
+    'inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20';
+  const shouldShowBackdropGradient = !isFullscreen;
+
+  return (
+    <div
+      className="relative overflow-hidden rounded-none bg-black md:rounded-3xl"
+      onMouseMove={showControlsTemporarily}
+      onMouseLeave={() => {
+        if (!isEpisodePanelOpen) {
+          setShowControls(false);
+        }
+      }}
+    >
+      <video
+        ref={videoRef}
+        className="aspect-video w-full bg-black"
+        poster={poster || undefined}
+        title={title}
+        muted={isMuted}
+        playsInline
+      >
+        {subtitleTracks.map((track) => (
+          <track
+            key={`${track.lang}-${track.url}`}
+            kind="subtitles"
+            src={track.url}
+            srcLang={track.lang || undefined}
+            label={track.label || track.lang}
+            default={activeSubtitle !== 'off' && (track.lang === activeSubtitle || track.label === activeSubtitle)}
+          />
+        ))}
+      </video>
+
+      {shouldShowBackdropGradient && (
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" aria-hidden="true" />
+      )}
+
+      {!isPlaying && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <button
+            type="button"
+            onClick={togglePlay}
+            className="pointer-events-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/90 text-black shadow-lg transition hover:bg-white"
+          >
+            {PLAY_LABEL}
+          </button>
+        </div>
+      )}
+
+      {hasEpisodes && (
+        <div
+          className={`pointer-events-auto absolute inset-y-0 right-0 w-full max-w-xs transform-gpu bg-black/85 backdrop-blur-md transition duration-300 ${
+            isEpisodePanelOpen ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-full opacity-0'
+          }`}
+        >
+          <div className="flex items-center justify-between border-b border-white/10 p-4">
+            <span className="text-xs font-semibold uppercase tracking-widest text-white/70">Episode</span>
+            <button
+              type="button"
+              onClick={() => setEpisodePanelOpen(false)}
+              className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-white/10"
+            >
+              Close
+            </button>
+          </div>
+          <div className="max-h-full overflow-y-auto p-4">
+            <div className="space-y-3">
+              {episodeList.map((episode) => {
+                const isActive = episode.id === currentEpisode?.id;
+                return (
+                  <button
+                    key={episode.id}
+                    type="button"
+                    onClick={() => handleEpisodeSelection(episode)}
+                    className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                      isActive
+                        ? 'border-brand bg-brand/20 text-white'
+                        : 'border-white/10 bg-white/[0.08] text-white hover:border-white/30 hover:bg-white/[0.15]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-semibold uppercase tracking-widest text-white/70">
+                        Episode {episode.number ?? ''}
+                      </span>
+                      {episode.duration ? (
+                        <span className="text-[11px] font-medium text-white/50">
+                          {formatTime(episode.duration)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-sm font-semibold text-white">{episode.title}</p>
+                    {episode.overview && <p className="mt-1 text-xs text-white/70 line-clamp-2">{episode.overview}</p>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div
+        className={`pointer-events-none absolute inset-0 flex flex-col justify-between ${overlayBackgroundClass} transition-opacity duration-300 ${
+          showOverlay ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <div className="flex items-start justify-between px-6 pt-6 text-white drop-shadow">
+          <div className="flex items-center gap-3">
+            {backHref ? (
+              <Link
+                href={backHref}
+                className={`inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest transition hover:border-white/40 hover:bg-black/70 ${
+                  showOverlay ? 'opacity-100' : 'opacity-0'
+                }`}
+              >
+                ←
+                <span>Beranda</span>
+              </Link>
+            ) : null}
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase tracking-[0.45em] text-white/60">Now Playing</p>
+              <h3 className="text-lg font-semibold md:text-2xl">{title}</h3>
+              {currentEpisode && (
+                <p className="text-xs text-white/70 md:text-sm">
+                  Episode {currentEpisode.number}: {currentEpisode.title}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="pointer-events-auto flex flex-col gap-3 px-4 pb-6">
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={0.1}
+            value={progress}
+            onChange={handleProgressChange}
+            className="w-full accent-brand"
+          />
+          <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-white/80 md:text-sm">
+            <div className="flex items-center gap-2 md:gap-3">
+              <button
+                type="button"
+                onClick={togglePlay}
+                className={`${controlButtonClass} w-auto px-4 text-sm font-semibold`}
+              >
+                {isPlaying ? '❚❚' : '▶'}
+              </button>
+              <button
+                type="button"
+                onClick={() => seekBy(-10)}
+                className={controlButtonClass}
+                aria-label="Mundur 10 detik"
+              >
+                ↺10
+              </button>
+              <button
+                type="button"
+                onClick={() => seekBy(10)}
+                className={controlButtonClass}
+                aria-label="Maju 10 detik"
+              >
+                10↻
+              </button>
+              <button
+                type="button"
+                onClick={toggleMute}
+                className={controlButtonClass}
+                aria-label="Senyap"
+              >
+                {isMuted || volume === 0 ? '🔇' : '🔊'}
+              </button>
+              <div className="hidden items-center gap-2 lg:flex">
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={volume}
+                  onChange={handleVolumeChange}
+                  className="w-24 accent-brand"
+                />
+                <span className="tabular-nums text-xs text-white/70 md:text-sm">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 md:gap-3">
+              <span className="tabular-nums text-xs text-white/70 lg:hidden">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
+              <select
+                className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:border-white/40 hover:bg-white/20 focus:outline-none"
+                value={subtitleSize}
+                onChange={(event) => {
+                  setSubtitleSize(event.target.value);
+                  showControlsTemporarily();
+                }}
+              >
+                {subtitleSizeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {subtitleTracks.length > 0 && (
+                <select
+                  className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:border-white/40 hover:bg-white/20 focus:outline-none"
+                  value={activeSubtitle}
+                  onChange={(event) => {
+                    setActiveSubtitle(event.target.value);
+                    showControlsTemporarily();
+                  }}
+                >
+                  <option value="off">Subtitles: Off</option>
+                  {subtitleTracks.map((track) => (
+                    <option key={`${track.lang}-${track.url}`} value={track.lang || track.label}>
+                      Subtitles: {track.label || track.lang}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {hasEpisodes && (
+                <button
+                  type="button"
+                  onClick={handleEpisodePanelToggle}
+                  className="inline-flex items-center rounded-full border border-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-white/40 hover:bg-white/10"
+                >
+                  Episode
+                </button>
+              )}
+              {nextEpisode && (
+                <button
+                  type="button"
+                  onClick={handleNextEpisode}
+                  className="inline-flex items-center rounded-full border border-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-white/40 hover:bg-white/10"
+                >
+                  Next
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={requestFullscreen}
+                className="inline-flex items-center rounded-full border border-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-white/40 hover:bg-white/10"
+              >
+                ⛶
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

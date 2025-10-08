@@ -1,0 +1,34 @@
+@import './tailwind.css';
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: #030712;
+  color: #f3f4f6;
+}
+
+a {
+  color: inherit;
+}
+
+.container {
+  max-width: 90rem;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+header, footer {
+  background: linear-gradient(180deg, rgba(12, 12, 12, 0.95), rgba(12, 12, 12, 0.75));
+}
+
+/* Utilities */
+.line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
