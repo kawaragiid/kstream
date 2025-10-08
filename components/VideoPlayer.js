@@ -107,6 +107,7 @@ const sanitizeCueText = (text = "") => {
 
 const SUBTITLE_BASE_OFFSET_PERCENT = 5;
 const SUBTITLE_CONTROL_GAP_PX = 16;
+const MOBILE_SCREEN_WIDTH = 768; // Breakpoint untuk layar mobile
 
 export default function VideoPlayer({
   playbackId = "",
@@ -127,6 +128,7 @@ export default function VideoPlayer({
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
   const controlsTimerRef = useRef(null);
+  const containerRef = useRef(null);
   const router = useRouter();
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -146,6 +148,50 @@ export default function VideoPlayer({
   const [subtitleBottom, setSubtitleBottom] = useState(`${SUBTITLE_BASE_OFFSET_PERCENT}%`);
   const controlBarRef = useRef(null);
   const controlsVisible = showControls || isEpisodePanelOpen;
+
+  // Handler untuk masuk ke mode landscape fullscreen di mobile
+  const enterMobileFullscreen = useCallback(async () => {
+    try {
+      if (window.innerWidth <= MOBILE_SCREEN_WIDTH) {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        } else if (document.documentElement.webkitRequestFullscreen) {
+          await document.documentElement.webkitRequestFullscreen();
+        }
+        // Request landscape orientation
+        if (screen.orientation && screen.orientation.lock) {
+          await screen.orientation.lock("landscape");
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to enter mobile fullscreen:", err);
+    }
+  }, []);
+
+  // Auto fullscreen & landscape ketika video dimulai di mobile
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handlePlay = () => {
+      enterMobileFullscreen();
+    };
+    const video = videoRef.current;
+    if (video) {
+      video.addEventListener("play", handlePlay);
+      return () => video.removeEventListener("play", handlePlay);
+    }
+  }, [enterMobileFullscreen]);
+
+  // Reset orientation ketika keluar dari fullscreen
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock();
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
 
   const handleBack = useCallback(
     (event) => {
@@ -820,6 +866,7 @@ export default function VideoPlayer({
 
   return (
     <div
+      ref={containerRef}
       className="relative overflow-hidden bg-black md:rounded-3xl min-h-screen md:min-h-[60vh]"
       onMouseMove={showControlsTemporarily}
       onMouseLeave={() => {
@@ -828,9 +875,16 @@ export default function VideoPlayer({
         }
       }}
       style={{
+        // Auto fullscreen di mobile
+        height: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? "100vh" : undefined,
+        width: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? "100vw" : undefined,
+        position: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? "fixed" : "relative",
+        top: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? 0 : undefined,
+        left: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? 0 : undefined,
+        zIndex: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? 50 : undefined,
         // Fullscreen native look on mobile
-        borderRadius: window.innerWidth < 500 ? 0 : undefined,
-        minHeight: window.innerWidth < 500 ? "100vh" : undefined,
+        borderRadius: typeof window !== "undefined" && window.innerWidth < 500 ? 0 : undefined,
+        minHeight: typeof window !== "undefined" && window.innerWidth < 500 ? "100vh" : undefined,
       }}
     >
       <video ref={videoRef} className="aspect-video w-full bg-black" poster={poster || undefined} title={title} muted={isMuted} playsInline>
