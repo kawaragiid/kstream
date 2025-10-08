@@ -13,6 +13,81 @@ const formatTime = (seconds = 0) => {
   return hours > 0 ? `${hours}:${pad(minutes)}:${pad(secs)}` : `${minutes}:${pad(secs)}`;
 };
 
+const icons = {
+  play: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M8 5v14l11-7z" />
+    </svg>
+  ),
+  pause: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+    </svg>
+  ),
+  back10: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 5v2.79L9.5 5.5 8 7l5 5 5-5-1.5-1.5L12 7.79V5z" />
+    </svg>
+  ),
+  forward10: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 19v-2.79l2.5 2.29L16 17l-5-5-5 5 1.5 1.5L12 16.21V19z" />
+    </svg>
+  ),
+  mute: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M16.5 12A4.5 4.5 0 0112 16.5V12H8v8h4a8 8 0 004.5-8z" />
+    </svg>
+  ),
+  sound: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M5 9v6h4l5 5V4L9 9H5z" />
+    </svg>
+  ),
+  full: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M7 14H5v5h5v-2H7v-3zm12 3h-3v2h5v-5h-2v3zM7 7h3V5H5v5h2V7zm12 3V5h-5v2h3v3h2z" />
+    </svg>
+  ),
+  exitFull: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+    </svg>
+  ),
+  subsOn: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 7H6v-2h5v2zm7 0h-5v-2h5v2zm-7 4H6v-2h5v2zm7 0h-5v-2h5v2z" />
+    </svg>
+  ),
+  subsOff: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 7H6v-2h5v2zm7 0h-5v-2h5v2zm-7 4H6v-2h5v2zm7 0h-5v-2h5v2z" />
+      <path d="M3 19l18-18" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  ),
+  episodes: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M4 6h2v2H4V6zm0 5h2v2H4v-2zm0 5h2v2H4v-2zm16-8V6H8.023v2H20zm0 5v-2H8.023v2H20zm0 5v-2H8.023v2H20z" />
+    </svg>
+  ),
+  next: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+    </svg>
+  ),
+  subsOn: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 7H6v-2h5v2zm7 0h-5v-2h5v2zm-7 4H6v-2h5v2zm7 0h-5v-2h5v2z" />
+    </svg>
+  ),
+  subsOff: (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 7H6v-2h5v2zm7 0h-5v-2h5v2zm-7 4H6v-2h5v2zm7 0h-5v-2h5v2z" />
+      <path d="M3 19l18-18" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  ),
+};
+
 const attributeRegex = /([A-Z0-9-]+)=("[^"]*"|[^,]*)/gi;
 
 const parseAttributeList = (line) => {
@@ -93,7 +168,9 @@ const normalizeSubtitleKey = (value) => {
 
 const sanitizeCueText = (text = "") => {
   if (!text) return "";
-  return text
+  // Remove SSA/ASS tags like {\\pos(400,570)}
+  const withoutSSATags = text.replace(/\{[\s\S]*?\}/g, "");
+  return withoutSSATags
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/?(c|i|b|u|ruby|rt|v|lang|span|font)[^>]*>/gi, "")
     .replace(/&nbsp;/gi, " ")
@@ -1032,14 +1109,14 @@ export default function VideoPlayer({
   }[subtitleSize || autoSubtitleSize];
   const overlayBackgroundClass = isFullscreen ? "bg-transparent" : "bg-gradient-to-b from-black/80 via-black/10 to-black/90";
   const showOverlay = controlsVisible;
-  const controlButtonClass = "inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white text-[10px] md:text-sm transition hover:bg-white/20";
+  const controlButtonClass = "inline-flex items-center justify-center rounded-full bg-white/10 text-white text-[10px] md:text-sm transition hover:bg-white/20 h-8 w-8 md:h-auto md:w-auto md:px-3";
   const shouldShowBackdropGradient = !isFullscreen;
   const shouldRenderSubtitles = !isIOS && activeSubtitle !== "off" && subtitleLines.length > 0;
 
   return (
     <div
       ref={containerRef}
-      className="relative overflow-hidden bg-black w-full aspect-video md:rounded-3xl md:min-h-[60vh]"
+      className="relative bg-black overflow-hidden w-full max-w-full"
       onMouseMove={showControlsTemporarily}
       onMouseLeave={() => {
         if (!isEpisodePanelOpen) {
@@ -1047,13 +1124,11 @@ export default function VideoPlayer({
         }
       }}
       style={{
-        // Mobile fullscreen styling
-        position: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? "fixed" : "relative",
-        height: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? "100vh" : undefined,
-        width: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? "100vw" : undefined,
-        top: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? 0 : undefined,
-        left: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? 0 : undefined,
-        zIndex: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? 50 : undefined,
+        aspectRatio: isFullscreen ? "auto" : "16 / 9",
+        position: isFullscreen ? "fixed" : "relative",
+        inset: isFullscreen ? 0 : "unset",
+        height: isFullscreen ? "100vh" : "auto",
+        zIndex: isFullscreen ? 50 : "auto",
       }}
     >
       {isIOS ? (
@@ -1200,17 +1275,17 @@ export default function VideoPlayer({
           <input type="range" min={0} max={100} step={0.1} value={progress} onChange={handleProgressChange} className="w-full accent-brand" />
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-              <button type="button" onClick={togglePlay} className={`${controlButtonClass} w-auto px-3`}>
-                {isPlaying ? "Pause" : "Play"}
+              <button type="button" onClick={togglePlay} className={controlButtonClass}>
+                {typeof window !== "undefined" && window.innerWidth < 768 ? icons[isPlaying ? "pause" : "play"] : isPlaying ? "Pause" : "Play"}
               </button>
               <button type="button" onClick={() => seekBy(-10)} className={controlButtonClass}>
-                -10s
+                {typeof window !== "undefined" && window.innerWidth < 768 ? icons.back10 : "-10s"}
               </button>
               <button type="button" onClick={() => seekBy(10)} className={controlButtonClass}>
-                +10s
+                {typeof window !== "undefined" && window.innerWidth < 768 ? icons.forward10 : "+10s"}
               </button>
               <button type="button" onClick={toggleMute} className={controlButtonClass}>
-                {isMuted || volume === 0 ? "Mute" : "Sound"}
+                {typeof window !== "undefined" && window.innerWidth < 768 ? icons[isMuted || volume === 0 ? "mute" : "sound"] : isMuted || volume === 0 ? "Mute" : "Sound"}
               </button>
               <div className="hidden items-center gap-2 lg:flex">
                 <input type="range" min={0} max={1} step={0.05} value={volume} onChange={handleVolumeChange} className="w-24 accent-brand" />
@@ -1223,61 +1298,70 @@ export default function VideoPlayer({
               <span className="tabular-nums text-xs text-white/70 lg:hidden">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
-              <select
-                className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:border-white/40 hover:bg-white/20 focus:outline-none"
-                value={subtitleSize}
-                onChange={(event) => {
-                  setSubtitleSize(event.target.value);
-                  showControlsTemporarily();
-                }}
-              >
-                {subtitleSizeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {subtitleTracks.length > 0 && (
+              {window.innerWidth >= 768 && (
                 <select
-                  className="rounded-full border border-white/20 bg-white/10 px-2 py-1 text-[10px] md:text-xs text-white"
-                  value={activeSubtitle}
-                  onChange={(e) => {
-                    setActiveSubtitle(e.target.value);
+                  className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:border-white/40 hover:bg-white/20 focus:outline-none"
+                  value={subtitleSize}
+                  onChange={(event) => {
+                    setSubtitleSize(event.target.value);
                     showControlsTemporarily();
                   }}
                 >
-                  <option value="off">Subtitles: Off</option>
-                  {subtitleTracks.map((track) => (
-                    <option key={`${track.lang}-${track.url}`} value={track.lang || track.label}>
-                      Subtitles: {track.label || track.lang}
+                  {subtitleSizeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
               )}
+              {subtitleTracks.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const current = subtitleTracks.findIndex((track) => track.lang === activeSubtitle || track.label === activeSubtitle);
+                      if (current === -1) {
+                        setActiveSubtitle(subtitleTracks[0].lang || subtitleTracks[0].label);
+                      } else {
+                        setActiveSubtitle("off");
+                      }
+                      showControlsTemporarily();
+                    }}
+                    className={controlButtonClass}
+                  >
+                    {typeof window !== "undefined" && window.innerWidth < 768 ? icons[activeSubtitle === "off" ? "subsOff" : "subsOn"] : activeSubtitle === "off" ? "Subs: Off" : "Subs: On"}
+                  </button>
+                  {window.innerWidth >= 768 && (
+                    <select
+                      className="rounded-full border border-white/20 bg-white/10 px-2 py-1 text-[10px] md:text-xs text-white"
+                      value={activeSubtitle}
+                      onChange={(e) => {
+                        setActiveSubtitle(e.target.value);
+                        showControlsTemporarily();
+                      }}
+                    >
+                      <option value="off">Subtitles: Off</option>
+                      {subtitleTracks.map((track) => (
+                        <option key={`${track.lang}-${track.url}`} value={track.lang || track.label}>
+                          Subtitles: {track.label || track.lang}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </>
+              )}
               {hasEpisodes && (
-                <button
-                  type="button"
-                  onClick={handleEpisodePanelToggle}
-                  className="inline-flex items-center rounded-full border border-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-white/40 hover:bg-white/10"
-                >
-                  Episode
+                <button type="button" onClick={handleEpisodePanelToggle} className={controlButtonClass}>
+                  {typeof window !== "undefined" && window.innerWidth < 768 ? icons.episodes : "Episode"}
                 </button>
               )}
               {nextEpisode && (
-                <button
-                  type="button"
-                  onClick={handleNextEpisode}
-                  className="inline-flex items-center rounded-full border border-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-white/40 hover:bg-white/10"
-                >
-                  Next
+                <button type="button" onClick={handleNextEpisode} className={controlButtonClass}>
+                  {typeof window !== "undefined" && window.innerWidth < 768 ? icons.next : "Next"}
                 </button>
               )}
-              <button
-                type="button"
-                onClick={requestFullscreen}
-                className="inline-flex items-center rounded-full border border-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white transition hover:border-white/40 hover:bg-white/10"
-              >
-                Full
+              <button type="button" onClick={requestFullscreen} className={controlButtonClass}>
+                {typeof window !== "undefined" && window.innerWidth < 768 ? icons[isFullscreen ? "exitFull" : "full"] : isFullscreen ? "Exit" : "Full"}
               </button>
             </div>
           </div>
