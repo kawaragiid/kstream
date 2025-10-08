@@ -151,12 +151,20 @@ export default function VideoPlayer({
 
   // Handler untuk masuk ke mode landscape fullscreen di mobile
   const enterMobileFullscreen = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) return;
+
     try {
       if (window.innerWidth <= MOBILE_SCREEN_WIDTH) {
-        if (document.documentElement.requestFullscreen) {
-          await document.documentElement.requestFullscreen();
-        } else if (document.documentElement.webkitRequestFullscreen) {
-          await document.documentElement.webkitRequestFullscreen();
+        // iOS Safari specific method
+        if (video.webkitEnterFullscreen) {
+          await video.webkitEnterFullscreen();
+        }
+        // Standard methods
+        else if (video.requestFullscreen) {
+          await video.requestFullscreen();
+        } else if (video.webkitRequestFullscreen) {
+          await video.webkitRequestFullscreen();
         }
         // Request landscape orientation
         if (screen.orientation && screen.orientation.lock) {
@@ -595,25 +603,43 @@ export default function VideoPlayer({
 
     try {
       if (document.fullscreenElement) {
-        await document.exitFullscreen();
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          await document.webkitExitFullscreen();
+        }
       } else {
-        // Try video element first for better mobile compatibility
-        if (video.requestFullscreen) {
+        // iOS Safari specific method
+        if (video.webkitEnterFullscreen) {
+          await video.webkitEnterFullscreen();
+        }
+        // Standard Fullscreen API
+        else if (video.requestFullscreen) {
           await video.requestFullscreen();
         } else if (video.webkitRequestFullscreen) {
           await video.webkitRequestFullscreen();
-        } else if (container.requestFullscreen) {
+        }
+        // Fallback to container
+        else if (container.requestFullscreen) {
           await container.requestFullscreen();
         } else if (container.webkitRequestFullscreen) {
           await container.webkitRequestFullscreen();
         }
 
-        // If on mobile, try to force landscape orientation
-        if (window.innerWidth <= MOBILE_SCREEN_WIDTH && screen.orientation?.lock) {
-          try {
-            await screen.orientation.lock("landscape");
-          } catch (err) {
-            console.warn("Failed to lock orientation:", err);
+        // Try to force landscape on supported devices
+        if (window.innerWidth <= MOBILE_SCREEN_WIDTH) {
+          if (screen.orientation?.lock) {
+            try {
+              await screen.orientation.lock("landscape");
+            } catch (err) {
+              console.warn("Failed to lock orientation:", err);
+            }
+          } else if (window.orientation !== undefined) {
+            try {
+              await window.screen.orientation?.lock("landscape");
+            } catch (err) {
+              console.warn("Failed to lock legacy orientation:", err);
+            }
           }
         }
       }
@@ -908,7 +934,7 @@ export default function VideoPlayer({
   return (
     <div
       ref={containerRef}
-      className="relative overflow-hidden bg-black md:rounded-3xl min-h-screen md:min-h-[60vh]"
+      className="relative overflow-hidden bg-black w-full aspect-video md:rounded-3xl md:min-h-[60vh]"
       onMouseMove={showControlsTemporarily}
       onMouseLeave={() => {
         if (!isEpisodePanelOpen) {
@@ -916,19 +942,16 @@ export default function VideoPlayer({
         }
       }}
       style={{
-        // Auto fullscreen di mobile
+        // Mobile fullscreen styling
+        position: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? "fixed" : "relative",
         height: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? "100vh" : undefined,
         width: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? "100vw" : undefined,
-        position: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? "fixed" : "relative",
         top: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? 0 : undefined,
         left: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? 0 : undefined,
         zIndex: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? 50 : undefined,
-        // Fullscreen native look on mobile
-        borderRadius: typeof window !== "undefined" && window.innerWidth < 500 ? 0 : undefined,
-        minHeight: typeof window !== "undefined" && window.innerWidth < 500 ? "100vh" : undefined,
       }}
     >
-      <video ref={videoRef} className="aspect-video w-full bg-black" poster={poster || undefined} title={title} muted={isMuted} playsInline>
+      <video ref={videoRef} className="w-full h-full object-contain bg-black" poster={poster || undefined} title={title} muted={isMuted} playsInline x-webkit-airplay="allow" webkit-playsinline="true" x-webkit-playsinline="true">
         {subtitleTracks.map((track) => (
           <track
             key={`${track.lang}-${track.url}`}
