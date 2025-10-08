@@ -175,6 +175,43 @@ export default function VideoPlayer({
     return () => video.removeEventListener("play", handlePlay);
   }, [isIOS]);
 
+  // Update container height real-time pada mobile
+  useEffect(() => {
+    if (typeof window === "undefined" || isIOS) return;
+
+    const container = containerRef.current;
+    const updateSize = () => {
+      if (window.innerWidth <= MOBILE_SCREEN_WIDTH) {
+        container.style.height = `${window.innerHeight}px`;
+        container.style.width = "100vw";
+      } else {
+        container.style.height = "";
+        container.style.width = "";
+      }
+    };
+
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, [isIOS]);
+
+  // Deteksi orientasi & auto fullscreen di landscape
+  useEffect(() => {
+    if (isIOS) return;
+    const handleOrientation = () => {
+      const video = videoRef.current;
+      if (!video) return;
+      const isLandscape = window.innerWidth > window.innerHeight;
+      if (isLandscape && window.innerWidth <= MOBILE_SCREEN_WIDTH) {
+        video.requestFullscreen?.().catch(() => {});
+      } else if (!isLandscape && document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    };
+    window.addEventListener("orientationchange", handleOrientation);
+    return () => window.removeEventListener("orientationchange", handleOrientation);
+  }, [isIOS]);
+
   // Handler untuk masuk ke mode landscape fullscreen di mobile
   const enterMobileFullscreen = useCallback(async () => {
     const video = videoRef.current;
@@ -953,9 +990,9 @@ export default function VideoPlayer({
   }[subtitleSize || autoSubtitleSize];
   const overlayBackgroundClass = isFullscreen ? "bg-transparent" : "bg-gradient-to-b from-black/80 via-black/10 to-black/90";
   const showOverlay = controlsVisible;
-  const controlButtonClass = "inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20";
+  const controlButtonClass = "inline-flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-full bg-white/10 text-white text-[10px] md:text-sm transition hover:bg-white/20";
   const shouldShowBackdropGradient = !isFullscreen;
-  const shouldRenderSubtitles = activeSubtitle !== "off" && subtitleLines.length > 0;
+  const shouldRenderSubtitles = !isIOS && activeSubtitle !== "off" && subtitleLines.length > 0;
 
   return (
     <div
@@ -1027,10 +1064,17 @@ export default function VideoPlayer({
       {shouldShowBackdropGradient && <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" aria-hidden="true" />}
 
       {shouldRenderSubtitles && (
-        <div className="pointer-events-none absolute inset-x-0 flex w-full justify-center px-2 md:px-4 transition-all duration-200 ease-out" style={{ bottom: subtitleBottom, zIndex: 30 }}>
-          <div className="flex w-full max-w-4xl flex-col items-center gap-1.5 text-center">
+        <div
+          className="pointer-events-none absolute inset-x-0 flex w-full justify-center px-2 md:px-4 transition-all duration-200 ease-out"
+          style={{
+            bottom: subtitleBottom,
+            zIndex: 30,
+            fontSize: typeof window !== "undefined" ? (window.innerWidth < 500 ? "4vw" : window.innerWidth < 900 ? "2.5vw" : window.innerWidth < 1600 ? "1.5vw" : "1vw") : "2.5vw",
+          }}
+        >
+          <div className="flex w-full max-w-4xl flex-col items-center gap-1.5 text-center leading-tight">
             {subtitleLines.map((line, index) => (
-              <span key={`${index}-${line}`} className={`text-white font-extrabold leading-tight ${subtitleSizeClass}`} style={{ textShadow: subtitleTextShadow }}>
+              <span key={`${index}-${line}`} className="text-white font-bold" style={{ textShadow: subtitleTextShadow }}>
                 {line}
               </span>
             ))}
