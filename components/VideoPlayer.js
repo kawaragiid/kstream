@@ -175,6 +175,48 @@ export default function VideoPlayer({
     return () => video.removeEventListener("play", handlePlay);
   }, [isIOS]);
 
+  // Control aspect ratio and fullscreen behavior
+  useEffect(() => {
+    if (!containerRef.current || isIOS) return;
+    const el = containerRef.current;
+
+    const handleResize = () => {
+      const isMobile = window.innerWidth <= MOBILE_SCREEN_WIDTH;
+      const isFull = document.fullscreenElement;
+      if (isMobile && !isFull) {
+        // Mode portrait → pakai rasio 16:9
+        el.style.width = "100%";
+        el.style.aspectRatio = "16/9";
+        el.style.height = "auto";
+        el.style.position = "relative";
+      } else if (isFull) {
+        // Mode fullscreen → isi penuh
+        el.style.width = "100vw";
+        el.style.height = "100vh";
+        el.style.aspectRatio = "unset";
+        el.style.position = "fixed";
+        el.style.top = "0";
+        el.style.left = "0";
+        el.style.zIndex = "50";
+      } else {
+        // Desktop atau landscape
+        el.style.width = "";
+        el.style.height = "";
+        el.style.aspectRatio = "";
+        el.style.position = "";
+        el.style.zIndex = "";
+      }
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    document.addEventListener("fullscreenchange", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      document.removeEventListener("fullscreenchange", handleResize);
+    };
+  }, [isIOS]);
+
   // Update container height real-time pada mobile
   useEffect(() => {
     if (typeof window === "undefined" || isIOS) return;
@@ -990,7 +1032,7 @@ export default function VideoPlayer({
   }[subtitleSize || autoSubtitleSize];
   const overlayBackgroundClass = isFullscreen ? "bg-transparent" : "bg-gradient-to-b from-black/80 via-black/10 to-black/90";
   const showOverlay = controlsVisible;
-  const controlButtonClass = "inline-flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-full bg-white/10 text-white text-[10px] md:text-sm transition hover:bg-white/20";
+  const controlButtonClass = "inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white text-[10px] md:text-sm transition hover:bg-white/20";
   const shouldShowBackdropGradient = !isFullscreen;
   const shouldRenderSubtitles = !isIOS && activeSubtitle !== "off" && subtitleLines.length > 0;
 
@@ -1154,30 +1196,30 @@ export default function VideoPlayer({
           </div>
         </div>
 
-        <div ref={controlBarRef} className="pointer-events-auto flex flex-col gap-3 px-4 pb-6">
+        <div ref={controlBarRef} className="pointer-events-auto flex flex-col gap-2 px-2 pb-4 text-[11px] sm:text-xs md:text-sm">
           <input type="range" min={0} max={100} step={0.1} value={progress} onChange={handleProgressChange} className="w-full accent-brand" />
-          <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-white/80 md:text-sm">
-            <div className="flex items-center gap-2 md:gap-3">
-              <button type="button" onClick={togglePlay} className={`${controlButtonClass} w-auto px-4 text-sm font-semibold`}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+              <button type="button" onClick={togglePlay} className={`${controlButtonClass} w-auto px-3`}>
                 {isPlaying ? "Pause" : "Play"}
               </button>
-              <button type="button" onClick={() => seekBy(-10)} className={controlButtonClass} aria-label="Mundur 10 detik">
+              <button type="button" onClick={() => seekBy(-10)} className={controlButtonClass}>
                 -10s
               </button>
-              <button type="button" onClick={() => seekBy(10)} className={controlButtonClass} aria-label="Maju 10 detik">
+              <button type="button" onClick={() => seekBy(10)} className={controlButtonClass}>
                 +10s
               </button>
-              <button type="button" onClick={toggleMute} className={controlButtonClass} aria-label="Senyap">
+              <button type="button" onClick={toggleMute} className={controlButtonClass}>
                 {isMuted || volume === 0 ? "Mute" : "Sound"}
               </button>
               <div className="hidden items-center gap-2 lg:flex">
                 <input type="range" min={0} max={1} step={0.05} value={volume} onChange={handleVolumeChange} className="w-24 accent-brand" />
-                <span className="tabular-nums text-xs text-white/70 md:text-sm">
+                <span className="tabular-nums text-[10px] text-white/70 md:text-sm">
                   {formatTime(currentTime)} / {formatTime(duration)}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-2 md:gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
               <span className="tabular-nums text-xs text-white/70 lg:hidden">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
@@ -1197,10 +1239,10 @@ export default function VideoPlayer({
               </select>
               {subtitleTracks.length > 0 && (
                 <select
-                  className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:border-white/40 hover:bg-white/20 focus:outline-none"
+                  className="rounded-full border border-white/20 bg-white/10 px-2 py-1 text-[10px] md:text-xs text-white"
                   value={activeSubtitle}
-                  onChange={(event) => {
-                    setActiveSubtitle(event.target.value);
+                  onChange={(e) => {
+                    setActiveSubtitle(e.target.value);
                     showControlsTemporarily();
                   }}
                 >
