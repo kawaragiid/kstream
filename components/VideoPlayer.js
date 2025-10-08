@@ -143,11 +143,37 @@ export default function VideoPlayer({
   const [isEpisodePanelOpen, setEpisodePanelOpen] = useState(false);
   const [subtitleSize, setSubtitleSize] = useState("medium");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
   const subtitleStylesRef = useRef(null);
   const [subtitleLines, setSubtitleLines] = useState([]);
   const [subtitleBottom, setSubtitleBottom] = useState(`${SUBTITLE_BASE_OFFSET_PERCENT}%`);
   const controlBarRef = useRef(null);
-  const controlsVisible = showControls || isEpisodePanelOpen;
+  const controlsVisible = !isIOS && (showControls || isEpisodePanelOpen);
+
+  // Deteksi Safari iOS
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const ua = window.navigator.userAgent;
+    const isIOSDevice = /iPad|iPhone|iPod/.test(ua);
+    const isWebkit = /WebKit/.test(ua) && !/CriOS|FxiOS/.test(ua);
+    setIsIOS(isIOSDevice && isWebkit);
+  }, []);
+
+  // Handle iOS auto fullscreen
+  useEffect(() => {
+    if (!isIOS || !videoRef.current) return;
+
+    const handlePlay = () => {
+      const video = videoRef.current;
+      if (video?.webkitEnterFullscreen) {
+        video.webkitEnterFullscreen();
+      }
+    };
+
+    const video = videoRef.current;
+    video.addEventListener("play", handlePlay);
+    return () => video.removeEventListener("play", handlePlay);
+  }, [isIOS]);
 
   // Handler untuk masuk ke mode landscape fullscreen di mobile
   const enterMobileFullscreen = useCallback(async () => {
@@ -951,18 +977,52 @@ export default function VideoPlayer({
         zIndex: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? 50 : undefined,
       }}
     >
-      <video ref={videoRef} className="w-full h-full object-contain bg-black" poster={poster || undefined} title={title} muted={isMuted} playsInline x-webkit-airplay="allow" webkit-playsinline="true" x-webkit-playsinline="true">
-        {subtitleTracks.map((track) => (
-          <track
-            key={`${track.lang}-${track.url}`}
-            kind="subtitles"
-            src={track.url}
-            srcLang={track.lang || undefined}
-            label={track.label || track.lang}
-            default={activeSubtitle !== "off" && (track.lang === activeSubtitle || track.label === activeSubtitle)}
-          />
-        ))}
-      </video>
+      {isIOS ? (
+        // Native Safari iOS player
+        <video
+          ref={videoRef}
+          className="w-full h-full object-contain bg-black"
+          src={src}
+          poster={poster || undefined}
+          title={title}
+          controls
+          autoPlay={autoplay}
+          playsInline
+          webkit-playsinline="true"
+          x-webkit-playsinline="true"
+          x-webkit-airplay="allow"
+          style={{
+            width: "100%",
+            height: "100%",
+            maxHeight: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? "100dvh" : undefined,
+          }}
+        >
+          {subtitleTracks.map((track) => (
+            <track
+              key={`${track.lang}-${track.url}`}
+              kind="subtitles"
+              src={track.url}
+              srcLang={track.lang || undefined}
+              label={track.label || track.lang}
+              default={activeSubtitle !== "off" && (track.lang === activeSubtitle || track.label === activeSubtitle)}
+            />
+          ))}
+        </video>
+      ) : (
+        // Custom player untuk browser lain
+        <video ref={videoRef} className="w-full h-full object-contain bg-black" poster={poster || undefined} title={title} muted={isMuted} playsInline x-webkit-airplay="allow" webkit-playsinline="true" x-webkit-playsinline="true">
+          {subtitleTracks.map((track) => (
+            <track
+              key={`${track.lang}-${track.url}`}
+              kind="subtitles"
+              src={track.url}
+              srcLang={track.lang || undefined}
+              label={track.label || track.lang}
+              default={activeSubtitle !== "off" && (track.lang === activeSubtitle || track.label === activeSubtitle)}
+            />
+          ))}
+        </video>
+      )}
 
       {shouldShowBackdropGradient && <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" aria-hidden="true" />}
 
