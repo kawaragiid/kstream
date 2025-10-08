@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -212,38 +212,61 @@ export default function VideoPlayer({
   const resolveActiveTextTrack = useCallback(() => {
     const media = videoRef.current;
     if (!media || !activeSubtitle || activeSubtitle === 'off') return null;
-    const tracks = Array.from(media.textTracks || []);
-    if (!tracks.length) return null;
+    const textTracks = Array.from(media.textTracks || []);
+    if (!textTracks.length) return null;
+    // 1) Try direct match by language/label/id/kind
     const targetKeys = new Set(
-      [activeSubtitle, activeSubtitleMeta?.lang, activeSubtitleMeta?.label].map(normalizeSubtitleKey).filter(Boolean)
-    );
-    if (!targetKeys.size) return null;
-    for (const track of tracks) {
-      const trackKeys = [track.language, track.label, track.id, track.kind]
+      [activeSubtitle, activeSubtitleMeta?.lang, activeSubtitleMeta?.label]
         .map(normalizeSubtitleKey)
-        .filter(Boolean);
-      if (trackKeys.some((key) => targetKeys.has(key))) {
-        return track;
+        .filter(Boolean)
+    );
+    if (targetKeys.size) {
+      for (const track of textTracks) {
+        const keys = [track.language, track.label, track.id, track.kind]
+          .map(normalizeSubtitleKey)
+          .filter(Boolean);
+        if (keys.some((k) => targetKeys.has(k))) {
+          return track;
+        }
+        const lang = normalizeSubtitleKey(track.language || '');
+        for (const tk of targetKeys) {
+          if (!tk) continue;
+          if (lang.startsWith(tk) || tk.startsWith(lang)) {
+            return track;
+          }
+        }
       }
     }
-    return null;
-  }, [activeSubtitle, activeSubtitleMeta]);
+    // 2) Fallback by index based on our subtitleTracks order
+    const idx = (subtitleTracks || []).findIndex((t) => {
+      const a = normalizeSubtitleKey(activeSubtitle);
+      return [t.lang, t.label]
+        .map(normalizeSubtitleKey)
+        .filter(Boolean)
+        .some((v) => v === a || a.startsWith(v) || v.startsWith(a));
+    });
+    if (idx >= 0 && idx < textTracks.length) {
+      return textTracks[idx];
+    }
+    // 3) Last resort: first available
+    return textTracks[0] || null;
+  }, [activeSubtitle, activeSubtitleMeta, subtitleTracks]);
 
   const subtitleSizeClass = useMemo(() => {
     switch (subtitleSize) {
       case 'small':
-        return 'text-[0.9rem] md:text-[1rem]';
+        return 'text-[1.1rem] md:text-[1.25rem]';
       case 'large':
-        return 'text-[1.25rem] md:text-[1.45rem]';
+        return 'text-[1.6rem] md:text-[1.9rem]';
       case 'xlarge':
-        return 'text-[1.45rem] md:text-[1.65rem]';
+        return 'text-[1.9rem] md:text-[2.2rem]';
       case 'medium':
       default:
-        return 'text-[1.05rem] md:text-[1.2rem]';
+        return 'text-[1.35rem] md:text-[1.6rem]';
     }
   }, [subtitleSize]);
 
-  const subtitleTextShadow = '0 2px 8px rgba(0, 0, 0, 0.85)';
+  const subtitleTextShadow = "0 3px 12px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9)";
 
   const episodeList = useMemo(() => (Array.isArray(episodes) ? episodes : []), [episodes]);
   const hasEpisodes = episodeList.length > 0;
@@ -793,8 +816,10 @@ export default function VideoPlayer({
       });
     };
     track.addEventListener('cuechange', handleCueChange);
+    const rafId = window.requestAnimationFrame(() => handleCueChange());
     handleCueChange();
     return () => {
+      window.cancelAnimationFrame(rafId);
       track.removeEventListener('cuechange', handleCueChange);
     };
   }, [resolveActiveTextTrack, activeSubtitle]);
@@ -865,7 +890,7 @@ export default function VideoPlayer({
             {subtitleLines.map((line, index) => (
               <span
                 key={`${index}-${line}`}
-                className={`rounded-lg bg-black/45 px-4 py-1.5 text-white backdrop-blur-sm ${subtitleSizeClass}`}
+                className={`text-white font-extrabold leading-tight ${subtitleSizeClass}`}
                 style={{ textShadow: subtitleTextShadow }}
               >
                 {line}
@@ -1094,3 +1119,8 @@ export default function VideoPlayer({
     </div>
   );
 }
+
+
+
+
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -79,11 +79,11 @@ export default function Navbar({ categories = [] }) {
 
   return (
     <nav className="sticky top-0 z-40 bg-gradient-to-b from-black/90 to-black/40 backdrop-blur">
-      <div className="container mx-auto flex items-center gap-6 px-4 py-4 text-text-secondary">
-        <Link href="/" className="text-2xl font-semibold tracking-tight text-text-primary">
+      <div className="container mx-auto flex items-center gap-6 md:gap-8 lg:gap-10 px-4 md:px-6 lg:px-8 py-4 md:py-5 lg:py-6 text-text-secondary">
+        <Link href="/" className="text-red-500 text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">
           Kstream
         </Link>
-        <div className="hidden lg:flex items-center gap-4 text-sm uppercase tracking-wide">
+        <div className="hidden lg:flex items-center gap-5 lg:gap-6 text-sm md:text-base lg:text-lg uppercase tracking-wide">
           <Link href="/" className="transition hover:text-text-primary">Beranda</Link>
           <Link href="/movies/trending" className="transition hover:text-text-primary">Trending</Link>
           <Link href="/movies/new" className="transition hover:text-text-primary">Baru</Link>
@@ -93,20 +93,20 @@ export default function Navbar({ categories = [] }) {
             </Link>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-4 text-sm">
-          <Link href="/search" className="hidden sm:inline-flex items-center rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-text-primary transition hover:bg-white/20">
+        <div className="ml-auto flex items-center gap-4 md:gap-5 text-sm md:text-base">
+          <Link href="/search" className="hidden sm:inline-flex items-center rounded-full bg-white/10 px-3 py-1.5 text-xs md:text-sm font-medium text-text-primary transition hover:bg-white/20">
             Cari
           </Link>
           {showSubscribeButton ? (
             <Link
               href="/premium/upgrade"
-              className="hidden md:inline-flex rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-white shadow-poster transition hover:bg-brand-dark"
+              className="hidden md:inline-flex rounded-full bg-brand px-4 py-1.5 text-xs md:text-sm font-semibold text-white shadow-poster transition hover:bg-brand-dark"
             >
               Langganan
             </Link>
           ) : null}
           {showPremiumBadge ? (
-            <span className="hidden md:inline-flex rounded-full border border-emerald-400 px-4 py-1.5 text-xs font-semibold text-emerald-300">
+            <span className="hidden md:inline-flex rounded-full border border-emerald-400 px-4 py-1.5 text-xs md:text-sm font-semibold text-emerald-300">
               Premium
             </span>
           ) : null}
@@ -183,3 +183,4 @@ export default function Navbar({ categories = [] }) {
     </nav>
   );
 }
+
