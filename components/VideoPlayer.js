@@ -1,15 +1,15 @@
 ﻿"use client";
 
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getSignedPlaybackUrl } from '../lib/mux';
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getSignedPlaybackUrl } from "../lib/mux";
 
 const formatTime = (seconds = 0) => {
   const total = Math.max(0, Math.floor(seconds));
   const hours = Math.floor(total / 3600);
   const minutes = Math.floor((total % 3600) / 60);
   const secs = total % 60;
-  const pad = (value) => String(value).padStart(2, '0');
+  const pad = (value) => String(value).padStart(2, "0");
   return hours > 0 ? `${hours}:${pad(minutes)}:${pad(secs)}` : `${minutes}:${pad(secs)}`;
 };
 
@@ -21,7 +21,7 @@ const parseAttributeList = (line) => {
   let match = attributeRegex.exec(line);
   while (match) {
     const key = match[1];
-    let value = match[2] || '';
+    let value = match[2] || "";
     if (value.startsWith('"') && value.endsWith('"')) {
       value = value.slice(1, -1);
     }
@@ -31,14 +31,14 @@ const parseAttributeList = (line) => {
   return attributes;
 };
 
-const parseMuxSubtitleTracks = (manifestText = '', manifestUrl = '') => {
+const parseMuxSubtitleTracks = (manifestText = "", manifestUrl = "") => {
   if (!manifestText) return [];
   const lines = manifestText.split(/\r?\n/);
   const tracks = [];
   const seen = new Set();
 
   lines.forEach((line) => {
-    if (!line.startsWith('#EXT-X-MEDIA') || !line.includes('TYPE=SUBTITLES')) return;
+    if (!line.startsWith("#EXT-X-MEDIA") || !line.includes("TYPE=SUBTITLES")) return;
     const attrs = parseAttributeList(line);
     if (!attrs.URI) return;
 
@@ -50,9 +50,7 @@ const parseMuxSubtitleTracks = (manifestText = '', manifestUrl = '') => {
       }
     })();
 
-    const vttUrl = absoluteUri.endsWith('.m3u8')
-      ? `${absoluteUri}?format=webvtt`
-      : absoluteUri;
+    const vttUrl = absoluteUri.endsWith(".m3u8") ? `${absoluteUri}?format=webvtt` : absoluteUri;
 
     const key = `${attrs.LANGUAGE || attrs.NAME || vttUrl}`.toLowerCase();
     if (seen.has(key)) return;
@@ -63,70 +61,64 @@ const parseMuxSubtitleTracks = (manifestText = '', manifestUrl = '') => {
       label: attrs.NAME || attrs.LANGUAGE || key.toUpperCase(),
       url: vttUrl,
       sourceUrl: absoluteUri,
-      default: attrs.DEFAULT === 'YES',
+      default: attrs.DEFAULT === "YES",
     });
   });
 
   return tracks;
 };
 
-const PLAY_LABEL = 'Play';
-const PAUSE_LABEL = 'Pause';
-const MUTE_LABEL = 'Mute';
-const UNMUTE_LABEL = 'Unmute';
-const FULLSCREEN_LABEL = 'Fullscreen';
+const PLAY_LABEL = "Play";
+const PAUSE_LABEL = "Pause";
+const MUTE_LABEL = "Mute";
+const UNMUTE_LABEL = "Unmute";
+const FULLSCREEN_LABEL = "Fullscreen";
 const subtitleSizeOptions = [
-  { value: 'small', label: 'Subtitles: Small' },
-  { value: 'medium', label: 'Subtitles: Medium' },
-  { value: 'large', label: 'Subtitles: Large' },
-  { value: 'xlarge', label: 'Subtitles: Extra Large' },
+  { value: "small", label: "Subtitles: Small" },
+  { value: "medium", label: "Subtitles: Medium" },
+  { value: "large", label: "Subtitles: Large" },
+  { value: "xlarge", label: "Subtitles: Extra Large" },
 ];
 
 const BackIcon = (props) => (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-    <path
-      d="M15 18L9 12L15 6"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+    <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
 const normalizeSubtitleKey = (value) => {
-  if (typeof value !== 'string') return '';
+  if (typeof value !== "string") return "";
   return value.trim().toLowerCase();
 };
 
-const sanitizeCueText = (text = '') => {
-  if (!text) return '';
+const sanitizeCueText = (text = "") => {
+  if (!text) return "";
   return text
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/?(c|i|b|u|ruby|rt|v|lang|span|font)[^>]*>/gi, '')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/?(c|i|b|u|ruby|rt|v|lang|span|font)[^>]*>/gi, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
-    .replace(/\r/g, '');
+    .replace(/\r/g, "");
 };
 
 const SUBTITLE_BASE_OFFSET_PERCENT = 5;
 const SUBTITLE_CONTROL_GAP_PX = 16;
 
 export default function VideoPlayer({
-  playbackId = '',
-  src = '',
-  poster = '',
-  title = 'Video',
+  playbackId = "",
+  src = "",
+  poster = "",
+  title = "Video",
   subtitles = [],
   episodes = [],
   currentEpisode = null,
   autoplay = false,
-  defaultSubtitleLang = 'en',
-  backHref = '/',
+  defaultSubtitleLang = "en",
+  backHref = "/",
   onSelectEpisode,
   onAutoAdvance,
   onProgress,
@@ -144,10 +136,10 @@ export default function VideoPlayer({
   const [duration, setDuration] = useState(0);
   const [showControls, setShowControls] = useState(true);
   const [volume, setVolume] = useState(1);
-  const [activeSubtitle, setActiveSubtitle] = useState('off');
+  const [activeSubtitle, setActiveSubtitle] = useState("off");
   const [muxSubtitles, setMuxSubtitles] = useState([]);
   const [isEpisodePanelOpen, setEpisodePanelOpen] = useState(false);
-  const [subtitleSize, setSubtitleSize] = useState('medium');
+  const [subtitleSize, setSubtitleSize] = useState("medium");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const subtitleStylesRef = useRef(null);
   const [subtitleLines, setSubtitleLines] = useState([]);
@@ -158,7 +150,7 @@ export default function VideoPlayer({
   const handleBack = useCallback(
     (event) => {
       event?.preventDefault();
-      if (typeof window !== 'undefined' && window.history && window.history.length > 1) {
+      if (typeof window !== "undefined" && window.history && window.history.length > 1) {
         router.back();
         return;
       }
@@ -173,12 +165,12 @@ export default function VideoPlayer({
     if (src) return src;
     if (playbackId) {
       try {
-        return getSignedPlaybackUrl(playbackId, defaultSubtitleLang) || '';
+        return getSignedPlaybackUrl(playbackId, defaultSubtitleLang) || "";
       } catch (error) {
-        console.error('Failed to generate playback URL', error);
+        console.error("Failed to generate playback URL", error);
       }
     }
-    return '';
+    return "";
   }, [playbackId, src, defaultSubtitleLang]);
 
   const subtitleTracks = useMemo(() => {
@@ -198,7 +190,7 @@ export default function VideoPlayer({
   }, [subtitles, muxSubtitles]);
 
   const activeSubtitleMeta = useMemo(() => {
-    if (!subtitleTracks.length || !activeSubtitle || activeSubtitle === 'off') return null;
+    if (!subtitleTracks.length || !activeSubtitle || activeSubtitle === "off") return null;
     const target = normalizeSubtitleKey(activeSubtitle);
     if (!target) return null;
     return (
@@ -211,24 +203,18 @@ export default function VideoPlayer({
 
   const resolveActiveTextTrack = useCallback(() => {
     const media = videoRef.current;
-    if (!media || !activeSubtitle || activeSubtitle === 'off') return null;
+    if (!media || !activeSubtitle || activeSubtitle === "off") return null;
     const textTracks = Array.from(media.textTracks || []);
     if (!textTracks.length) return null;
     // 1) Try direct match by language/label/id/kind
-    const targetKeys = new Set(
-      [activeSubtitle, activeSubtitleMeta?.lang, activeSubtitleMeta?.label]
-        .map(normalizeSubtitleKey)
-        .filter(Boolean)
-    );
+    const targetKeys = new Set([activeSubtitle, activeSubtitleMeta?.lang, activeSubtitleMeta?.label].map(normalizeSubtitleKey).filter(Boolean));
     if (targetKeys.size) {
       for (const track of textTracks) {
-        const keys = [track.language, track.label, track.id, track.kind]
-          .map(normalizeSubtitleKey)
-          .filter(Boolean);
+        const keys = [track.language, track.label, track.id, track.kind].map(normalizeSubtitleKey).filter(Boolean);
         if (keys.some((k) => targetKeys.has(k))) {
           return track;
         }
-        const lang = normalizeSubtitleKey(track.language || '');
+        const lang = normalizeSubtitleKey(track.language || "");
         for (const tk of targetKeys) {
           if (!tk) continue;
           if (lang.startsWith(tk) || tk.startsWith(lang)) {
@@ -252,19 +238,7 @@ export default function VideoPlayer({
     return textTracks[0] || null;
   }, [activeSubtitle, activeSubtitleMeta, subtitleTracks]);
 
-  const subtitleSizeClass = useMemo(() => {
-    switch (subtitleSize) {
-      case 'small':
-        return 'text-[1.1rem] md:text-[1.25rem]';
-      case 'large':
-        return 'text-[1.6rem] md:text-[1.9rem]';
-      case 'xlarge':
-        return 'text-[1.9rem] md:text-[2.2rem]';
-      case 'medium':
-      default:
-        return 'text-[1.35rem] md:text-[1.6rem]';
-    }
-  }, [subtitleSize]);
+  // subtitleSizeClass sudah digantikan dengan versi responsif di bawah
 
   const subtitleTextShadow = "0 3px 12px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9)";
 
@@ -288,9 +262,9 @@ export default function VideoPlayer({
     const media = videoRef.current;
     if (!media || !videoSrc) return;
 
-    if (videoSrc.includes('.m3u8')) {
+    if (videoSrc.includes(".m3u8")) {
       try {
-        const { default: Hls } = await import('hls.js');
+        const { default: Hls } = await import("hls.js");
         if (Hls?.isSupported()) {
           detachHls();
           const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
@@ -299,12 +273,12 @@ export default function VideoPlayer({
           hlsRef.current = hls;
           return;
         }
-        if (media.canPlayType('application/vnd.apple.mpegurl')) {
+        if (media.canPlayType("application/vnd.apple.mpegurl")) {
           media.src = videoSrc;
           return;
         }
       } catch (error) {
-        console.warn('HLS.js failed to load, falling back to native playback', error);
+        console.warn("HLS.js failed to load, falling back to native playback", error);
       }
     }
 
@@ -317,10 +291,10 @@ export default function VideoPlayer({
   }, [attachSource, detachHls]);
 
   useEffect(() => {
-    if (typeof document === 'undefined') return undefined;
+    if (typeof document === "undefined") return undefined;
     if (!subtitleStylesRef.current) {
-      const style = document.createElement('style');
-      style.dataset.kstreamSubtitleStyles = 'true';
+      const style = document.createElement("style");
+      style.dataset.kstreamSubtitleStyles = "true";
       style.textContent = `
         video[data-subtitle-size="small"]::cue { font-size: 0.85em; }
         video[data-subtitle-size="medium"]::cue { font-size: 1em; }
@@ -337,24 +311,20 @@ export default function VideoPlayer({
   }, []);
 
   useEffect(() => {
-    const looksLikeMux = playbackId || (videoSrc && videoSrc.includes('stream.mux.com'));
+    const looksLikeMux = playbackId || (videoSrc && videoSrc.includes("stream.mux.com"));
     if (!looksLikeMux) {
       setMuxSubtitles([]);
       return;
     }
-    const manifestUrl = videoSrc && videoSrc.endsWith('.m3u8')
-      ? videoSrc
-      : playbackId
-        ? `https://stream.mux.com/${playbackId}.m3u8`
-        : '';
+    const manifestUrl = videoSrc && videoSrc.endsWith(".m3u8") ? videoSrc : playbackId ? `https://stream.mux.com/${playbackId}.m3u8` : "";
     if (!manifestUrl) return;
 
     let cancelled = false;
-    console.info('[VideoPlayer] Fetching Mux manifest', manifestUrl);
+    console.info("[VideoPlayer] Fetching Mux manifest", manifestUrl);
     fetch(manifestUrl)
       .then((response) => {
         if (!response.ok) {
-          console.warn('[VideoPlayer] Manifest request failed', manifestUrl, response.status, response.statusText);
+          console.warn("[VideoPlayer] Manifest request failed", manifestUrl, response.status, response.statusText);
           return null;
         }
         return response.text();
@@ -362,18 +332,18 @@ export default function VideoPlayer({
       .then((text) => {
         if (cancelled || !text) {
           if (!cancelled) {
-            console.info('[VideoPlayer] No subtitle manifest returned for', manifestUrl);
+            console.info("[VideoPlayer] No subtitle manifest returned for", manifestUrl);
             setMuxSubtitles([]);
           }
           return;
         }
         const tracks = parseMuxSubtitleTracks(text, manifestUrl);
-        console.info('[VideoPlayer] Discovered subtitle tracks', tracks);
+        console.info("[VideoPlayer] Discovered subtitle tracks", tracks);
         setMuxSubtitles(tracks);
       })
       .catch((error) => {
         if (!cancelled) {
-          console.warn('[VideoPlayer] Subtitle manifest fetch error', error);
+          console.warn("[VideoPlayer] Subtitle manifest fetch error", error);
           setMuxSubtitles([]);
         }
       });
@@ -385,40 +355,35 @@ export default function VideoPlayer({
 
   useEffect(() => {
     if (!subtitleTracks.length) {
-      setActiveSubtitle('off');
+      setActiveSubtitle("off");
       return;
     }
     setActiveSubtitle((prev) => {
-      if (prev && prev !== 'off') {
+      if (prev && prev !== "off") {
         const stillExists = subtitleTracks.some((track) => track.lang === prev || track.label === prev);
         if (stillExists) return prev;
       }
       const defaultSubtitle = subtitleTracks.find((track) => track.default) || subtitleTracks[0];
-      return defaultSubtitle?.lang || defaultSubtitle?.label || 'off';
+      return defaultSubtitle?.lang || defaultSubtitle?.label || "off";
     });
   }, [subtitleTracks]);
 
   useEffect(() => {
     if (!subtitleTracks.length) return;
-    const tracksNeedingValidation = subtitleTracks.filter(
-      (track) => track.sourceUrl && track.url && track.url !== track.sourceUrl
-    );
+    const tracksNeedingValidation = subtitleTracks.filter((track) => track.sourceUrl && track.url && track.url !== track.sourceUrl);
     if (!tracksNeedingValidation.length) return;
 
     let cancelled = false;
     Promise.all(
       tracksNeedingValidation.map(async (track) => {
         try {
-          const response = await fetch(track.url, { method: 'HEAD' });
+          const response = await fetch(track.url, { method: "HEAD" });
           if (!response.ok) {
             throw new Error(`status ${response.status}`);
           }
           return null;
         } catch (error) {
-          console.warn(
-            '[VideoPlayer] Subtitle URL failed, falling back to original manifest URI',
-            { attempted: track.url, fallback: track.sourceUrl, reason: error?.message }
-          );
+          console.warn("[VideoPlayer] Subtitle URL failed, falling back to original manifest URI", { attempted: track.url, fallback: track.sourceUrl, reason: error?.message });
           return track.sourceUrl;
         }
       })
@@ -449,9 +414,9 @@ export default function VideoPlayer({
   useEffect(() => {
     const media = videoRef.current;
     if (!media) return undefined;
-    media.setAttribute('data-subtitle-size', subtitleSize);
+    media.setAttribute("data-subtitle-size", subtitleSize);
     return () => {
-      media.removeAttribute('data-subtitle-size');
+      media.removeAttribute("data-subtitle-size");
     };
   }, [subtitleSize]);
 
@@ -476,8 +441,8 @@ export default function VideoPlayer({
         showControlsTemporarily();
       }
     };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, [showControlsTemporarily]);
 
   const togglePlay = () => {
@@ -596,7 +561,7 @@ export default function VideoPlayer({
     }
     const activeTrack = resolveActiveTextTrack();
     tracks.forEach((track) => {
-      track.mode = track === activeTrack ? 'hidden' : 'disabled';
+      track.mode = track === activeTrack ? "hidden" : "disabled";
     });
     if (!activeTrack) {
       setSubtitleLines([]);
@@ -610,7 +575,7 @@ export default function VideoPlayer({
 
     const attemptPlay = () => {
       media.play().catch((error) => {
-        if (error?.name === 'NotAllowedError' && !media.muted) {
+        if (error?.name === "NotAllowedError" && !media.muted) {
           media.muted = true;
           setIsMuted(true);
           media.play().catch(() => undefined);
@@ -627,8 +592,8 @@ export default function VideoPlayer({
       attemptPlay();
     };
 
-    media.addEventListener('loadeddata', handleLoaded, { once: true });
-    return () => media.removeEventListener('loadeddata', handleLoaded);
+    media.addEventListener("loadeddata", handleLoaded, { once: true });
+    return () => media.removeEventListener("loadeddata", handleLoaded);
   }, [autoplay, videoSrc]);
 
   useEffect(() => {
@@ -683,63 +648,63 @@ export default function VideoPlayer({
       onEnded?.();
     };
 
-    media.addEventListener('play', handlePlay);
-    media.addEventListener('pause', handlePause);
-    media.addEventListener('timeupdate', handleTimeUpdate);
-    media.addEventListener('loadedmetadata', handleLoadedMetadata);
-    media.addEventListener('volumechange', handleVolumeUpdate);
-    media.addEventListener('ended', handleEnded);
+    media.addEventListener("play", handlePlay);
+    media.addEventListener("pause", handlePause);
+    media.addEventListener("timeupdate", handleTimeUpdate);
+    media.addEventListener("loadedmetadata", handleLoadedMetadata);
+    media.addEventListener("volumechange", handleVolumeUpdate);
+    media.addEventListener("ended", handleEnded);
 
     return () => {
-      media.removeEventListener('play', handlePlay);
-      media.removeEventListener('pause', handlePause);
-      media.removeEventListener('timeupdate', handleTimeUpdate);
-      media.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      media.removeEventListener('volumechange', handleVolumeUpdate);
-      media.removeEventListener('ended', handleEnded);
+      media.removeEventListener("play", handlePlay);
+      media.removeEventListener("pause", handlePause);
+      media.removeEventListener("timeupdate", handleTimeUpdate);
+      media.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      media.removeEventListener("volumechange", handleVolumeUpdate);
+      media.removeEventListener("ended", handleEnded);
     };
   }, [onEnded, onProgress, videoSrc]);
 
   useEffect(() => {
     const handler = (event) => {
       const tagName = event.target?.tagName?.toLowerCase?.();
-      if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || event.target?.isContentEditable) return;
+      if (tagName === "input" || tagName === "textarea" || tagName === "select" || event.target?.isContentEditable) return;
       const media = videoRef.current;
       if (!media) return;
       switch (event.key.toLowerCase()) {
-        case ' ':
-        case 'k':
+        case " ":
+        case "k":
           event.preventDefault();
           togglePlay();
           break;
-        case 'arrowright':
+        case "arrowright":
           media.currentTime = Math.min(media.duration || Infinity, media.currentTime + (event.shiftKey ? 30 : 10));
           showControlsTemporarily();
           break;
-        case 'arrowleft':
+        case "arrowleft":
           media.currentTime = Math.max(0, media.currentTime - (event.shiftKey ? 30 : 10));
           showControlsTemporarily();
           break;
-        case 'arrowup':
+        case "arrowup":
           event.preventDefault();
           handleVolumeChange({ target: { value: Math.min(1, volume + 0.1) } });
           break;
-        case 'arrowdown':
+        case "arrowdown":
           event.preventDefault();
           handleVolumeChange({ target: { value: Math.max(0, volume - 0.1) } });
           break;
-        case 'm':
+        case "m":
           toggleMute();
           break;
-        case 'f':
+        case "f":
           requestFullscreen();
           break;
-        case 'c':
+        case "c":
           if (subtitleTracks.length) {
             const currentIndex = subtitleTracks.findIndex((sub) => sub.lang === activeSubtitle || sub.label === activeSubtitle);
             const nextIndex = (currentIndex + 1) % (subtitleTracks.length + 1);
             if (nextIndex === subtitleTracks.length) {
-              setActiveSubtitle('off');
+              setActiveSubtitle("off");
             } else {
               const next = subtitleTracks[nextIndex];
               setActiveSubtitle(next.lang || next.label);
@@ -747,13 +712,13 @@ export default function VideoPlayer({
             showControlsTemporarily();
           }
           break;
-        case 'n':
+        case "n":
           if (nextEpisode) {
             event.preventDefault();
             handleNextEpisode();
           }
           break;
-        case 'e':
+        case "e":
           if (hasEpisodes) {
             event.preventDefault();
             handleEpisodePanelToggle();
@@ -764,25 +729,12 @@ export default function VideoPlayer({
       }
     };
 
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [
-    activeSubtitle,
-    subtitleTracks,
-    togglePlay,
-    requestFullscreen,
-    toggleMute,
-    handleVolumeChange,
-    volume,
-    showControlsTemporarily,
-    nextEpisode,
-    handleNextEpisode,
-    hasEpisodes,
-    handleEpisodePanelToggle,
-  ]);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [activeSubtitle, subtitleTracks, togglePlay, requestFullscreen, toggleMute, handleVolumeChange, volume, showControlsTemporarily, nextEpisode, handleNextEpisode, hasEpisodes, handleEpisodePanelToggle]);
 
   useEffect(() => {
-    if (!activeSubtitle || activeSubtitle === 'off') {
+    if (!activeSubtitle || activeSubtitle === "off") {
       setSubtitleLines([]);
       return undefined;
     }
@@ -799,10 +751,10 @@ export default function VideoPlayer({
       }
       const lines = [];
       cues.forEach((cue) => {
-        const sanitized = sanitizeCueText(cue?.text || '');
+        const sanitized = sanitizeCueText(cue?.text || "");
         sanitized
-          .split('\n')
-          .map((line) => line.replace(/\s+/g, ' ').trim())
+          .split("\n")
+          .map((line) => line.replace(/\s+/g, " ").trim())
           .filter(Boolean)
           .forEach((line) => {
             lines.push(line);
@@ -815,17 +767,17 @@ export default function VideoPlayer({
         return lines;
       });
     };
-    track.addEventListener('cuechange', handleCueChange);
+    track.addEventListener("cuechange", handleCueChange);
     const rafId = window.requestAnimationFrame(() => handleCueChange());
     handleCueChange();
     return () => {
       window.cancelAnimationFrame(rafId);
-      track.removeEventListener('cuechange', handleCueChange);
+      track.removeEventListener("cuechange", handleCueChange);
     };
   }, [resolveActiveTextTrack, activeSubtitle]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
+    if (typeof window === "undefined") return undefined;
     const raf = window.requestAnimationFrame(() => updateSubtitlePosition());
     return () => {
       window.cancelAnimationFrame(raf);
@@ -833,38 +785,55 @@ export default function VideoPlayer({
   }, [updateSubtitlePosition, subtitleSize, isFullscreen]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
+    if (typeof window === "undefined") return undefined;
     const handleResize = () => updateSubtitlePosition();
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
     return () => {
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener("resize", handleResize);
     };
   }, [updateSubtitlePosition]);
-  const overlayBackgroundClass = isFullscreen ? 'bg-transparent' : 'bg-gradient-to-b from-black/80 via-black/10 to-black/90';
+  // Responsive subtitle size
+  const [autoSubtitleSize, setAutoSubtitleSize] = useState("medium");
+  useEffect(() => {
+    function handleResize() {
+      const width = window.innerWidth;
+      if (width < 500) setAutoSubtitleSize("large"); // mobile
+      else if (width < 900) setAutoSubtitleSize("medium"); // tablet
+      else if (width < 1600) setAutoSubtitleSize("large"); // desktop
+      else setAutoSubtitleSize("xlarge"); // monitor besar
+    }
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+  const subtitleSizeClass = {
+    small: "text-xs md:text-sm",
+    medium: "text-base md:text-lg",
+    large: "text-lg md:text-xl",
+    xlarge: "text-2xl md:text-3xl",
+  }[subtitleSize || autoSubtitleSize];
+  const overlayBackgroundClass = isFullscreen ? "bg-transparent" : "bg-gradient-to-b from-black/80 via-black/10 to-black/90";
   const showOverlay = controlsVisible;
-  const controlButtonClass =
-    'inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20';
+  const controlButtonClass = "inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20";
   const shouldShowBackdropGradient = !isFullscreen;
-  const shouldRenderSubtitles = activeSubtitle !== 'off' && subtitleLines.length > 0;
+  const shouldRenderSubtitles = activeSubtitle !== "off" && subtitleLines.length > 0;
 
   return (
     <div
-      className="relative overflow-hidden rounded-none bg-black md:rounded-3xl"
+      className="relative overflow-hidden bg-black md:rounded-3xl min-h-screen md:min-h-[60vh]"
       onMouseMove={showControlsTemporarily}
       onMouseLeave={() => {
         if (!isEpisodePanelOpen) {
           setShowControls(false);
         }
       }}
+      style={{
+        // Fullscreen native look on mobile
+        borderRadius: window.innerWidth < 500 ? 0 : undefined,
+        minHeight: window.innerWidth < 500 ? "100vh" : undefined,
+      }}
     >
-      <video
-        ref={videoRef}
-        className="aspect-video w-full bg-black"
-        poster={poster || undefined}
-        title={title}
-        muted={isMuted}
-        playsInline
-      >
+      <video ref={videoRef} className="aspect-video w-full bg-black" poster={poster || undefined} title={title} muted={isMuted} playsInline>
         {subtitleTracks.map((track) => (
           <track
             key={`${track.lang}-${track.url}`}
@@ -872,27 +841,18 @@ export default function VideoPlayer({
             src={track.url}
             srcLang={track.lang || undefined}
             label={track.label || track.lang}
-            default={activeSubtitle !== 'off' && (track.lang === activeSubtitle || track.label === activeSubtitle)}
+            default={activeSubtitle !== "off" && (track.lang === activeSubtitle || track.label === activeSubtitle)}
           />
         ))}
       </video>
 
-      {shouldShowBackdropGradient && (
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" aria-hidden="true" />
-      )}
+      {shouldShowBackdropGradient && <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" aria-hidden="true" />}
 
       {shouldRenderSubtitles && (
-        <div
-          className="pointer-events-none absolute inset-x-0 flex w-full justify-center px-4 transition-all duration-200 ease-out"
-          style={{ bottom: subtitleBottom }}
-        >
+        <div className="pointer-events-none absolute inset-x-0 flex w-full justify-center px-2 md:px-4 transition-all duration-200 ease-out" style={{ bottom: subtitleBottom, zIndex: 30 }}>
           <div className="flex w-full max-w-4xl flex-col items-center gap-1.5 text-center">
             {subtitleLines.map((line, index) => (
-              <span
-                key={`${index}-${line}`}
-                className={`text-white font-extrabold leading-tight ${subtitleSizeClass}`}
-                style={{ textShadow: subtitleTextShadow }}
-              >
+              <span key={`${index}-${line}`} className={`text-white font-extrabold leading-tight ${subtitleSizeClass}`} style={{ textShadow: subtitleTextShadow }}>
                 {line}
               </span>
             ))}
@@ -902,11 +862,7 @@ export default function VideoPlayer({
 
       {!isPlaying && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <button
-            type="button"
-            onClick={togglePlay}
-            className="pointer-events-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/90 text-black shadow-lg transition hover:bg-white"
-          >
+          <button type="button" onClick={togglePlay} className="pointer-events-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/90 text-black shadow-lg transition hover:bg-white">
             {PLAY_LABEL}
           </button>
         </div>
@@ -915,16 +871,12 @@ export default function VideoPlayer({
       {hasEpisodes && (
         <div
           className={`pointer-events-auto absolute inset-y-0 right-0 w-full max-w-xs transform-gpu bg-black/85 backdrop-blur-md transition duration-300 ${
-            isEpisodePanelOpen ? 'translate-x-0 opacity-100' : 'pointer-events-none translate-x-full opacity-0'
+            isEpisodePanelOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-full opacity-0"
           }`}
         >
           <div className="flex items-center justify-between border-b border-white/10 p-4">
             <span className="text-xs font-semibold uppercase tracking-widest text-white/70">Episode</span>
-            <button
-              type="button"
-              onClick={() => setEpisodePanelOpen(false)}
-              className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-white/10"
-            >
+            <button type="button" onClick={() => setEpisodePanelOpen(false)} className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-white/10">
               Close
             </button>
           </div>
@@ -937,21 +889,11 @@ export default function VideoPlayer({
                     key={episode.id}
                     type="button"
                     onClick={() => handleEpisodeSelection(episode)}
-                    className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                      isActive
-                        ? 'border-brand bg-brand/20 text-white'
-                        : 'border-white/10 bg-white/[0.08] text-white hover:border-white/30 hover:bg-white/[0.15]'
-                    }`}
+                    className={`w-full rounded-2xl border px-4 py-3 text-left transition ${isActive ? "border-brand bg-brand/20 text-white" : "border-white/10 bg-white/[0.08] text-white hover:border-white/30 hover:bg-white/[0.15]"}`}
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs font-semibold uppercase tracking-widest text-white/70">
-                        Episode {episode.number ?? ''}
-                      </span>
-                      {episode.duration ? (
-                        <span className="text-[11px] font-medium text-white/50">
-                          {formatTime(episode.duration)}
-                        </span>
-                      ) : null}
+                      <span className="text-xs font-semibold uppercase tracking-widest text-white/70">Episode {episode.number ?? ""}</span>
+                      {episode.duration ? <span className="text-[11px] font-medium text-white/50">{formatTime(episode.duration)}</span> : null}
                     </div>
                     <p className="mt-1 text-sm font-semibold text-white">{episode.title}</p>
                     {episode.overview && <p className="mt-1 text-xs text-white/70 line-clamp-2">{episode.overview}</p>}
@@ -963,11 +905,7 @@ export default function VideoPlayer({
         </div>
       )}
 
-      <div
-        className={`pointer-events-none absolute inset-0 flex flex-col justify-between ${overlayBackgroundClass} transition-opacity duration-300 ${
-          showOverlay ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
+      <div className={`pointer-events-none absolute inset-0 flex flex-col justify-between ${overlayBackgroundClass} transition-opacity duration-300 ${showOverlay ? "opacity-100" : "opacity-0"}`}>
         <div className="flex items-start justify-between px-6 pt-6 text-white drop-shadow">
           <div className="flex items-center gap-3">
             {backHref ? (
@@ -975,7 +913,7 @@ export default function VideoPlayer({
                 type="button"
                 onClick={handleBack}
                 className={`pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white transition duration-200 hover:border-white/40 hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-0 ${
-                  showOverlay ? 'opacity-100' : 'opacity-0'
+                  showOverlay ? "opacity-100" : "opacity-0"
                 }`}
                 aria-label="Kembali"
               >
@@ -995,58 +933,23 @@ export default function VideoPlayer({
         </div>
 
         <div ref={controlBarRef} className="pointer-events-auto flex flex-col gap-3 px-4 pb-6">
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={0.1}
-            value={progress}
-            onChange={handleProgressChange}
-            className="w-full accent-brand"
-          />
+          <input type="range" min={0} max={100} step={0.1} value={progress} onChange={handleProgressChange} className="w-full accent-brand" />
           <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-white/80 md:text-sm">
             <div className="flex items-center gap-2 md:gap-3">
-              <button
-                type="button"
-                onClick={togglePlay}
-                className={`${controlButtonClass} w-auto px-4 text-sm font-semibold`}
-              >
-                {isPlaying ? 'Pause' : 'Play'}
+              <button type="button" onClick={togglePlay} className={`${controlButtonClass} w-auto px-4 text-sm font-semibold`}>
+                {isPlaying ? "Pause" : "Play"}
               </button>
-              <button
-                type="button"
-                onClick={() => seekBy(-10)}
-                className={controlButtonClass}
-                aria-label="Mundur 10 detik"
-              >
+              <button type="button" onClick={() => seekBy(-10)} className={controlButtonClass} aria-label="Mundur 10 detik">
                 -10s
               </button>
-              <button
-                type="button"
-                onClick={() => seekBy(10)}
-                className={controlButtonClass}
-                aria-label="Maju 10 detik"
-              >
+              <button type="button" onClick={() => seekBy(10)} className={controlButtonClass} aria-label="Maju 10 detik">
                 +10s
               </button>
-              <button
-                type="button"
-                onClick={toggleMute}
-                className={controlButtonClass}
-                aria-label="Senyap"
-              >
-                {isMuted || volume === 0 ? 'Mute' : 'Sound'}
+              <button type="button" onClick={toggleMute} className={controlButtonClass} aria-label="Senyap">
+                {isMuted || volume === 0 ? "Mute" : "Sound"}
               </button>
               <div className="hidden items-center gap-2 lg:flex">
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={volume}
-                  onChange={handleVolumeChange}
-                  className="w-24 accent-brand"
-                />
+                <input type="range" min={0} max={1} step={0.05} value={volume} onChange={handleVolumeChange} className="w-24 accent-brand" />
                 <span className="tabular-nums text-xs text-white/70 md:text-sm">
                   {formatTime(currentTime)} / {formatTime(duration)}
                 </span>
@@ -1119,8 +1022,3 @@ export default function VideoPlayer({
     </div>
   );
 }
-
-
-
-
-

@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { register, updateProfile } from '../../../lib/auth';
+import { updateUserProfileDoc } from '../../../lib/firestore';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -19,6 +20,10 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const credential = await register(email, password);
+      // Set default user profile doc (role pelanggan)
+      try {
+        await updateUserProfileDoc(credential.user.uid, { role: 'pelanggan' });
+      } catch(_) {}
       if (displayName) {
         await updateProfile(credential.user, { displayName });
       }
@@ -67,3 +72,4 @@ export default function RegisterPage() {
     </section>
   );
 }
+

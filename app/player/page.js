@@ -35,7 +35,7 @@ function extractParam(searchParams, key) {
 
 function PlayerChrome({ children }) {
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center bg-black text-white">
+    <div className="relative flex min-h-[100svh] flex-col items-center justify-start md:justify-center bg-black text-white" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
       <div className="w-full max-w-[120rem] px-0 sm:px-4">{children}</div>
     </div>
   );
@@ -138,6 +138,7 @@ export default async function PlayerPage(props) {
     </PlayerChrome>
   );
 }
+
 
 
 
