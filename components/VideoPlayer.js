@@ -182,8 +182,9 @@ const sanitizeCueText = (text = "") => {
     .replace(/\r/g, "");
 };
 
-const SUBTITLE_BASE_OFFSET_PERCENT = 5;
-const SUBTITLE_CONTROL_GAP_PX = 16;
+const SUBTITLE_BASE_OFFSET_PERCENT = 8; // Increased base offset
+const SUBTITLE_CONTROL_GAP_PX = 24; // Increased gap for better spacing with controls
+const SUBTITLE_FULLSCREEN_OFFSET_PERCENT = 10; // Specific offset for fullscreen mode
 const MOBILE_SCREEN_WIDTH = 768; // Breakpoint untuk layar mobile
 
 export default function VideoPlayer({
@@ -834,19 +835,31 @@ export default function VideoPlayer({
   };
 
   const updateSubtitlePosition = useCallback(() => {
+    if (isFullscreen) {
+      // Fixed position when in fullscreen
+      setSubtitleBottom(`${SUBTITLE_FULLSCREEN_OFFSET_PERCENT}%`);
+      return;
+    }
+
     const base = `${SUBTITLE_BASE_OFFSET_PERCENT}%`;
     if (!controlsVisible) {
       setSubtitleBottom(base);
       return;
     }
+
     const rect = controlBarRef.current?.getBoundingClientRect();
     const offset = rect && rect.height ? Math.round(rect.height + SUBTITLE_CONTROL_GAP_PX) : 0;
+
+    // On mobile, use a higher base offset
+    const mobileBase = typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? `${SUBTITLE_BASE_OFFSET_PERCENT * 1.5}%` : base;
+
     if (!offset) {
-      setSubtitleBottom(base);
+      setSubtitleBottom(mobileBase);
       return;
     }
-    setSubtitleBottom(`calc(${base} + ${offset}px)`);
-  }, [controlsVisible]);
+
+    setSubtitleBottom(`calc(${mobileBase} + ${offset}px)`);
+  }, [controlsVisible, isFullscreen]);
 
   useEffect(() => {
     const media = videoRef.current;
@@ -1218,16 +1231,41 @@ export default function VideoPlayer({
 
       {shouldRenderSubtitles && (
         <div
-          className="pointer-events-none absolute inset-x-0 flex w-full justify-center px-2 md:px-4 transition-all duration-200 ease-out"
+          className="pointer-events-none absolute inset-x-0 flex w-full justify-center transition-all duration-200 ease-out"
           style={{
-            bottom: subtitleBottom,
+            bottom: isFullscreen ? "10%" : subtitleBottom,
             zIndex: 30,
-            fontSize: typeof window !== "undefined" ? (window.innerWidth < 500 ? "4vw" : window.innerWidth < 900 ? "2.5vw" : window.innerWidth < 1600 ? "1.5vw" : "1vw") : "2.5vw",
+            padding: "0 5%",
+            boxSizing: "border-box",
           }}
         >
-          <div className="flex w-full max-w-4xl flex-col items-center gap-1.5 text-center leading-tight">
+          <div className="flex w-full max-w-4xl flex-col items-center gap-2 text-center">
             {subtitleLines.map((line, index) => (
-              <span key={`${index}-${line}`} className="text-white font-bold" style={{ textShadow: subtitleTextShadow }}>
+              <span
+                key={`${index}-${line}`}
+                className={`text-white font-bold px-3 py-1 rounded-lg ${isFullscreen ? "bg-black/40 backdrop-blur-sm" : ""}`}
+                style={{
+                  textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
+                  fontSize:
+                    typeof window !== "undefined"
+                      ? window.innerWidth < 500
+                        ? "4vw"
+                        : window.innerWidth < 900
+                        ? isFullscreen
+                          ? "3vw"
+                          : "2.5vw"
+                        : window.innerWidth < 1600
+                        ? isFullscreen
+                          ? "2vw"
+                          : "1.5vw"
+                        : isFullscreen
+                        ? "1.5vw"
+                        : "1vw"
+                      : "2.5vw",
+                  maxWidth: "90%",
+                  wordBreak: "break-word",
+                }}
+              >
                 {line}
               </span>
             ))}
