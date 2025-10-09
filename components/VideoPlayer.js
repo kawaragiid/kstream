@@ -372,16 +372,54 @@ export default function VideoPlayer({
     }
   }, [enterMobileFullscreen]);
 
-  // Reset orientation ketika keluar dari fullscreen
+  // Handle fullscreen changes and cleanup
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     const handleFullscreenChange = () => {
-      if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
-        screen.orientation.unlock();
+      const isInFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+
+      // If we're leaving fullscreen
+      if (!isInFullscreen) {
+        // Unlock orientation if possible
+        if (screen.orientation?.unlock) {
+          screen.orientation.unlock().catch((err) => console.warn("Failed to unlock orientation:", err));
+        }
+
+        // Remove pseudo-fullscreen if active
+        const container = containerRef.current;
+        if (container?.classList.contains("pseudo-fullscreen")) {
+          container.classList.remove("pseudo-fullscreen");
+        }
+
+        setIsFullscreen(false);
       }
     };
+
+    // Handle ESC key for pseudo-fullscreen
+    const handleEscKey = (e) => {
+      if (e.key === "Escape") {
+        const container = containerRef.current;
+        if (container?.classList.contains("pseudo-fullscreen")) {
+          container.classList.remove("pseudo-fullscreen");
+          setIsFullscreen(false);
+        }
+      }
+    };
+
     document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    document.addEventListener("mozfullscreenchange", handleFullscreenChange);
+    document.addEventListener("MSFullscreenChange", handleFullscreenChange);
+    window.addEventListener("keydown", handleEscKey);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("mozfullscreenchange", handleFullscreenChange);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenChange);
+      window.removeEventListener("keydown", handleEscKey);
+    };
   }, []);
 
   const handleBack = useCallback(
@@ -527,8 +565,10 @@ export default function VideoPlayer({
     return () => detachHls();
   }, [attachSource, detachHls]);
 
+  // Add subtitle and pseudo-fullscreen styles
   useEffect(() => {
     if (typeof document === "undefined") return undefined;
+
     if (!subtitleStylesRef.current) {
       const style = document.createElement("style");
       style.dataset.kstreamSubtitleStyles = "true";
@@ -541,6 +581,25 @@ export default function VideoPlayer({
         video[data-subtitle-size="medium"]::-webkit-media-text-track-display { font-size: 1em; }
         video[data-subtitle-size="large"]::-webkit-media-text-track-display { font-size: 1.25em; }
         video[data-subtitle-size="xlarge"]::-webkit-media-text-track-display { font-size: 1.5em; }
+
+        .pseudo-fullscreen {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          max-width: 100vw !important;
+          max-height: 100vh !important;
+          z-index: 99999 !important;
+          background-color: black;
+        }
+        @media (orientation: portrait) {
+          .pseudo-fullscreen {
+            height: 56.25vw !important; /* 16:9 aspect ratio */
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+          }
+        }
       `;
       document.head.appendChild(style);
       subtitleStylesRef.current = style;
@@ -786,6 +845,7 @@ export default function VideoPlayer({
 
     try {
       if (document.fullscreenElement) {
+        // Exit fullscreen
         if (document.exitFullscreen) {
           await document.exitFullscreen();
         } else if (document.webkitExitFullscreen) {
@@ -795,20 +855,58 @@ export default function VideoPlayer({
         } else if (document.msExitFullscreen) {
           await document.msExitFullscreen();
         }
+
+        // Release orientation lock if we have one
+        if (screen.orientation?.unlock) {
+          try {
+            await screen.orientation.unlock();
+          } catch (err) {
+            console.warn("Failed to unlock orientation:", err);
+          }
+        }
       } else {
         // iOS Safari specific method - only if we really need native controls
         if (isIOS && video.webkitEnterFullscreen) {
           await video.webkitEnterFullscreen();
+          return;
         }
-        // Standard Fullscreen API on container for custom controls
-        else if (container.requestFullscreen) {
-          await container.requestFullscreen();
-        } else if (container.webkitRequestFullscreen) {
-          await container.webkitRequestFullscreen();
-        } else if (container.mozRequestFullScreen) {
-          await container.mozRequestFullScreen();
-        } else if (container.msRequestFullscreen) {
-          await container.msRequestFullscreen();
+
+        // Try native fullscreen first
+        let fullscreenSuccess = false;
+        try {
+          if (container.requestFullscreen) {
+            await container.requestFullscreen();
+            fullscreenSuccess = true;
+          } else if (container.webkitRequestFullscreen) {
+            await container.webkitRequestFullscreen();
+            fullscreenSuccess = true;
+          } else if (container.mozRequestFullScreen) {
+            await container.mozRequestFullScreen();
+            fullscreenSuccess = true;
+          } else if (container.msRequestFullscreen) {
+            await container.msRequestFullscreen();
+            fullscreenSuccess = true;
+          }
+
+          // If fullscreen succeeded and we're on mobile, try to force landscape
+          if (fullscreenSuccess && typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH) {
+            if (screen.orientation?.lock) {
+              try {
+                await screen.orientation.lock("landscape");
+              } catch (err) {
+                console.warn("Failed to lock orientation:", err);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Native fullscreen failed:", err);
+          fullscreenSuccess = false;
+        }
+
+        // Fallback to pseudo-fullscreen if native fullscreen failed
+        if (!fullscreenSuccess) {
+          container.classList.add("pseudo-fullscreen");
+          setIsFullscreen(true);
         }
 
         // Try to force landscape on supported devices
