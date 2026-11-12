@@ -42,7 +42,7 @@ function PlayerChrome({ children }) {
 }
 
 export default async function PlayerPage(props) {
-  const searchParams = props?.searchParams ?? {};
+  const searchParams = (await props?.searchParams) ?? {};
   await ensureFirestore();
 
   const rawId = extractParam(searchParams, "id");
