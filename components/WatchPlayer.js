@@ -26,7 +26,12 @@ export default function WatchPlayer({
 
   useEffect(() => {
     if (!user || !video?.id) return;
-    saveHistoryProgress(user.uid, video, { progress: 0, position: 0, duration: video.duration || 0 }).catch(() => undefined);
+    saveHistoryProgress(
+      user.uid,
+      video,
+      { progress: 0, position: 0, duration: video.duration || 0 },
+      { preserveExisting: true }
+    ).catch(() => undefined);
     return () => {
       if (autoAdvanceRef.current) {
         window.clearTimeout(autoAdvanceRef.current);

@@ -211,11 +211,21 @@ export default function VideoPlayer({
   const [subtitleSize, setSubtitleSize] = useState("medium");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(1024);
+  const isMobileViewport = viewportWidth < 768;
   const subtitleStylesRef = useRef(null);
   const [subtitleLines, setSubtitleLines] = useState([]);
   const [subtitleBottom, setSubtitleBottom] = useState(`${SUBTITLE_BASE_OFFSET_PERCENT}%`);
   const controlBarRef = useRef(null);
   const controlsVisible = !isIOS && (showControls || isEpisodePanelOpen);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncWidth = () => setViewportWidth(window.innerWidth);
+    syncWidth();
+    window.addEventListener("resize", syncWidth);
+    return () => window.removeEventListener("resize", syncWidth);
+  }, []);
 
   // Deteksi Safari iOS
   useEffect(() => {
@@ -282,26 +292,6 @@ export default function VideoPlayer({
       window.removeEventListener("resize", handleResize);
       document.removeEventListener("fullscreenchange", handleResize);
     };
-  }, [isIOS]);
-
-  // Update container height real-time pada mobile
-  useEffect(() => {
-    if (typeof window === "undefined" || isIOS) return;
-
-    const container = containerRef.current;
-    const updateSize = () => {
-      if (window.innerWidth <= MOBILE_SCREEN_WIDTH) {
-        container.style.height = `${window.innerHeight}px`;
-        container.style.width = "100vw";
-      } else {
-        container.style.height = "";
-        container.style.width = "";
-      }
-    };
-
-    updateSize();
-    window.addEventListener("resize", updateSize);
-    return () => window.removeEventListener("resize", updateSize);
   }, [isIOS]);
 
   // Deteksi orientasi & auto fullscreen di landscape
@@ -637,23 +627,6 @@ export default function VideoPlayer({
       cancelled = true;
     };
   }, [playbackId, videoSrc]);
-
-  // Auto fullscreen when playing on mobile
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handlePlay = () => {
-      if (window.innerWidth <= MOBILE_SCREEN_WIDTH) {
-        requestFullscreen();
-      }
-    };
-
-    const video = videoRef.current;
-    if (video) {
-      video.addEventListener("play", handlePlay);
-      return () => video.removeEventListener("play", handlePlay);
-    }
-  }, []);
 
   useEffect(() => {
     if (!subtitleTracks.length) {
@@ -1272,7 +1245,7 @@ export default function VideoPlayer({
           style={{
             width: "100%",
             height: "100%",
-            maxHeight: typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH ? "100dvh" : undefined,
+            maxHeight: viewportWidth <= MOBILE_SCREEN_WIDTH ? "100dvh" : undefined,
           }}
         >
           {subtitleTracks.map((track) => (
@@ -1334,21 +1307,19 @@ export default function VideoPlayer({
                 style={{
                   textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
                   fontSize:
-                    typeof window !== "undefined"
-                      ? window.innerWidth < 500
-                        ? "4vw"
-                        : window.innerWidth < 900
-                        ? isFullscreen
-                          ? "3vw"
-                          : "2.5vw"
-                        : window.innerWidth < 1600
-                        ? isFullscreen
-                          ? "2vw"
-                          : "1.5vw"
-                        : isFullscreen
-                        ? "1.5vw"
-                        : "1vw"
-                      : "2.5vw",
+                    viewportWidth < 500
+                      ? "4vw"
+                      : viewportWidth < 900
+                      ? isFullscreen
+                        ? "3vw"
+                        : "2.5vw"
+                      : viewportWidth < 1600
+                      ? isFullscreen
+                        ? "2vw"
+                        : "1.5vw"
+                      : isFullscreen
+                      ? "1.5vw"
+                      : "1vw",
                   maxWidth: "90%",
                   wordBreak: "break-word",
                 }}
@@ -1437,16 +1408,16 @@ export default function VideoPlayer({
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
               <button type="button" onClick={togglePlay} className={controlButtonClass}>
-                {typeof window !== "undefined" && window.innerWidth < 768 ? icons[isPlaying ? "pause" : "play"] : isPlaying ? "Pause" : "Play"}
+                {isMobileViewport ? icons[isPlaying ? "pause" : "play"] : isPlaying ? "Pause" : "Play"}
               </button>
               <button type="button" onClick={() => seekBy(-10)} className={controlButtonClass}>
-                {typeof window !== "undefined" && window.innerWidth < 768 ? icons.back10 : "-10s"}
+                {isMobileViewport ? icons.back10 : "-10s"}
               </button>
               <button type="button" onClick={() => seekBy(10)} className={controlButtonClass}>
-                {typeof window !== "undefined" && window.innerWidth < 768 ? icons.forward10 : "+10s"}
+                {isMobileViewport ? icons.forward10 : "+10s"}
               </button>
               <button type="button" onClick={toggleMute} className={controlButtonClass}>
-                {typeof window !== "undefined" && window.innerWidth < 768 ? icons[isMuted || volume === 0 ? "mute" : "sound"] : isMuted || volume === 0 ? "Mute" : "Sound"}
+                {isMobileViewport ? icons[isMuted || volume === 0 ? "mute" : "sound"] : isMuted || volume === 0 ? "Mute" : "Sound"}
               </button>
               <div className="hidden items-center gap-2 lg:flex">
                 <input type="range" min={0} max={1} step={0.05} value={volume} onChange={handleVolumeChange} className="w-24 accent-brand" />
@@ -1459,7 +1430,7 @@ export default function VideoPlayer({
               <span className="tabular-nums text-xs text-white/70 lg:hidden">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
-              {window.innerWidth >= 768 && (
+              {!isMobileViewport && (
                 <select
                   className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:border-white/40 hover:bg-white/20 focus:outline-none"
                   value={subtitleSize}
@@ -1490,9 +1461,9 @@ export default function VideoPlayer({
                     }}
                     className={controlButtonClass}
                   >
-                    {typeof window !== "undefined" && window.innerWidth < 768 ? icons[activeSubtitle === "off" ? "subsOff" : "subsOn"] : activeSubtitle === "off" ? "Subs: Off" : "Subs: On"}
+                    {isMobileViewport ? icons[activeSubtitle === "off" ? "subsOff" : "subsOn"] : activeSubtitle === "off" ? "Subs: Off" : "Subs: On"}
                   </button>
-                  {window.innerWidth >= 768 && (
+                  {!isMobileViewport && (
                     <select
                       className="rounded-full border border-white/20 bg-white/10 px-2 py-1 text-[10px] md:text-xs text-white"
                       value={activeSubtitle}
@@ -1513,16 +1484,16 @@ export default function VideoPlayer({
               )}
               {hasEpisodes && (
                 <button type="button" onClick={handleEpisodePanelToggle} className={controlButtonClass}>
-                  {typeof window !== "undefined" && window.innerWidth < 768 ? icons.episodes : "Episode"}
+                  {isMobileViewport ? icons.episodes : "Episode"}
                 </button>
               )}
               {nextEpisode && (
                 <button type="button" onClick={handleNextEpisode} className={controlButtonClass}>
-                  {typeof window !== "undefined" && window.innerWidth < 768 ? icons.next : "Next"}
+                  {isMobileViewport ? icons.next : "Next"}
                 </button>
               )}
               <button type="button" onClick={requestFullscreen} className={controlButtonClass}>
-                {typeof window !== "undefined" && window.innerWidth < 768 ? icons[isFullscreen ? "exitFull" : "full"] : isFullscreen ? "Exit" : "Full"}
+                {isMobileViewport ? icons[isFullscreen ? "exitFull" : "full"] : isFullscreen ? "Exit" : "Full"}
               </button>
             </div>
           </div>

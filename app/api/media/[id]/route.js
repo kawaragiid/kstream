@@ -20,7 +20,13 @@ async function ensureFirestore() {
 export async function GET(_request, context) {
   await ensureFirestore();
   const awaitedParams = await context?.params;
-  const idOrSlug = decodeURIComponent(awaitedParams?.id || "");
+  const rawId = awaitedParams?.id || "";
+  let idOrSlug = rawId;
+  try {
+    idOrSlug = decodeURIComponent(rawId);
+  } catch {
+    return NextResponse.json({ error: "Invalid media id" }, { status: 400 });
+  }
 
   if (!idOrSlug) {
     return NextResponse.json({ error: "Invalid media id" }, { status: 400 });
