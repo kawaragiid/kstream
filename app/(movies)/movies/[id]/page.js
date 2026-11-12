@@ -24,8 +24,9 @@ async function ensureFirestore() {
 
 export async function generateMetadata({ params }) {
   await ensureFirestore();
-  const video = await getVideoById(params.id);
-  if (!video) return { title: "Detail" };
+  const { id } = await params;
+  const video = await getVideoById(id);
+  if (!video) return { title: "Detail - Kstream" };
   return {
     title: `${video.title} - Kstream`,
     description: video.overview,
@@ -34,7 +35,8 @@ export async function generateMetadata({ params }) {
 
 export default async function MovieDetailPage({ params }) {
   await ensureFirestore();
-  const video = await getVideoById(params.id);
+  const { id } = await params;
+  const video = await getVideoById(id);
 
   if (!video) {
     notFound();
@@ -52,16 +54,18 @@ export default async function MovieDetailPage({ params }) {
     video.watchHref ||
     (video.type === "series"
       ? primaryEpisode?.id
-        ? `/player?id=${encodeURIComponent(video.slug || video.id)}&type=series&ep=${encodeURIComponent(primaryEpisode.id)}`
-        : `/player?id=${encodeURIComponent(video.slug || video.id)}&type=series`
-      : `/player?id=${encodeURIComponent(video.slug || video.id)}&type=movie`);
+        ? `/player?id=${slugId}&type=series&ep=${encodeURIComponent(primaryEpisode.id)}`
+        : `/player?id=${slugId}&type=series`
+      : `/player?id=${slugId}&type=movie`);
 
-  const metadataPills = [releaseYear, video.category, video.isPremium ? "Premium" : "Free"].filter(Boolean);
+  const metadataPills = [releaseYear, video.category].filter(Boolean);
 
   return (
     <div className="space-y-16 pb-16">
       <section className="relative mx-auto w-full max-w-[120rem] min-h-[60vh] overflow-hidden rounded-3xl bg-black text-white">
-        {video.backdropUrl && <Image src={video.backdropUrl} alt={video.title} fill className="object-cover" sizes="100vw" priority />}
+        {video.backdropUrl && (
+          <Image src={video.backdropUrl} alt={video.title} fill className="object-cover" sizes="100vw" priority />
+        )}
         <div className="absolute inset-0 bg-hero-overlay" />
         <div className="relative z-10 flex flex-col justify-end gap-6 px-6 pb-12 pt-20 md:px-12 lg:min-h-[60vh] lg:max-w-4xl">
           <div className="space-y-4">
@@ -79,12 +83,20 @@ export default async function MovieDetailPage({ params }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-4">
-            <Link href={watchHref} className="inline-flex items-center gap-2 rounded bg-white px-6 py-2 font-semibold text-black shadow-poster hover:bg-white/90 transition">
-              Play Now
+            <Link
+              href={watchHref}
+              className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-2.5 font-semibold text-black shadow-poster hover:bg-white/90 transition"
+            >
+              ▶ Tonton Sekarang
             </Link>
             <FavoriteButton video={{ ...video, href: baseHref, watchHref }} />
             {video.trailerUrl && (
-              <a href={video.trailerUrl} className="inline-flex items-center gap-2 rounded border border-white/20 px-6 py-2 text-sm font-semibold text-white hover:bg-white/10 transition" target="_blank" rel="noreferrer">
+              <a
+                href={video.trailerUrl}
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 px-6 py-2.5 text-sm font-semibold text-white hover:bg-white/10 transition"
+                target="_blank"
+                rel="noreferrer"
+              >
                 Trailer
               </a>
             )}
@@ -96,21 +108,25 @@ export default async function MovieDetailPage({ params }) {
         <section className="mx-auto w-full max-w-[120rem] space-y-6 px-4">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-semibold text-text-primary">Daftar Episode</h2>
-            {episodes.length > 0 && <span className="text-xs uppercase tracking-widest text-text-muted">{episodes.length} episode</span>}
+            {episodes.length > 0 && (
+              <span className="text-xs uppercase tracking-widest text-text-muted">{episodes.length} episode</span>
+            )}
           </div>
           <EpisodeList
             episodes={episodes}
-            baseHref={(ep) =>
-              `/player?id=${encodeURIComponent(video.slug || video.id)}&type=series&ep=${encodeURIComponent(ep.id)}&autoplay=1`
-            }
+            baseHref={(ep) => `/player?id=${slugId}&type=series&ep=${encodeURIComponent(ep.id)}&autoplay=1`}
           />
         </section>
       )}
 
       {recommendations.length > 0 && (
-        <section className="mx-auto w-full max-w-[120rem] px-4">
-          <SliderRow title="Rekomendasi untukmu" items={recommendations} actionHref={similarGenre ? `/category/${encodeURIComponent(similarGenre.toLowerCase())}` : ""} actionLabel={similarGenre ? `Genre ${similarGenre}` : "Lihat semua"} />
-        </section>
+        <div className="mx-auto w-full max-w-[120rem] px-4">
+          <SliderRow
+            title="Rekomendasi Serupa"
+            items={recommendations}
+            actionHref={similarGenre ? `/category/${encodeURIComponent(similarGenre.toLowerCase())}` : ""}
+          />
+        </div>
       )}
     </div>
   );

@@ -1,42 +1,25 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { isPremium, logout } from '../lib/auth';
-import { useAuth } from '../hooks/useAuth';
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { logout } from "../lib/auth";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Navbar({ categories = [] }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
-  const [isPremiumUser, setIsPremiumUser] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const menuRef = useRef(null);
 
-  const hideChrome = pathname?.startsWith('/profile/settings') || pathname?.startsWith('/player');
-
-  useEffect(() => {
-    if (!user) {
-      setIsPremiumUser(null);
-      return;
-    }
-    let active = true;
-    isPremium(user)
-      .then((value) => {
-        if (active) setIsPremiumUser(Boolean(value));
-      })
-      .catch(() => {
-        if (active) setIsPremiumUser(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [user]);
+  const hideChrome = pathname?.startsWith("/profile/settings") || pathname?.startsWith("/player");
 
   useEffect(() => {
     setMenuOpen(false);
+    setMobileNavOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -45,17 +28,17 @@ export default function Navbar({ categories = [] }) {
         setMenuOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickAway);
-    return () => document.removeEventListener('mousedown', handleClickAway);
+    document.addEventListener("mousedown", handleClickAway);
+    return () => document.removeEventListener("mousedown", handleClickAway);
   }, []);
 
   const handleLogout = async () => {
     try {
       setSigningOut(true);
       await logout();
-      router.push('/');
+      router.push("/");
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error("Logout failed:", error);
     } finally {
       setSigningOut(false);
       setMenuOpen(false);
@@ -63,10 +46,10 @@ export default function Navbar({ categories = [] }) {
   };
 
   const avatarInitial = useMemo(() => {
-    if (!user) return 'K';
-    const source = user.displayName || user.email || 'K';
-    return source.charAt(0)?.toUpperCase?.() || 'K';
-  }, [user?.displayName, user?.email]);
+    if (!user) return "K";
+    const source = user.displayName || user.email || "K";
+    return source.charAt(0)?.toUpperCase?.() || "K";
+  }, [user]);
 
   const avatarSrc = user?.photoURL || user?.photoUrl;
 
@@ -74,46 +57,76 @@ export default function Navbar({ categories = [] }) {
     return null;
   }
 
-  const showSubscribeButton = !loading && ((user && isPremiumUser === false) || !user);
-  const showPremiumBadge = !loading && user && isPremiumUser === true;
-
   return (
-    <nav className="sticky top-0 z-40 bg-gradient-to-b from-black/90 to-black/40 backdrop-blur">
-      <div className="container mx-auto flex items-center gap-6 md:gap-8 lg:gap-10 px-4 md:px-6 lg:px-8 py-4 md:py-5 lg:py-6 text-text-secondary">
-        <Link href="/" className="text-red-500 text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight">
+    <nav className="sticky top-0 z-40 border-b border-white/5 bg-gradient-to-b from-black/95 to-black/75 backdrop-blur-md">
+      <div className="container mx-auto flex items-center gap-4 md:gap-8 px-4 md:px-6 lg:px-8 py-3.5 md:py-4 text-text-secondary">
+        <button
+          type="button"
+          onClick={() => setMobileNavOpen((prev) => !prev)}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition hover:bg-white/10 lg:hidden"
+          aria-label="Menu navigasi"
+          aria-expanded={mobileNavOpen}
+        >
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            {mobileNavOpen ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
+
+        <Link href="/" className="text-brand text-2xl md:text-3xl font-bold tracking-tight">
           Kstream
         </Link>
-        <div className="hidden lg:flex items-center gap-5 lg:gap-6 text-sm md:text-base lg:text-lg uppercase tracking-wide">
-          <Link href="/" className="transition hover:text-text-primary">Beranda</Link>
-          <Link href="/movies/trending" className="transition hover:text-text-primary">Trending</Link>
-          <Link href="/movies/new" className="transition hover:text-text-primary">Baru</Link>
-          {categories.slice(0, 5).map((genre) => (
-            <Link key={genre} href={`/category/${encodeURIComponent(genre.toLowerCase())}`} className="transition hover:text-text-primary">
-              {genre}
-            </Link>
-          ))}
-        </div>
-        <div className="ml-auto flex items-center gap-4 md:gap-5 text-sm md:text-base">
-          <Link href="/search" className="hidden sm:inline-flex items-center rounded-full bg-white/10 px-3 py-1.5 text-xs md:text-sm font-medium text-text-primary transition hover:bg-white/20">
-            Cari
+
+        <div className="hidden lg:flex items-center gap-6 text-sm font-medium">
+          <Link href="/" className={`transition hover:text-text-primary ${pathname === "/" ? "text-white font-semibold" : ""}`}>
+            Beranda
           </Link>
-          {showSubscribeButton ? (
-            <Link
-              href="/premium/upgrade"
-              className="hidden md:inline-flex rounded-full bg-brand px-4 py-1.5 text-xs md:text-sm font-semibold text-white shadow-poster transition hover:bg-brand-dark"
-            >
-              Langganan
-            </Link>
-          ) : null}
-          {showPremiumBadge ? (
-            <span className="hidden md:inline-flex rounded-full border border-emerald-400 px-4 py-1.5 text-xs md:text-sm font-semibold text-emerald-300">
-              Premium
-            </span>
-          ) : null}
+          <Link
+            href="/movies/trending"
+            className={`transition hover:text-text-primary ${pathname === "/movies/trending" ? "text-white font-semibold" : ""}`}
+          >
+            Trending
+          </Link>
+          <Link
+            href="/movies/new"
+            className={`transition hover:text-text-primary ${pathname === "/movies/new" ? "text-white font-semibold" : ""}`}
+          >
+            Baru Rilis
+          </Link>
+          {categories.slice(0, 5).map((genre) => {
+            const href = `/category/${encodeURIComponent(genre.toLowerCase())}`;
+            return (
+              <Link
+                key={genre}
+                href={href}
+                className={`transition hover:text-text-primary ${pathname === href ? "text-white font-semibold" : ""}`}
+              >
+                {genre}
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="ml-auto flex items-center gap-3 md:gap-4 text-sm">
+          <Link
+            href="/search"
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3.5 py-1.5 text-xs md:text-sm font-medium text-text-primary transition hover:bg-white/20"
+            aria-label="Cari film atau series"
+          >
+            <svg className="h-4 w-4 text-white/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="7" />
+              <path strokeLinecap="round" d="M20 20l-3.5-3.5" />
+            </svg>
+            <span className="hidden sm:inline">Cari</span>
+          </Link>
+
           {loading ? (
-            <span className="text-text-muted">Memuat...</span>
+            <span className="text-xs text-text-muted">Memuat...</span>
           ) : user ? (
-            <div className="flex items-center gap-3" ref={menuRef}>
+            <div className="relative flex items-center" ref={menuRef}>
               <button
                 type="button"
                 onClick={() => setMenuOpen((prev) => !prev)}
@@ -129,58 +142,83 @@ export default function Navbar({ categories = [] }) {
                 )}
               </button>
               <div
-                className={`absolute right-4 top-[4.5rem] w-56 rounded-2xl border border-white/10 bg-black/90 p-3 shadow-2xl transition-all duration-150 ${
-                  menuOpen ? 'pointer-events-auto opacity-100 translate-y-0' : 'pointer-events-none opacity-0 -translate-y-2'
+                className={`absolute right-0 top-12 w-56 rounded-2xl border border-white/10 bg-surface-100/95 p-3 shadow-2xl backdrop-blur-xl transition-all duration-150 ${
+                  menuOpen ? "pointer-events-auto opacity-100 translate-y-0" : "pointer-events-none opacity-0 -translate-y-2"
                 }`}
                 role="menu"
               >
-                <div className="px-2 pb-2 text-xs font-semibold uppercase tracking-widest text-white/50">
+                <div className="truncate border-b border-white/10 px-2 pb-2.5 text-xs font-semibold text-white/70">
                   {user.displayName || user.email}
                 </div>
-                <nav className="flex flex-col gap-1 text-sm text-white/80">
-                  <Link href="/profile/history" className="rounded-lg px-2 py-2 transition hover:bg-white/10" role="menuitem">
-                    Riwayat
+                <nav className="mt-2 flex flex-col gap-1 text-sm text-white/80">
+                  <Link href="/profile/history" className="rounded-lg px-2.5 py-2 transition hover:bg-white/10" role="menuitem">
+                    Riwayat Tonton
                   </Link>
-                  <Link href="/profile/favorites" className="rounded-lg px-2 py-2 transition hover:bg-white/10" role="menuitem">
-                    Favorit
+                  <Link href="/profile/favorites" className="rounded-lg px-2.5 py-2 transition hover:bg-white/10" role="menuitem">
+                    Favorit Saya
                   </Link>
-                  <Link href="/profile/settings" className="rounded-lg px-2 py-2 transition hover:bg-white/10" role="menuitem">
-                    Pengaturan
+                  <Link href="/profile/settings" className="rounded-lg px-2.5 py-2 transition hover:bg-white/10" role="menuitem">
+                    Pengaturan Profil
                   </Link>
-                  {isPremiumUser ? (
-                    <span className="rounded-lg px-2 py-2 text-white/50" role="menuitem">
-                      Premium
-                    </span>
-                  ) : (
-                    <Link href="/premium/upgrade" className="rounded-lg px-2 py-2 transition hover:bg-white/10" role="menuitem">
-                      Langganan
-                    </Link>
-                  )}
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="rounded-lg px-2 py-2 text-left text-white/80 transition hover:bg-white/10"
+                    className="rounded-lg px-2.5 py-2 text-left text-rose-300 transition hover:bg-rose-500/10"
                     role="menuitem"
                     disabled={signingOut}
                   >
-                    {signingOut ? 'Keluar...' : 'Keluar'}
+                    {signingOut ? "Keluar..." : "Keluar"}
                   </button>
                 </nav>
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-3 text-sm font-medium">
-              <Link href="/login" className="transition hover:text-text-primary">
+            <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm font-medium">
+              <Link href="/login" className="rounded-full px-3 py-1.5 text-white transition hover:bg-white/10">
                 Masuk
               </Link>
-              <Link href="/register" className="hidden sm:inline transition hover:text-text-primary">
+              <Link
+                href="/register"
+                className="rounded-full bg-brand px-3.5 py-1.5 font-semibold text-white shadow-poster transition hover:bg-brand-dark"
+              >
                 Daftar
               </Link>
             </div>
           )}
         </div>
       </div>
+
+      {mobileNavOpen && (
+        <div className="border-t border-white/10 bg-black/95 px-4 py-4 lg:hidden">
+          <div className="flex flex-col gap-2 text-sm font-medium text-text-secondary">
+            <Link href="/" className="rounded-xl px-3 py-2 transition hover:bg-white/10 hover:text-white">
+              Beranda
+            </Link>
+            <Link href="/movies/trending" className="rounded-xl px-3 py-2 transition hover:bg-white/10 hover:text-white">
+              Trending
+            </Link>
+            <Link href="/movies/new" className="rounded-xl px-3 py-2 transition hover:bg-white/10 hover:text-white">
+              Baru Rilis
+            </Link>
+            {categories.length > 0 && (
+              <div className="mt-2 border-t border-white/10 pt-3">
+                <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-widest text-text-muted">Kategori</p>
+                <div className="flex flex-wrap gap-2 px-2">
+                  {categories.map((genre) => (
+                    <Link
+                      key={genre}
+                      href={`/category/${encodeURIComponent(genre.toLowerCase())}`}
+                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 transition hover:border-brand hover:text-white"
+                    >
+                      {genre}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
-

@@ -49,6 +49,10 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
   const previewTimer = useRef(null);
 
   useEffect(() => {
+    setPosterSrc(item?.posterUrl || item?.thumbnailUrl || defaultPoster);
+  }, [item?.posterUrl, item?.thumbnailUrl, defaultPoster]);
+
+  useEffect(() => {
     return () => {
       if (previewTimer.current) {
         clearTimeout(previewTimer.current);

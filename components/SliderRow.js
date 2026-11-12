@@ -12,6 +12,7 @@ export default function SliderRow({
   actionHref = "",
   actionLabel = "Lihat semua",
   orientation,
+  loading = false,
 }) {
   const scrollRef = useRef(null);
 
@@ -38,7 +39,7 @@ export default function SliderRow({
           type="button"
           aria-label="Gulir ke kiri"
           onClick={() => handleScroll("prev")}
-          className="absolute left-0 top-1/2 hidden -translate-y-1/2 rounded-full border border-white/10 bg-black/40 p-2 text-white transition hover:bg-black/70 md:flex"
+          className="absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-white/15 bg-black/70 p-2.5 text-white shadow-lg transition hover:bg-black md:flex"
         >
           &larr;
         </button>
@@ -46,7 +47,7 @@ export default function SliderRow({
           type="button"
           aria-label="Gulir ke kanan"
           onClick={() => handleScroll("next")}
-          className="absolute right-0 top-1/2 hidden -translate-y-1/2 rounded-full border border-white/10 bg-black/40 p-2 text-white transition hover:bg-black/70 md:flex"
+          className="absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-white/15 bg-black/70 p-2.5 text-white shadow-lg transition hover:bg-black md:flex"
         >
           &rarr;
         </button>
@@ -54,11 +55,15 @@ export default function SliderRow({
     );
   }, [handleScroll, hasItems]);
 
+  if (!hasItems && !loading) {
+    return null;
+  }
+
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-4">
         {title && <h3 className="text-xl font-semibold text-text-primary">{title}</h3>}
-        {actionHref && (
+        {actionHref && hasItems && (
           <Link
             href={actionHref}
             className="text-xs font-semibold uppercase tracking-widest text-text-muted transition hover:text-text-primary"
@@ -75,15 +80,15 @@ export default function SliderRow({
               ? items.map((item) => (
                   <div
                     key={`${item.type || "item"}-${item.id}`}
-                    className="w-[55vw] flex-shrink-0 sm:w-[28vw] md:w-[20vw] lg:w-[16vw] xl:w-[14vw]"
+                    className="w-[46vw] flex-shrink-0 sm:w-[28vw] md:w-[20vw] lg:w-[16vw] xl:w-[14vw]"
                   >
                     <CardPoster item={item} orientation={orientation} />
                   </div>
                 ))
-              : [...Array(8)].map((_, i) => (
+              : [...Array(6)].map((_, i) => (
                   <div
                     key={i}
-                    className={`w-[55vw] flex-shrink-0 sm:w-[28vw] md:w-[20vw] lg:w-[16vw] xl:w-[14vw] ${skeletonOrientationClass} rounded-xl bg-surface-200`}
+                    className={`w-[46vw] flex-shrink-0 sm:w-[28vw] md:w-[20vw] lg:w-[16vw] xl:w-[14vw] ${skeletonOrientationClass} animate-pulse rounded-xl bg-surface-200`}
                   />
                 ))}
           </div>

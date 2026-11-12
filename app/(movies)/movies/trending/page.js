@@ -1,32 +1,41 @@
-import SliderRow from '../../../../components/SliderRow';
+import CardPoster from "../../../../components/CardPoster";
 
 let getTrending;
 
 async function loadTrending() {
   if (!getTrending) {
     try {
-      ({ getTrending } = await import('../../../../lib/firestoreServer'));
+      ({ getTrending } = await import("../../../../lib/firestoreServer"));
     } catch (error) {
-      console.warn('Firestore admin belum siap:', error.message);
+      console.warn("Firestore admin belum siap:", error.message);
       getTrending = async () => [];
     }
   }
-  return getTrending(24).catch(() => []);
+  return getTrending(48).catch(() => []);
 }
 
-export const metadata = { title: 'Trending' };
+export const metadata = { title: "Trending - Kstream" };
 
 export default async function TrendingPage() {
   const trending = await loadTrending();
 
   return (
-    <div className="container mx-auto px-4 py-10 space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold">Trending</h1>
-        <p className="text-gray-600">Konten paling populer di Kstream minggu ini.</p>
+    <div className="container mx-auto px-4 py-10 space-y-8">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold text-text-primary">Sedang Trending</h1>
+        <p className="text-sm text-text-muted">Konten paling populer di Kstream minggu ini.</p>
       </div>
-      <SliderRow title="" items={trending} />
+      {trending.length ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          {trending.map((item) => (
+            <CardPoster key={`${item.type}-${item.id}`} item={item} />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-3xl border border-white/10 bg-surface-100/60 p-10 text-center">
+          <p className="text-sm text-text-muted">Belum ada konten trending saat ini.</p>
+        </div>
+      )}
     </div>
   );
 }
-

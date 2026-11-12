@@ -39,7 +39,7 @@ async function loadData() {
     heroItem = (await getVideoById(settings.hero.contentId).catch(() => null)) || heroItem;
   }
 
-  const curatedGenres = (settings.categories || []).slice(0, 3);
+  const curatedGenres = (settings.categories || []).slice(0, 4);
   const genreRows = await Promise.all(
     curatedGenres.map(async (genre) => ({
       genre,
@@ -55,12 +55,13 @@ export const revalidate = 60;
 export default async function HomePage() {
   const { settings, trending, newReleases, heroItem, genreRows } = await loadData();
   const heroBackground = settings.hero?.backgroundUrl || heroItem?.backdropUrl || heroItem?.posterUrl || '';
-  const heroSubtitle = settings.hero?.subtitle || heroItem?.overview || 'Nikmati film, series, dan konten favoritmu.';
+  const heroSubtitle = settings.hero?.subtitle || heroItem?.overview || 'Nikmati film, series, dan konten favoritmu secara gratis.';
   const heroTitle = settings.hero?.title || heroItem?.title || 'Selamat datang di Kstream';
   const ctaHref = heroItem
     ? heroItem.watchHref ||
       `/player?id=${encodeURIComponent(heroItem.slug || heroItem.id)}&type=${heroItem.type === 'series' ? 'series' : 'movie'}`
     : '/search';
+  const detailHref = heroItem?.href || '';
 
   return (
     <div className="space-y-12 pb-12">
@@ -71,6 +72,7 @@ export default async function HomePage() {
           backdropUrl={heroBackground}
           ctaHref={ctaHref}
           ctaLabel="Tonton sekarang"
+          detailHref={detailHref}
           badge={settings.hero?.badge || 'Sedang Populer'}
         />
       </div>
@@ -83,15 +85,17 @@ export default async function HomePage() {
         <div className="mx-auto w-full max-w-[120rem] px-4">
           <SliderRow title="Baru Rilis" items={newReleases} actionHref="/movies/new" />
         </div>
-        {genreRows.map(({ genre, items }) => (
-          <div key={genre} className="mx-auto w-full max-w-[120rem] px-4">
-            <SliderRow
-              title={`Genre: ${genre}`}
-              items={items}
-              actionHref={`/category/${encodeURIComponent(genre.toLowerCase())}`}
-            />
-          </div>
-        ))}
+        {genreRows
+          .filter(({ items }) => items.length > 0)
+          .map(({ genre, items }) => (
+            <div key={genre} className="mx-auto w-full max-w-[120rem] px-4">
+              <SliderRow
+                title={`Genre: ${genre}`}
+                items={items}
+                actionHref={`/category/${encodeURIComponent(genre.toLowerCase())}`}
+              />
+            </div>
+          ))}
       </div>
     </div>
   );

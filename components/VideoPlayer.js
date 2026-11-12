@@ -75,17 +75,6 @@ const icons = {
       <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
     </svg>
   ),
-  subsOn: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 7H6v-2h5v2zm7 0h-5v-2h5v2zm-7 4H6v-2h5v2zm7 0h-5v-2h5v2z" />
-    </svg>
-  ),
-  subsOff: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 7H6v-2h5v2zm7 0h-5v-2h5v2zm-7 4H6v-2h5v2zm7 0h-5v-2h5v2z" />
-      <path d="M3 19l18-18" stroke="currentColor" strokeWidth="2" />
-    </svg>
-  ),
 };
 
 const attributeRegex = /([A-Z0-9-]+)=("[^"]*"|[^,]*)/gi;

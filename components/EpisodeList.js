@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatDuration } from '../lib/helpers';
@@ -9,6 +9,11 @@ const FALLBACK_THUMB = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/20
 
 function EpisodeCard({ episode, href }) {
   const [thumbSrc, setThumbSrc] = useState(episode.thumbnail || FALLBACK_THUMB);
+
+  useEffect(() => {
+    setThumbSrc(episode.thumbnail || FALLBACK_THUMB);
+  }, [episode.thumbnail]);
+
   return (
     <Link
       href={href}
@@ -17,7 +22,7 @@ function EpisodeCard({ episode, href }) {
       <div className="relative h-24 w-40 flex-shrink-0 overflow-hidden rounded-xl bg-black sm:h-28 sm:w-48">
         <Image
           src={thumbSrc}
-          alt={episode.title}
+          alt={episode.title || `Episode ${episode.number}`}
           fill
           className="object-cover transition-transform duration-300 group-hover:scale-105"
           sizes="(max-width: 1024px) 40vw, 25vw"
@@ -40,23 +45,27 @@ function EpisodeCard({ episode, href }) {
 }
 
 export default function EpisodeList({ episodes = [], baseHref = '' }) {
+  if (!episodes.length) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-surface-100/40 p-6 text-center text-sm text-text-muted">
+        Belum ada episode tersedia untuk serial ini.
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      {episodes.length
-        ? episodes.map((ep) => {
-            const encodedId = encodeURIComponent(ep.id);
-            let href = "#";
-            if (typeof baseHref === "function") {
-              href = baseHref(ep);
-            } else if (typeof baseHref === "string" && baseHref.length) {
-              const separator = baseHref.includes("?") ? "&" : "?";
-              href = `${baseHref}${separator}ep=${encodedId}&autoplay=1`;
-            }
-            return <EpisodeCard key={ep.id} episode={ep} href={href} />;
-          })
-        : [...Array(6)].map((_, i) => (
-            <div key={i} className="h-28 rounded-2xl border border-white/5 bg-surface-100/60" />
-          ))}
+      {episodes.map((ep) => {
+        const encodedId = encodeURIComponent(ep.id);
+        let href = "#";
+        if (typeof baseHref === "function") {
+          href = baseHref(ep);
+        } else if (typeof baseHref === "string" && baseHref.length) {
+          const separator = baseHref.includes("?") ? "&" : "?";
+          href = `${baseHref}${separator}ep=${encodedId}&autoplay=1`;
+        }
+        return <EpisodeCard key={ep.id} episode={ep} href={href} />;
+      })}
     </div>
   );
 }

@@ -40,7 +40,7 @@ export default function HomeHistoryRow() {
 
   return (
     <div className="mx-auto w-full max-w-[120rem] px-4">
-      <HistoryRow items={items} />
+      <HistoryRow items={items} loading={loading} />
     </div>
   );
 }

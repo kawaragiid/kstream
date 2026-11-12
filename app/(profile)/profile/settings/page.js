@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useAuth } from "../../../../hooks/useAuth";
-import { isPremium, resetPassword, updateProfile } from "../../../../lib/auth";
+import { resetPassword, updateProfile } from "../../../../lib/auth";
 import { updateUserProfileDoc } from "../../../../lib/firestore";
 import { getDb, getFirebaseStorage } from "../../../../lib/firebase";
 
@@ -29,7 +29,6 @@ export default function ProfileSettingsPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
 
-  const [premium, setPremium] = useState(false);
   const [loadingPreferences, setLoadingPreferences] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
@@ -71,21 +70,6 @@ export default function ProfileSettingsPage() {
     setFilePreview("");
     setProfileMessage("");
     setProfileError("");
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) return;
-    let mounted = true;
-    isPremium(user)
-      .then((value) => {
-        if (mounted) setPremium(Boolean(value));
-      })
-      .catch(() => {
-        if (mounted) setPremium(false);
-      });
-    return () => {
-      mounted = false;
-    };
   }, [user]);
 
   useEffect(() => {
@@ -391,13 +375,6 @@ export default function ProfileSettingsPage() {
                 <p className="text-sm text-white/60">{user.email}</p>
               </div>
             </div>
-            <span
-              className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                premium ? "border-emerald-400 text-emerald-300" : "border-white/20 text-white/70"
-              }`}
-            >
-              {premium ? "Premium" : "Free"}
-            </span>
           </div>
         </section>
 

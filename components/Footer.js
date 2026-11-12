@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
@@ -25,11 +26,11 @@ export default function Footer() {
       <div className="container mx-auto px-4 py-10 text-sm text-text-muted">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <p className="text-text-secondary">&copy; {currentYear} Kstream by Keigo</p>
-          <nav className="flex flex-wrap gap-4">
+          <nav className="flex flex-wrap gap-5">
             {links.map((link) => (
-              <a key={link.label} href={link.href} className="transition hover:text-text-primary">
+              <Link key={link.label} href={link.href} className="transition hover:text-text-primary">
                 {link.label}
-              </a>
+              </Link>
             ))}
           </nav>
         </div>
@@ -37,4 +38,3 @@ export default function Footer() {
     </footer>
   );
 }
-
