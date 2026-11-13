@@ -8,16 +8,22 @@ async function ensureFirestore() {
       ({ getVideosByGenre } = await import("../../../../lib/firestoreServer"));
     } catch (error) {
       console.warn("Firestore admin belum siap:", error.message);
-      getVideosByGenre = async () => [];
+      return async () => [];
     }
   }
+  return getVideosByGenre;
 }
 
 export default async function GenrePage({ params }) {
-  await ensureFirestore();
+  const fetchByGenre = await ensureFirestore();
   const { genre: rawGenre } = await params;
-  const genre = decodeURIComponent(rawGenre || "");
-  const items = await getVideosByGenre(genre, 48).catch(() => []);
+  let genre = rawGenre || "";
+  try {
+    genre = decodeURIComponent(rawGenre || "");
+  } catch {
+    genre = rawGenre || "";
+  }
+  const items = await fetchByGenre(genre, 48).catch(() => []);
 
   return (
     <div className="container mx-auto px-4 py-10 space-y-8">

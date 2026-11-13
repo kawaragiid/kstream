@@ -81,10 +81,24 @@ export default function MediaOverlayRoot() {
   const [historyEntry, setHistoryEntry] = useState(null);
   const [ready, setReady] = useState(false);
   const lastPathnameRef = useRef(pathname);
+  const closeTimerRef = useRef(null);
 
   const resolvedId = useMemo(() => media?.slug || media?.id || null, [media]);
 
   useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+
     if (!isOpen) {
       setDetail(null);
       setError(null);
@@ -116,7 +130,11 @@ export default function MediaOverlayRoot() {
         console.error("Gagal memuat detail media:", err);
         setError(err.message || "Gagal memuat detail media.");
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      });
 
     return () => controller.abort();
   }, [isOpen, resolvedId]);
@@ -201,11 +219,15 @@ export default function MediaOverlayRoot() {
 
   const handleClose = useCallback(() => {
     closeMedia();
-    setTimeout(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+    }
+    closeTimerRef.current = setTimeout(() => {
       setDetail(null);
       setHistoryEntry(null);
       setError(null);
       setReady(false);
+      closeTimerRef.current = null;
     }, 250);
   }, [closeMedia]);
 

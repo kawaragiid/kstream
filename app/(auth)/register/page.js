@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { loginWithGoogle, register, updateProfile } from "../../../lib/auth";
-import { updateUserProfileDoc } from "../../../lib/firestore";
+import { readUserDoc, updateUserProfileDoc } from "../../../lib/firestore";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -48,10 +48,14 @@ export default function RegisterPage() {
     try {
       const credential = await loginWithGoogle();
       try {
-        await updateUserProfileDoc(credential.user.uid, {
-          role: "pelanggan",
-          displayName: credential.user.displayName || null,
-        });
+        const { data: existingData } = await readUserDoc(credential.user.uid);
+        const profilePayload = {
+          displayName: existingData?.displayName || credential.user.displayName || null,
+        };
+        if (!existingData?.role) {
+          profilePayload.role = "pelanggan";
+        }
+        await updateUserProfileDoc(credential.user.uid, profilePayload);
       } catch {}
       router.push("/");
     } catch (err) {

@@ -23,6 +23,9 @@ export default function HistoryPage() {
       .then((data) => {
         if (active) setItems(data);
       })
+      .catch(() => {
+        if (active) setItems([]);
+      })
       .finally(() => {
         if (active) setFetching(false);
       });

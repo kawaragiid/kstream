@@ -17,9 +17,13 @@ export default function FavoriteButton({ video }) {
       setFavorite(false);
       return;
     }
-    isFavorite(user.uid, video.id).then((state) => {
-      if (active) setFavorite(state);
-    });
+    isFavorite(user.uid, video.id)
+      .then((state) => {
+        if (active) setFavorite(state);
+      })
+      .catch(() => {
+        if (active) setFavorite(false);
+      });
     return () => {
       active = false;
     };
@@ -36,6 +40,8 @@ export default function FavoriteButton({ video }) {
       if (typeof result?.isFavorite === 'boolean') {
         setFavorite(result.isFavorite);
       }
+    } catch (err) {
+      console.warn('Gagal mengubah status favorit:', err);
     } finally {
       setLoading(false);
     }

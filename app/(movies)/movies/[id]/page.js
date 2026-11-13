@@ -5,27 +5,34 @@ import EpisodeList from "@/components/EpisodeList";
 import FavoriteButton from "@/components/FavoriteButton";
 import SliderRow from "@/components/SliderRow";
 
-let getVideoById;
-let getSeriesEpisodes;
-let getVideosByGenre;
+let firestoreModule = null;
 
 async function ensureFirestore() {
-  if (!getVideoById || !getSeriesEpisodes || !getVideosByGenre) {
+  if (!firestoreModule) {
     try {
-      ({ getVideoById, getSeriesEpisodes, getVideosByGenre } = await import("@/lib/firestoreServer"));
+      firestoreModule = await import("@/lib/firestoreServer");
     } catch (error) {
       console.warn("Firestore admin belum siap:", error.message);
-      getVideoById = async () => null;
-      getSeriesEpisodes = async () => [];
-      getVideosByGenre = async () => [];
+      return {
+        getVideoById: async () => null,
+        getSeriesEpisodes: async () => [],
+        getVideosByGenre: async () => [],
+      };
     }
   }
+  return firestoreModule;
 }
 
 export async function generateMetadata({ params }) {
-  await ensureFirestore();
-  const { id } = await params;
-  const video = await getVideoById(id);
+  const { getVideoById } = await ensureFirestore();
+  const { id: rawId } = await params;
+  let id = rawId || "";
+  try {
+    id = decodeURIComponent(rawId || "");
+  } catch {
+    id = rawId || "";
+  }
+  const video = await getVideoById(id, "movie").catch(() => null);
   if (!video) return { title: "Detail - Kstream" };
   return {
     title: `${video.title} - Kstream`,
@@ -34,9 +41,15 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function MovieDetailPage({ params }) {
-  await ensureFirestore();
-  const { id } = await params;
-  const video = await getVideoById(id);
+  const { getVideoById, getSeriesEpisodes, getVideosByGenre } = await ensureFirestore();
+  const { id: rawId } = await params;
+  let id = rawId || "";
+  try {
+    id = decodeURIComponent(rawId || "");
+  } catch {
+    id = rawId || "";
+  }
+  const video = await getVideoById(id, "movie").catch(() => null);
 
   if (!video) {
     notFound();

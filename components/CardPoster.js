@@ -46,7 +46,9 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
   const progressValue = typeof item?.progress === 'number' ? Math.min(Math.max(item.progress, 0), 1) : null;
 
   const [showPreview, setShowPreview] = useState(false);
+  const [previewAlign, setPreviewAlign] = useState('center');
   const previewTimer = useRef(null);
+  const cardRef = useRef(null);
 
   useEffect(() => {
     setPosterSrc(item?.posterUrl || item?.thumbnailUrl || defaultPoster);
@@ -62,6 +64,18 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
 
   const handleMouseEnter = () => {
     if (previewTimer.current) clearTimeout(previewTimer.current);
+    if (cardRef.current && typeof window !== 'undefined') {
+      const rect = cardRef.current.getBoundingClientRect();
+      const popoverHalfWidth = 208; // 26rem / 2
+      const centerX = rect.left + rect.width / 2;
+      if (centerX - popoverHalfWidth < 16) {
+        setPreviewAlign('left');
+      } else if (centerX + popoverHalfWidth > window.innerWidth - 16) {
+        setPreviewAlign('right');
+      } else {
+        setPreviewAlign('center');
+      }
+    }
     previewTimer.current = window.setTimeout(() => setShowPreview(true), 200);
   };
 
@@ -114,6 +128,7 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
 
   return (
     <div
+      ref={cardRef}
       className="relative cursor-pointer"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -158,7 +173,15 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
         </p>
       </div>
       {showPreview && (
-        <div className="absolute left-1/2 top-0 z-40 hidden -translate-x-1/2 -translate-y-8 md:block">
+        <div
+          className={`absolute top-2 z-40 hidden md:block ${
+            previewAlign === 'left'
+              ? 'left-0'
+              : previewAlign === 'right'
+              ? 'right-0'
+              : 'left-1/2 -translate-x-1/2'
+          }`}
+        >
           <div className="w-[26rem] overflow-hidden rounded-3xl border border-white/10 bg-surface-100/95 shadow-2xl backdrop-blur-xl transition-all duration-200 ease-out">
             {previewMedia()}
             <div className="space-y-3 p-5">

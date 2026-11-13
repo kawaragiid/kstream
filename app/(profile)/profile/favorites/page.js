@@ -28,7 +28,11 @@ export default function FavoritesPage() {
 
   const handleRemove = async (video) => {
     if (!user) return;
-    await toggleFavorite(user.uid, video);
+    try {
+      await toggleFavorite(user.uid, video);
+    } catch (err) {
+      console.warn('Gagal menghapus favorit:', err);
+    }
     loadFavorites(user.uid);
   };
 

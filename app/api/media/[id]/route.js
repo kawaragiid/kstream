@@ -1,24 +1,24 @@
 import { NextResponse } from "next/server";
 
-let getVideoById;
-let getSeriesEpisodes;
+let firestoreModule = null;
 
 async function ensureFirestore() {
-  if (!getVideoById) {
+  if (!firestoreModule) {
     try {
-      const firestore = await import("../../../../lib/firestoreServer");
-      getVideoById = firestore.getVideoById;
-      getSeriesEpisodes = firestore.getSeriesEpisodes;
+      firestoreModule = await import("../../../../lib/firestoreServer");
     } catch (error) {
       console.warn("Firestore admin belum siap:", error?.message || error);
-      getVideoById = async () => null;
-      getSeriesEpisodes = async () => [];
+      return {
+        getVideoById: async () => null,
+        getSeriesEpisodes: async () => [],
+      };
     }
   }
+  return firestoreModule;
 }
 
 export async function GET(_request, context) {
-  await ensureFirestore();
+  const { getVideoById, getSeriesEpisodes } = await ensureFirestore();
   const awaitedParams = await context?.params;
   const rawId = awaitedParams?.id || "";
   let idOrSlug = rawId;

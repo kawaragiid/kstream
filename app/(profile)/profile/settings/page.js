@@ -285,12 +285,6 @@ export default function ProfileSettingsPage() {
             >
               &larr; Kembali ke beranda
             </Link>
-            <Link
-              href="/profile"
-              className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 hover:border-white/40 hover:text-white"
-            >
-              &larr; Kembali ke profil
-            </Link>
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-6 pb-16">
@@ -353,12 +347,6 @@ export default function ProfileSettingsPage() {
             className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 hover:border-white/40 hover:text-white"
           >
             &larr; Kembali ke beranda
-          </Link>
-          <Link
-            href="/profile"
-            className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 hover:border-white/40 hover:text-white"
-          >
-            &larr; Kembali ke profil
           </Link>
         </div>
       </header>

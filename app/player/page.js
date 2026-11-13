@@ -1,21 +1,22 @@
 import { notFound } from "next/navigation";
 import WatchPlayer from "@/components/WatchPlayer";
 
-let getVideoById;
-let getSeriesEpisodes;
-let getSeriesEpisode;
+let firestoreModule = null;
 
 async function ensureFirestore() {
-  if (!getVideoById || !getSeriesEpisodes || !getSeriesEpisode) {
+  if (!firestoreModule) {
     try {
-      ({ getVideoById, getSeriesEpisodes, getSeriesEpisode } = await import("../../lib/firestoreServer"));
+      firestoreModule = await import("../../lib/firestoreServer");
     } catch (error) {
       console.warn("Firestore admin belum siap:", error.message);
-      getVideoById = async () => null;
-      getSeriesEpisodes = async () => [];
-      getSeriesEpisode = async () => null;
+      return {
+        getVideoById: async () => null,
+        getSeriesEpisodes: async () => [],
+        getSeriesEpisode: async () => null,
+      };
     }
   }
+  return firestoreModule;
 }
 
 function decodeParam(value) {
@@ -43,7 +44,7 @@ function PlayerChrome({ children }) {
 
 export default async function PlayerPage(props) {
   const searchParams = (await props?.searchParams) ?? {};
-  await ensureFirestore();
+  const { getVideoById, getSeriesEpisodes, getSeriesEpisode } = await ensureFirestore();
 
   const rawId = extractParam(searchParams, "id");
   const rawType = extractParam(searchParams, "type");
@@ -55,22 +56,23 @@ export default async function PlayerPage(props) {
 
   const normalizedType = (rawType || "").toString().toLowerCase();
   const isSeriesRequest = normalizedType === "series";
+  const preferredType = isSeriesRequest ? "series" : normalizedType === "movie" ? "movie" : undefined;
 
-  const video = await getVideoById(resolvedId);
+  const video = await getVideoById(resolvedId, preferredType).catch(() => null);
   if (!video) notFound();
 
   const slugOrId = video.slug || video.id;
   const autoplayEnabled = rawAutoplay === "1" || (rawAutoplay || "").toLowerCase() === "true";
 
   if (isSeriesRequest || video.type === "series") {
-    const episodes = await getSeriesEpisodes(video.id);
+    const episodes = await getSeriesEpisodes(video.id).catch(() => []);
     if (!episodes?.length) notFound();
 
     const episodeId = decodeParam(rawEpisode);
     let currentEpisode = null;
 
     if (episodeId) {
-      currentEpisode = await getSeriesEpisode(video.id, episodeId);
+      currentEpisode = await getSeriesEpisode(video.id, episodeId).catch(() => null);
     }
     if (!currentEpisode) {
       currentEpisode = episodes[0];
@@ -88,6 +90,7 @@ export default async function PlayerPage(props) {
       overview: currentEpisode.overview || video.overview,
       posterUrl: video.posterUrl,
       duration: currentEpisode.duration || video.duration || 0,
+      orientation: video.orientation || "landscape",
       href: seriesHref,
       watchHref,
       category: video.category,
@@ -101,7 +104,7 @@ export default async function PlayerPage(props) {
             video={trackerVideo}
             backHref={seriesHref}
             playbackId={currentEpisode.playbackId || video.playbackId}
-            src={currentEpisode.streamUrl || video.streamUrl}
+            src={currentEpisode.streamUrl || (currentEpisode.playbackId ? "" : video.streamUrl)}
             poster={currentEpisode.thumbnail || video.backdropUrl || video.posterUrl}
             title={`${video.title} \u2022 Episode ${currentEpisode.number}`}
             subtitles={trackerVideo.subtitles}

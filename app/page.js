@@ -34,8 +34,17 @@ async function loadData() {
     getNewReleases(24).catch(() => []),
   ]);
 
-  let heroItem = trending[0] || newReleases[0] || null;
-  if (settings?.hero?.contentId) {
+  const seenHeroKeys = new Set();
+  const heroPool = [...trending, ...newReleases].filter((item) => {
+    if (!item?.id) return false;
+    const key = `${item.type || "movie"}-${item.id}`;
+    if (seenHeroKeys.has(key)) return false;
+    seenHeroKeys.add(key);
+    return true;
+  });
+
+  let heroItem = heroPool.length > 0 ? heroPool[Math.floor(Math.random() * heroPool.length)] : null;
+  if (settings?.hero?.mode !== "random" && settings?.hero?.contentId) {
     heroItem = (await getVideoById(settings.hero.contentId).catch(() => null)) || heroItem;
   }
 
@@ -50,13 +59,20 @@ async function loadData() {
   return { settings, trending, newReleases, heroItem, genreRows };
 }
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const { settings, trending, newReleases, heroItem, genreRows } = await loadData();
-  const heroBackground = settings.hero?.backgroundUrl || heroItem?.backdropUrl || heroItem?.posterUrl || '';
-  const heroSubtitle = settings.hero?.subtitle || heroItem?.overview || 'Nikmati film, series, dan konten favoritmu secara gratis.';
-  const heroTitle = settings.hero?.title || heroItem?.title || 'Selamat datang di Kstream';
+  const isRandomHero = settings?.hero?.mode === "random" || !settings?.hero?.contentId;
+  const heroBackground = isRandomHero
+    ? heroItem?.backdropUrl || heroItem?.posterUrl || ""
+    : settings.hero?.backgroundUrl || heroItem?.backdropUrl || heroItem?.posterUrl || "";
+  const heroSubtitle = isRandomHero
+    ? heroItem?.overview || "Nikmati film, series, dan konten favoritmu secara gratis."
+    : settings.hero?.subtitle || heroItem?.overview || "Nikmati film, series, dan konten favoritmu secara gratis.";
+  const heroTitle = isRandomHero
+    ? heroItem?.title || "Selamat datang di Kstream"
+    : settings.hero?.title || heroItem?.title || "Selamat datang di Kstream";
   const ctaHref = heroItem
     ? heroItem.watchHref ||
       `/player?id=${encodeURIComponent(heroItem.slug || heroItem.id)}&type=${heroItem.type === 'series' ? 'series' : 'movie'}`

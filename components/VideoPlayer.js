@@ -114,7 +114,10 @@ const parseMuxSubtitleTracks = (manifestText = "", manifestUrl = "") => {
       }
     })();
 
-    const vttUrl = absoluteUri.endsWith(".m3u8") ? `${absoluteUri}?format=webvtt` : absoluteUri;
+    const vttUrl =
+      /\.m3u8(\?|$)/i.test(absoluteUri) && !/[?&]format=webvtt/i.test(absoluteUri)
+        ? `${absoluteUri}${absoluteUri.includes("?") ? "&" : "?"}format=webvtt`
+        : absoluteUri;
 
     const key = `${attrs.LANGUAGE || attrs.NAME || vttUrl}`.toLowerCase();
     if (seen.has(key)) return;
@@ -236,22 +239,6 @@ export default function VideoPlayer({
     setIsIOS(isIOSDevice && isWebkit);
   }, []);
 
-  // Handle iOS auto fullscreen
-  useEffect(() => {
-    if (!isIOS || !videoRef.current) return;
-
-    const handlePlay = () => {
-      const video = videoRef.current;
-      if (video?.webkitEnterFullscreen) {
-        video.webkitEnterFullscreen();
-      }
-    };
-
-    const video = videoRef.current;
-    video.addEventListener("play", handlePlay);
-    return () => video.removeEventListener("play", handlePlay);
-  }, [isIOS]);
-
   // Control aspect ratio and fullscreen behavior
   useEffect(() => {
     if (!containerRef.current || isIOS) return;
@@ -302,7 +289,7 @@ export default function VideoPlayer({
       if (!video) return;
       const isLandscape = window.innerWidth > window.innerHeight;
       if (isLandscape && window.innerWidth <= MOBILE_SCREEN_WIDTH) {
-        video.requestFullscreen?.().catch(() => {});
+        (containerRef.current || video).requestFullscreen?.().catch(() => {});
       } else if (!isLandscape && document.fullscreenElement) {
         document.exitFullscreen?.().catch(() => {});
       }
@@ -314,19 +301,24 @@ export default function VideoPlayer({
   // Handler untuk masuk ke mode landscape fullscreen di mobile
   const enterMobileFullscreen = useCallback(async () => {
     const video = videoRef.current;
+    const container = containerRef.current || video;
     if (!video) return;
 
     try {
+      if (isIOS && video.webkitEnterFullscreen) {
+        await video.webkitEnterFullscreen();
+        return;
+      }
       if (window.innerWidth <= MOBILE_SCREEN_WIDTH) {
         // iOS Safari specific method
         if (video.webkitEnterFullscreen) {
           await video.webkitEnterFullscreen();
         }
         // Standard methods
-        else if (video.requestFullscreen) {
-          await video.requestFullscreen();
-        } else if (video.webkitRequestFullscreen) {
-          await video.webkitRequestFullscreen();
+        else if (container?.requestFullscreen) {
+          await container.requestFullscreen();
+        } else if (container?.webkitRequestFullscreen) {
+          await container.webkitRequestFullscreen();
         }
         // Request landscape orientation
         if (screen.orientation && screen.orientation.lock) {
@@ -336,9 +328,9 @@ export default function VideoPlayer({
     } catch (err) {
       console.warn("Failed to enter mobile fullscreen:", err);
     }
-  }, []);
+  }, [isIOS]);
 
-  // Auto fullscreen & landscape ketika video dimulai di mobile
+  // Auto fullscreen & landscape ketika video dimulai di mobile / iOS
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handlePlay = () => {
@@ -349,7 +341,7 @@ export default function VideoPlayer({
       video.addEventListener("play", handlePlay);
       return () => video.removeEventListener("play", handlePlay);
     }
-  }, [enterMobileFullscreen]);
+  }, [enterMobileFullscreen, isIOS, videoSrc]);
 
   // Handle fullscreen changes and cleanup
   useEffect(() => {
@@ -362,7 +354,11 @@ export default function VideoPlayer({
       if (!isInFullscreen) {
         // Unlock orientation if possible
         if (screen.orientation?.unlock) {
-          screen.orientation.unlock().catch((err) => console.warn("Failed to unlock orientation:", err));
+          try {
+            screen.orientation.unlock();
+          } catch (err) {
+            console.warn("Failed to unlock orientation:", err);
+          }
         }
 
         // Remove pseudo-fullscreen if active
@@ -512,37 +508,47 @@ export default function VideoPlayer({
     }
   }, []);
 
-  const attachSource = useCallback(async () => {
-    const media = videoRef.current;
-    if (!media || !videoSrc) return;
+  const attachSource = useCallback(
+    async (isCancelled = () => false) => {
+      const media = videoRef.current;
+      if (!media || !videoSrc) return;
 
-    if (videoSrc.includes(".m3u8")) {
-      try {
-        const { default: Hls } = await import("hls.js");
-        if (Hls?.isSupported()) {
-          detachHls();
-          const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
-          hls.loadSource(videoSrc);
-          hls.attachMedia(media);
-          hlsRef.current = hls;
-          return;
+      if (videoSrc.includes(".m3u8")) {
+        try {
+          const { default: Hls } = await import("hls.js");
+          if (isCancelled() || videoRef.current !== media) return;
+          if (Hls?.isSupported()) {
+            detachHls();
+            const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+            hls.loadSource(videoSrc);
+            hls.attachMedia(media);
+            hlsRef.current = hls;
+            return;
+          }
+          if (media.canPlayType("application/vnd.apple.mpegurl")) {
+            media.src = videoSrc;
+            return;
+          }
+        } catch (error) {
+          if (isCancelled()) return;
+          console.warn("HLS.js failed to load, falling back to native playback", error);
         }
-        if (media.canPlayType("application/vnd.apple.mpegurl")) {
-          media.src = videoSrc;
-          return;
-        }
-      } catch (error) {
-        console.warn("HLS.js failed to load, falling back to native playback", error);
       }
-    }
 
-    media.src = videoSrc;
-  }, [detachHls, videoSrc]);
+      if (isCancelled() || videoRef.current !== media) return;
+      media.src = videoSrc;
+    },
+    [detachHls, videoSrc]
+  );
 
   useEffect(() => {
-    attachSource();
-    return () => detachHls();
-  }, [attachSource, detachHls]);
+    let cancelled = false;
+    attachSource(() => cancelled);
+    return () => {
+      cancelled = true;
+      detachHls();
+    };
+  }, [attachSource, detachHls, isIOS]);
 
   // Add subtitle and pseudo-fullscreen styles
   useEffect(() => {
@@ -591,7 +597,7 @@ export default function VideoPlayer({
       setMuxSubtitles([]);
       return;
     }
-    const manifestUrl = videoSrc && videoSrc.endsWith(".m3u8") ? videoSrc : playbackId ? `https://stream.mux.com/${playbackId}.m3u8` : "";
+    const manifestUrl = videoSrc && /\.m3u8(\?|$)/i.test(videoSrc) ? videoSrc : playbackId ? `https://stream.mux.com/${playbackId}.m3u8` : "";
     if (!manifestUrl) return;
 
     let cancelled = false;
@@ -702,6 +708,14 @@ export default function VideoPlayer({
   }, []);
 
   useEffect(() => {
+    setProgress(0);
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPlaying(false);
+    setSubtitleLines([]);
+  }, [videoSrc]);
+
+  useEffect(() => {
     showControlsTemporarily();
     return () => {
       if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
@@ -720,7 +734,7 @@ export default function VideoPlayer({
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, [showControlsTemporarily]);
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     const media = videoRef.current;
     if (!media) return;
     showControlsTemporarily();
@@ -729,14 +743,14 @@ export default function VideoPlayer({
     } else {
       media.pause();
     }
-  };
+  }, [showControlsTemporarily]);
 
-  const toggleMute = () => {
+  const toggleMute = useCallback(() => {
     const media = videoRef.current;
     if (!media) return;
     media.muted = !media.muted;
     setIsMuted(media.muted);
-  };
+  }, []);
 
   const seekBy = useCallback(
     (offset) => {
@@ -789,18 +803,21 @@ export default function VideoPlayer({
     showControlsTemporarily();
   };
 
-  const handleVolumeChange = (event) => {
-    const value = Number(event.target.value);
-    const media = videoRef.current;
-    if (!media || Number.isNaN(value)) return;
-    media.volume = value;
-    media.muted = value === 0;
-    setVolume(value);
-    setIsMuted(media.muted);
-    showControlsTemporarily();
-  };
+  const handleVolumeChange = useCallback(
+    (event) => {
+      const value = Number(event.target.value);
+      const media = videoRef.current;
+      if (!media || Number.isNaN(value)) return;
+      media.volume = value;
+      media.muted = value === 0;
+      setVolume(value);
+      setIsMuted(media.muted);
+      showControlsTemporarily();
+    },
+    [showControlsTemporarily]
+  );
 
-  const requestFullscreen = async () => {
+  const requestFullscreen = useCallback(async () => {
     const video = videoRef.current;
     const container = containerRef.current;
     if (!video || !container) return;
@@ -821,7 +838,7 @@ export default function VideoPlayer({
         // Release orientation lock if we have one
         if (screen.orientation?.unlock) {
           try {
-            await screen.orientation.unlock();
+            screen.orientation.unlock();
           } catch (err) {
             console.warn("Failed to unlock orientation:", err);
           }
@@ -892,7 +909,7 @@ export default function VideoPlayer({
       console.warn("Fullscreen request failed:", err);
     }
     showControlsTemporarily();
-  };
+  }, [isIOS, showControlsTemporarily]);
 
   const updateSubtitlePosition = useCallback(() => {
     if (isFullscreen) {
@@ -923,20 +940,32 @@ export default function VideoPlayer({
 
   useEffect(() => {
     const media = videoRef.current;
-    if (!media) return;
-    const tracks = Array.from(media.textTracks || []);
-    if (!tracks.length) {
-      setSubtitleLines([]);
-      return;
-    }
-    const activeTrack = resolveActiveTextTrack();
-    tracks.forEach((track) => {
-      track.mode = track === activeTrack ? "hidden" : "disabled";
-    });
-    if (!activeTrack) {
-      setSubtitleLines([]);
-    }
-  }, [resolveActiveTextTrack]);
+    if (!media || !media.textTracks) return undefined;
+    const syncTrackModes = () => {
+      const tracks = Array.from(media.textTracks || []);
+      if (!tracks.length) {
+        setSubtitleLines([]);
+        return;
+      }
+      const activeTrack = resolveActiveTextTrack();
+      tracks.forEach((track) => {
+        track.mode = track === activeTrack ? "hidden" : "disabled";
+      });
+      if (!activeTrack) {
+        setSubtitleLines([]);
+      }
+    };
+    syncTrackModes();
+    const textTracks = media.textTracks;
+    textTracks.addEventListener?.("addtrack", syncTrackModes);
+    textTracks.addEventListener?.("change", syncTrackModes);
+    textTracks.addEventListener?.("removetrack", syncTrackModes);
+    return () => {
+      textTracks.removeEventListener?.("addtrack", syncTrackModes);
+      textTracks.removeEventListener?.("change", syncTrackModes);
+      textTracks.removeEventListener?.("removetrack", syncTrackModes);
+    };
+  }, [resolveActiveTextTrack, subtitleTracks, isIOS, videoSrc]);
 
   useEffect(() => {
     if (!autoplay) return;
@@ -1130,13 +1159,18 @@ export default function VideoPlayer({
       setSubtitleLines([]);
       return undefined;
     }
-    const track = resolveActiveTextTrack();
-    if (!track) {
-      setSubtitleLines([]);
-      return undefined;
-    }
+    const media = videoRef.current;
+    if (!media) return undefined;
+
+    let currentTrack = null;
+    let rafId = null;
+
     const handleCueChange = () => {
-      const cues = track.activeCues ? Array.from(track.activeCues) : [];
+      if (!currentTrack) {
+        setSubtitleLines([]);
+        return;
+      }
+      const cues = currentTrack.activeCues ? Array.from(currentTrack.activeCues) : [];
       if (!cues.length) {
         setSubtitleLines((prev) => (prev.length ? [] : prev));
         return;
@@ -1159,14 +1193,43 @@ export default function VideoPlayer({
         return lines;
       });
     };
-    track.addEventListener("cuechange", handleCueChange);
-    const rafId = window.requestAnimationFrame(() => handleCueChange());
-    handleCueChange();
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      track.removeEventListener("cuechange", handleCueChange);
+
+    const bindActiveTrack = () => {
+      const nextTrack = resolveActiveTextTrack();
+      if (currentTrack && currentTrack !== nextTrack) {
+        currentTrack.removeEventListener("cuechange", handleCueChange);
+      }
+      currentTrack = nextTrack;
+      if (!currentTrack) {
+        setSubtitleLines([]);
+        return;
+      }
+      if (currentTrack.mode === "disabled") {
+        currentTrack.mode = "hidden";
+      }
+      currentTrack.removeEventListener("cuechange", handleCueChange);
+      currentTrack.addEventListener("cuechange", handleCueChange);
+      if (rafId) window.cancelAnimationFrame(rafId);
+      rafId = window.requestAnimationFrame(() => handleCueChange());
+      handleCueChange();
     };
-  }, [resolveActiveTextTrack, activeSubtitle]);
+
+    bindActiveTrack();
+    const textTracks = media.textTracks;
+    textTracks?.addEventListener?.("addtrack", bindActiveTrack);
+    textTracks?.addEventListener?.("change", bindActiveTrack);
+    textTracks?.addEventListener?.("removetrack", bindActiveTrack);
+
+    return () => {
+      if (rafId) window.cancelAnimationFrame(rafId);
+      if (currentTrack) {
+        currentTrack.removeEventListener("cuechange", handleCueChange);
+      }
+      textTracks?.removeEventListener?.("addtrack", bindActiveTrack);
+      textTracks?.removeEventListener?.("change", bindActiveTrack);
+      textTracks?.removeEventListener?.("removetrack", bindActiveTrack);
+    };
+  }, [resolveActiveTextTrack, activeSubtitle, subtitleTracks, isIOS, videoSrc]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -1204,6 +1267,12 @@ export default function VideoPlayer({
     large: "text-lg md:text-xl",
     xlarge: "text-2xl md:text-3xl",
   }[subtitleSize || autoSubtitleSize];
+  const subtitleSizeScale = {
+    small: 0.85,
+    medium: 1,
+    large: 1.25,
+    xlarge: 1.5,
+  }[subtitleSize || autoSubtitleSize] || 1;
   const overlayBackgroundClass = isFullscreen ? "bg-transparent" : "bg-gradient-to-b from-black/80 via-black/10 to-black/90";
   const showOverlay = controlsVisible;
   const controlButtonClass = "inline-flex items-center justify-center rounded-full bg-white/10 text-white text-[10px] md:text-sm transition hover:bg-white/20 h-8 w-8 md:h-auto md:w-auto md:px-3";
@@ -1233,9 +1302,10 @@ export default function VideoPlayer({
         <video
           ref={videoRef}
           className="w-full h-full object-contain bg-black"
-          src={src}
+          src={videoSrc || src || undefined}
           poster={poster || undefined}
           title={title}
+          crossOrigin="anonymous"
           controls
           autoPlay={autoplay}
           playsInline
@@ -1248,16 +1318,18 @@ export default function VideoPlayer({
             maxHeight: viewportWidth <= MOBILE_SCREEN_WIDTH ? "100dvh" : undefined,
           }}
         >
-          {subtitleTracks.map((track) => (
-            <track
-              key={`${track.lang}-${track.url}`}
-              kind="subtitles"
-              src={track.url}
-              srcLang={track.lang || undefined}
-              label={track.label || track.lang}
-              default={activeSubtitle !== "off" && (track.lang === activeSubtitle || track.label === activeSubtitle)}
-            />
-          ))}
+          {subtitleTracks
+            .filter((track) => Boolean(track?.url))
+            .map((track) => (
+              <track
+                key={`${track.lang}-${track.url}`}
+                kind="subtitles"
+                src={track.url}
+                srcLang={track.lang || undefined}
+                label={track.label || track.lang}
+                default={activeSubtitle !== "off" && (track.lang === activeSubtitle || track.label === activeSubtitle)}
+              />
+            ))}
         </video>
       ) : (
         // Custom player untuk browser lain
@@ -1266,6 +1338,7 @@ export default function VideoPlayer({
           className="w-full h-full object-contain bg-black"
           poster={poster || undefined}
           title={title}
+          crossOrigin="anonymous"
           muted={isMuted}
           playsInline
           x-webkit-airplay="allow"
@@ -1274,16 +1347,18 @@ export default function VideoPlayer({
           disablePictureInPicture
           controlsList="nodownload noplaybackrate"
         >
-          {subtitleTracks.map((track) => (
-            <track
-              key={`${track.lang}-${track.url}`}
-              kind="subtitles"
-              src={track.url}
-              srcLang={track.lang || undefined}
-              label={track.label || track.lang}
-              default={activeSubtitle !== "off" && (track.lang === activeSubtitle || track.label === activeSubtitle)}
-            />
-          ))}
+          {subtitleTracks
+            .filter((track) => Boolean(track?.url))
+            .map((track) => (
+              <track
+                key={`${track.lang}-${track.url}`}
+                kind="subtitles"
+                src={track.url}
+                srcLang={track.lang || undefined}
+                label={track.label || track.lang}
+                default={activeSubtitle !== "off" && (track.lang === activeSubtitle || track.label === activeSubtitle)}
+              />
+            ))}
         </video>
       )}
 
@@ -1303,23 +1378,26 @@ export default function VideoPlayer({
             {subtitleLines.map((line, index) => (
               <span
                 key={`${index}-${line}`}
-                className={`text-white font-bold px-3 py-1 rounded-lg ${isFullscreen ? "bg-black/40 backdrop-blur-sm" : ""}`}
+                className={`text-white font-bold px-3 py-1 rounded-lg ${subtitleSizeClass || ""} ${isFullscreen ? "bg-black/40 backdrop-blur-sm" : ""}`}
                 style={{
                   textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
-                  fontSize:
-                    viewportWidth < 500
-                      ? "4vw"
-                      : viewportWidth < 900
-                      ? isFullscreen
-                        ? "3vw"
-                        : "2.5vw"
-                      : viewportWidth < 1600
-                      ? isFullscreen
-                        ? "2vw"
-                        : "1.5vw"
-                      : isFullscreen
-                      ? "1.5vw"
-                      : "1vw",
+                  fontSize: (() => {
+                    const baseVw =
+                      viewportWidth < 500
+                        ? 4
+                        : viewportWidth < 900
+                        ? isFullscreen
+                          ? 3
+                          : 2.5
+                        : viewportWidth < 1600
+                        ? isFullscreen
+                          ? 2
+                          : 1.5
+                        : isFullscreen
+                        ? 1.5
+                        : 1;
+                    return `${+(baseVw * subtitleSizeScale).toFixed(2)}vw`;
+                  })(),
                   maxWidth: "90%",
                   wordBreak: "break-word",
                 }}

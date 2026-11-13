@@ -1,5 +1,8 @@
 import CardPoster from "../../../../components/CardPoster";
 
+export const revalidate = 60;
+export const metadata = { title: "Trending - Kstream" };
+
 let getTrending;
 
 async function loadTrending() {
@@ -8,13 +11,11 @@ async function loadTrending() {
       ({ getTrending } = await import("../../../../lib/firestoreServer"));
     } catch (error) {
       console.warn("Firestore admin belum siap:", error.message);
-      getTrending = async () => [];
+      return [];
     }
   }
   return getTrending(48).catch(() => []);
 }
-
-export const metadata = { title: "Trending - Kstream" };
 
 export default async function TrendingPage() {
   const trending = await loadTrending();

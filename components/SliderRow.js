@@ -74,7 +74,7 @@ export default function SliderRow({
       </div>
       <div className="relative">
         {arrowButtons}
-        <div ref={scrollRef} className="-mx-4 overflow-x-auto scroll-smooth pb-4">
+        <div ref={scrollRef} className="-mx-4 -my-4 overflow-x-auto scroll-smooth py-8">
           <div className="flex gap-4 px-4">
             {hasItems
               ? items.map((item) => (

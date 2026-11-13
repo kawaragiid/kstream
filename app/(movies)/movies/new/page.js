@@ -1,5 +1,8 @@
 import CardPoster from "../../../../components/CardPoster";
 
+export const revalidate = 60;
+export const metadata = { title: "Baru Rilis - Kstream" };
+
 let getNewReleases;
 
 async function loadNew() {
@@ -8,13 +11,11 @@ async function loadNew() {
       ({ getNewReleases } = await import("../../../../lib/firestoreServer"));
     } catch (error) {
       console.warn("Firestore admin belum siap:", error.message);
-      getNewReleases = async () => [];
+      return [];
     }
   }
   return getNewReleases(48).catch(() => []);
 }
-
-export const metadata = { title: "Baru Rilis - Kstream" };
 
 export default async function NewMoviesPage() {
   const releases = await loadNew();

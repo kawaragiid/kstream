@@ -25,6 +25,19 @@ export default function WatchPlayer({
   const autoAdvanceRef = useRef(null);
 
   useEffect(() => {
+    lastUpdateRef.current = 0;
+  }, [video?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceRef.current) {
+        window.clearTimeout(autoAdvanceRef.current);
+        autoAdvanceRef.current = null;
+      }
+    };
+  }, [video?.id]);
+
+  useEffect(() => {
     if (!user || !video?.id) return;
     saveHistoryProgress(
       user.uid,
@@ -32,12 +45,6 @@ export default function WatchPlayer({
       { progress: 0, position: 0, duration: video.duration || 0 },
       { preserveExisting: true }
     ).catch(() => undefined);
-    return () => {
-      if (autoAdvanceRef.current) {
-        window.clearTimeout(autoAdvanceRef.current);
-        autoAdvanceRef.current = null;
-      }
-    };
   }, [user, video]);
 
   const handleProgress = useCallback(({ currentTime, duration }) => {

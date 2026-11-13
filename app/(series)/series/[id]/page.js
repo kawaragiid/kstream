@@ -4,25 +4,33 @@ import { notFound } from "next/navigation";
 import EpisodeList from "../../../../components/EpisodeList";
 import FavoriteButton from "../../../../components/FavoriteButton";
 
-let getVideoById;
-let getSeriesEpisodes;
+let firestoreModule = null;
 
 async function ensureFirestore() {
-  if (!getVideoById || !getSeriesEpisodes) {
+  if (!firestoreModule) {
     try {
-      ({ getVideoById, getSeriesEpisodes } = await import("../../../../lib/firestoreServer"));
+      firestoreModule = await import("../../../../lib/firestoreServer");
     } catch (error) {
       console.warn("Firestore admin belum siap:", error.message);
-      getVideoById = async () => null;
-      getSeriesEpisodes = async () => [];
+      return {
+        getVideoById: async () => null,
+        getSeriesEpisodes: async () => [],
+      };
     }
   }
+  return firestoreModule;
 }
 
 export default async function SeriesDetailPage({ params }) {
-  await ensureFirestore();
-  const { id } = await params;
-  const series = await getVideoById(id);
+  const { getVideoById, getSeriesEpisodes } = await ensureFirestore();
+  const { id: rawId } = await params;
+  let id = rawId || "";
+  try {
+    id = decodeURIComponent(rawId || "");
+  } catch {
+    id = rawId || "";
+  }
+  const series = await getVideoById(id, "series").catch(() => null);
 
   if (!series || series.type !== "series") {
     notFound();
