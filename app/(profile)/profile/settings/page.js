@@ -4,11 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useAuth } from "../../../../hooks/useAuth";
 import { resetPassword, updateProfile } from "../../../../lib/auth";
 import { updateUserProfileDoc } from "../../../../lib/firestore";
-import { getDb, getFirebaseStorage } from "../../../../lib/firebase";
+import { getDb } from "../../../../lib/firebase";
 
 const PLACEHOLDER_AVATAR =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="160" height="160" fill="%23111827"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23FFFFFF" font-size="24" font-family="Arial, sans-serif">Avatar</text></svg>';
@@ -138,31 +137,6 @@ export default function ProfileSettingsPage() {
     }));
   };
 
-  const handleFileChange = (event) => {
-    const selected = event.target.files?.[0] || null;
-    setFile(selected);
-    if (selected) {
-      setPhotoUrlInput("");
-      setProfileMessage("");
-      setProfileError("");
-    }
-  };
-
-  const uploadFileIfNeeded = async () => {
-    if (!file || !user) return null;
-    setUploading(true);
-    try {
-      const storage = getFirebaseStorage();
-      const extension = file.name?.split?.(".")?.pop?.() || "jpg";
-      const path = `profilePictures/${user.uid}/${Date.now()}.${extension}`;
-      const storageRef = ref(storage, path);
-      await uploadBytes(storageRef, file, { contentType: file.type });
-      return await getDownloadURL(storageRef);
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const handleSaveProfile = async (event) => {
     event.preventDefault();
     if (!user) return;
@@ -172,14 +146,13 @@ export default function ProfileSettingsPage() {
 
     try {
       let nextPhotoUrl = photoUrl;
+      const typedUrl = photoUrlInput.trim();
 
-      if (file) {
-        const uploadedUrl = await uploadFileIfNeeded();
-        if (uploadedUrl) {
-          nextPhotoUrl = uploadedUrl;
+      if (typedUrl) {
+        if (!/^https:\/\//i.test(typedUrl)) {
+          throw new Error("URL foto profil harus diawali https://");
         }
-      } else if (photoUrlInput.trim()) {
-        nextPhotoUrl = photoUrlInput.trim();
+        nextPhotoUrl = typedUrl;
       }
 
       await updateProfile(user, {
@@ -374,17 +347,9 @@ export default function ProfileSettingsPage() {
             <div className="relative h-60 w-60 overflow-hidden rounded-full border border-white/10 bg-surface-100">
               <img src={previewPhoto} alt="Foto profil" className="h-full w-full object-cover" />
             </div>
-            <label className="block text-sm font-medium text-white/70">
-              Unggah foto baru
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="mt-2 w-full text-xs text-white/70 file:mr-4 file:rounded-full file:border-0 file:bg-brand file:px-4 file:py-2 file:text-xs file:font-semibold file:text-white"
-              />
-            </label>
-            <p className="text-xs text-white/50">Atau tempel URL gambar di kolom sebelah. Ukuran ideal 400x400px.</p>
-            {uploading && <p className="text-xs text-white/50">Mengunggah foto...</p>}
+            <p className="text-xs text-white/50">
+              Tempel URL gambar (https://) di kolom sebelah. Login dengan Google otomatis memakai foto akun Google-mu.
+            </p>
           </div>
 
           <div className="space-y-5">
