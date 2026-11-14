@@ -242,22 +242,20 @@ export default function ProfileSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#050509] via-[#0f172a] to-black text-white">
-        <header className="flex items-center justify-between px-6 py-6">
-          <Link href="/" className="text-2xl font-bold tracking-tight text-white">
-            Kstream
+      <div className="min-h-screen bg-[#141414] text-white">
+        <header className="border-b border-white/10 px-4 sm:px-8 lg:px-12 py-4 flex items-center justify-between">
+          <Link href="/" className="text-2xl font-black uppercase tracking-[-0.04em] text-[#E50914]">
+            KSTREAM
           </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 hover:border-white/40 hover:text-white"
-            >
-              &larr; Kembali ke beranda
-            </Link>
-          </div>
+          <Link
+            href="/"
+            className="rounded-[4px] border border-white/25 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-white/85 transition hover:border-white hover:text-white"
+          >
+            Kembali ke Beranda
+          </Link>
         </header>
-        <main className="mx-auto max-w-4xl px-6 pb-16">
-          <p className="mt-20 text-center text-white/60">Memuat pengaturan...</p>
+        <main className="mx-auto max-w-4xl px-4 sm:px-6 pb-16">
+          <p className="mt-20 text-center text-white/60">Memuat profil...</p>
         </main>
       </div>
     );
@@ -265,35 +263,33 @@ export default function ProfileSettingsPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#050509] via-[#0f172a] to-black text-white">
-        <header className="flex items-center justify-between px-6 py-6">
-          <Link href="/" className="text-2xl font-bold tracking-tight text-white">
-            Kstream
+      <div className="min-h-screen bg-[#141414] text-white">
+        <header className="border-b border-white/10 px-4 sm:px-8 lg:px-12 py-4 flex items-center justify-between">
+          <Link href="/" className="text-2xl font-black uppercase tracking-[-0.04em] text-[#E50914]">
+            KSTREAM
           </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 hover:border-white/40 hover:text-white"
-            >
-              &larr; Kembali ke beranda
-            </Link>
-          </div>
+          <Link
+            href="/"
+            className="rounded-[4px] border border-white/25 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-white/85 transition hover:border-white hover:text-white"
+          >
+            Kembali ke Beranda
+          </Link>
         </header>
-        <main className="mx-auto max-w-4xl px-6 pb-16">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-10 text-center backdrop-blur">
-            <h1 className="text-3xl font-semibold text-white">Masuk untuk mengatur profilmu</h1>
-            <p className="mt-3 text-sm text-white/60">Halaman ini hanya tersedia untuk pengguna yang telah masuk.</p>
-            <div className="mt-6 flex justify-center gap-4">
+        <main className="mx-auto max-w-lg px-4 py-16">
+          <div className="rounded-md border border-white/10 bg-[#181818] p-8 sm:p-10 text-center shadow-2xl">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">Masuk untuk Mengelola Profil</h1>
+            <p className="mt-3 text-sm text-white/65">Halaman ini hanya tersedia untuk akun yang sudah masuk.</p>
+            <div className="mt-6 flex justify-center gap-3">
               <Link
                 href="/login"
-                className="rounded-full bg-brand px-6 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-brand/80"
+                className="rounded-[4px] bg-[#E50914] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#f6121d]"
               >
-                Masuk sekarang
+                Masuk Sekarang
               </Link>
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="rounded-full border border-white/20 px-6 py-2 text-sm font-semibold text-white/80 hover:border-white/40 hover:text-white"
+                className="rounded-[4px] border border-white/25 px-5 py-2.5 text-sm font-semibold text-white/80 hover:border-white hover:text-white"
               >
                 Batal
               </button>
@@ -305,91 +301,116 @@ export default function ProfileSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#050509] via-[#0f172a] to-black text-white">
-      <header className="flex items-center justify-between px-6 py-6">
-        <Link href="/" className="text-2xl font-bold tracking-tight text-white">
-          Kstream
+    <div className="min-h-screen bg-[#141414] text-white">
+      <header className="border-b border-white/10 bg-black/40 px-4 sm:px-8 lg:px-12 py-4 flex items-center justify-between gap-4">
+        <Link href="/" className="text-2xl font-black uppercase tracking-[-0.04em] text-[#E50914]">
+          KSTREAM
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link
+            href="/profile/favorites"
+            className="hidden sm:inline-flex rounded-[4px] px-3 py-1.5 text-xs font-medium text-white/75 transition hover:text-white"
+          >
+            Daftar Saya
+          </Link>
+          <Link
+            href="/profile/history"
+            className="hidden sm:inline-flex rounded-[4px] px-3 py-1.5 text-xs font-medium text-white/75 transition hover:text-white"
+          >
+            Riwayat
+          </Link>
           <Link
             href="/"
-            className="rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 hover:border-white/40 hover:text-white"
+            className="rounded-[4px] border border-white/25 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-white/85 transition hover:border-white hover:text-white"
           >
-            &larr; Kembali ke beranda
+            &larr; Beranda
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-6 pb-16">
-        <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-2xl backdrop-blur">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-2xl font-semibold text-white">
-                {avatarInitial}
-              </div>
-              <div>
-                <h1 className="text-3xl font-semibold text-white">Pengaturan Profil</h1>
-                <p className="text-sm text-white/60">{user.email}</p>
-              </div>
-            </div>
-          </div>
-        </section>
+      <main className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-10 space-y-10">
+        {/* Netflix Edit Profile Header */}
+        <div className="border-b border-[#2b2b2b] pb-5">
+          <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">Edit Profil</h1>
+          <p className="mt-1 text-sm text-white/60">{user.email}</p>
+        </div>
 
+        {/* Netflix Profile Identity Form */}
         <form
           onSubmit={handleSaveProfile}
-          className="mt-10 grid gap-8 rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur lg:grid-cols-[320px,1fr]"
+          className="grid gap-8 border-b border-[#2b2b2b] pb-10 sm:grid-cols-[160px,1fr]"
         >
-          <div className="space-y-4">
-            <div className="relative h-60 w-60 overflow-hidden rounded-full border border-white/10 bg-surface-100">
-              <img src={previewPhoto} alt="Foto profil" className="h-full w-full object-cover" />
+          <div className="flex flex-col items-center sm:items-start gap-3">
+            <div className="relative h-32 w-32 sm:h-36 sm:w-36 overflow-hidden rounded-[6px] bg-gradient-to-br from-[#E50914] to-[#7f1d1d] ring-1 ring-white/20 shadow-lg">
+              {previewPhoto && previewPhoto !== PLACEHOLDER_AVATAR ? (
+                <img src={previewPhoto} alt="Foto profil" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-5xl font-black text-white">
+                  {avatarInitial}
+                </div>
+              )}
+              <span
+                aria-hidden="true"
+                className="absolute bottom-2 left-2 flex h-7 w-7 items-center justify-center rounded-full border border-white/60 bg-black/75 text-white shadow"
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+              </span>
             </div>
-            <p className="text-xs text-white/50">
-              Tempel URL gambar (https://) di kolom sebelah. Login dengan Google otomatis memakai foto akun Google-mu.
+            <p className="text-[11px] leading-relaxed text-white/45 text-center sm:text-left">
+              Tempel URL gambar (https://) atau gunakan foto akun Google.
             </p>
           </div>
 
-          <div className="space-y-5">
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-white/70">Nama tampilan</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-white/60">
+                Nama Profil
+              </label>
               <input
                 name="displayName"
                 value={form.displayName}
                 onChange={handleInputChange}
                 placeholder="Nama tampilan"
-                className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-base text-white focus:border-brand focus:outline-none"
+                className="mt-1.5 w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-2.5 text-sm sm:text-base text-white placeholder:text-white/40 focus:border-white focus:bg-[#404040] focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-white/70">Tagline</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-white/60">
+                Bio / Tagline
+              </label>
               <textarea
                 name="tagline"
                 value={form.tagline}
                 onChange={handleInputChange}
-                rows={3}
-                placeholder="Ceritakan sedikit tentang preferensimu"
-                className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-base text-white focus:border-brand focus:outline-none"
+                rows={2}
+                placeholder="Ceritakan sedikit tentang tontonan favoritmu"
+                className="mt-1.5 w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-2.5 text-sm sm:text-base text-white placeholder:text-white/40 focus:border-white focus:bg-[#404040] focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-white/70">URL foto profil</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-white/60">
+                URL Foto Profil
+              </label>
               <input
                 value={photoUrlInput}
                 onChange={(event) => setPhotoUrlInput(event.target.value)}
                 placeholder="https://"
-                className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-base text-white focus:border-brand focus:outline-none"
+                className="mt-1.5 w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-2.5 text-sm sm:text-base text-white placeholder:text-white/40 focus:border-white focus:bg-[#404040] focus:outline-none"
               />
             </div>
 
-            {profileMessage && <p className="text-sm text-emerald-300">{profileMessage}</p>}
-            {profileError && <p className="text-sm text-rose-300">{profileError}</p>}
+            {profileMessage && <p className="text-sm text-[#46d369]">{profileMessage}</p>}
+            {profileError && <p className="text-sm text-rose-400">{profileError}</p>}
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 pt-2">
               <button
                 type="submit"
-                className="inline-flex items-center rounded-full bg-brand px-6 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-brand/80 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center rounded-[2px] bg-white px-6 py-2 text-sm font-bold text-black transition hover:bg-[#E50914] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={savingProfile || uploading}
               >
-                {savingProfile ? "Menyimpan..." : "Simpan profil"}
+                {savingProfile ? "Menyimpan..." : "Simpan"}
               </button>
               <button
                 type="button"
@@ -400,7 +421,7 @@ export default function ProfileSettingsPage() {
                   setProfileMessage("");
                   setProfileError("");
                 }}
-                className="inline-flex items-center rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:text-white"
+                className="inline-flex items-center rounded-[2px] border border-[#808080] px-5 py-2 text-sm font-semibold text-[#b3b3b3] transition hover:border-white hover:text-white"
               >
                 Reset
               </button>
@@ -408,89 +429,91 @@ export default function ProfileSettingsPage() {
           </div>
         </form>
 
-        <form
-          onSubmit={handleSavePreferences}
-          className="mt-10 space-y-6 rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur"
-        >
-          <h2 className="text-lg font-semibold text-white">Preferensi Pemutaran</h2>
-          <p className="text-sm text-white/60">Sesuaikan pengalaman menonton sesuai kebiasaanmu.</p>
+        {/* Netflix Playback Preferences */}
+        <form onSubmit={handleSavePreferences} className="space-y-6 border-b border-[#2b2b2b] pb-10">
+          <div>
+            <h2 className="text-xl font-semibold text-white">Pengaturan Pemutaran</h2>
+            <p className="mt-1 text-sm text-white/60">Sesuaikan autoplay, kualitas data, dan bahasa subtitle utama.</p>
+          </div>
 
-          <div className="space-y-5">
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4 rounded-[4px] border border-white/10 bg-[#181818] p-4">
               <div>
-                <p className="text-sm font-medium text-white">Autoplay episode berikutnya</p>
-                <p className="text-xs text-white/50">Putar otomatis episode lanjutan ketika episode saat ini selesai.</p>
+                <p className="text-sm font-medium text-white">Putar otomatis episode berikutnya</p>
+                <p className="text-xs text-white/50">Lanjutkan episode berikutnya secara otomatis saat episode selesai.</p>
               </div>
               <button
                 type="button"
                 onClick={() => handleToggle("autoplay")}
                 aria-pressed={form.autoplay}
-                className={`relative h-8 w-14 rounded-full border transition ${
-                  form.autoplay ? "border-brand bg-brand/90" : "border-white/20 bg-white/10"
+                className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
+                  form.autoplay ? "border-[#E50914] bg-[#E50914]" : "border-white/25 bg-[#333333]"
                 }`}
               >
                 <span
-                  className={`absolute top-0.5 h-7 w-7 transform rounded-full bg-white shadow transition ${
-                    form.autoplay ? "translate-x-6" : "translate-x-1"
+                  className={`absolute top-0.5 h-5 w-5 transform rounded-full bg-white shadow transition ${
+                    form.autoplay ? "translate-x-6" : "translate-x-0.5"
                   }`}
                 />
               </button>
             </div>
 
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="flex items-center justify-between gap-4 rounded-[4px] border border-white/10 bg-[#181818] p-4">
               <div>
                 <p className="text-sm font-medium text-white">Mode hemat data</p>
-                <p className="text-xs text-white/50">Prioritaskan streaming dengan bit-rate lebih rendah.</p>
+                <p className="text-xs text-white/50">Prioritaskan streaming dengan bitrate lebih hemat.</p>
               </div>
               <button
                 type="button"
                 onClick={() => handleToggle("dataSaver")}
                 aria-pressed={form.dataSaver}
-                className={`relative h-8 w-14 rounded-full border transition ${
-                  form.dataSaver ? "border-brand bg-brand/90" : "border-white/20 bg-white/10"
+                className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
+                  form.dataSaver ? "border-[#E50914] bg-[#E50914]" : "border-white/25 bg-[#333333]"
                 }`}
               >
                 <span
-                  className={`absolute top-0.5 h-7 w-7 transform rounded-full bg-white shadow transition ${
-                    form.dataSaver ? "translate-x-6" : "translate-x-1"
+                  className={`absolute top-0.5 h-5 w-5 transform rounded-full bg-white shadow transition ${
+                    form.dataSaver ? "translate-x-6" : "translate-x-0.5"
                   }`}
                 />
               </button>
             </div>
 
-            <label className="flex flex-col gap-2 text-sm text-white/70">
-              Bahasa subtitle utama
-              <select
-                name="preferredLanguage"
-                value={form.preferredLanguage}
-                onChange={handleInputChange}
-                disabled={loadingPreferences || savingPreferences}
-                className="rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-base text-white focus:border-brand focus:outline-none"
-              >
-                {languageOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="grid gap-4 sm:grid-cols-2 pt-2">
+              <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/60">
+                Bahasa Subtitle Utama
+                <select
+                  name="preferredLanguage"
+                  value={form.preferredLanguage}
+                  onChange={handleInputChange}
+                  disabled={loadingPreferences || savingPreferences}
+                  className="rounded-[4px] border border-white/15 bg-[#333333] px-3.5 py-2.5 text-sm font-normal text-white focus:border-white focus:outline-none"
+                >
+                  {languageOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="flex flex-col gap-2 text-sm text-white/70">
-              Tampilan aplikasi
-              <select
-                name="theme"
-                value={form.theme}
-                onChange={handleInputChange}
-                disabled={loadingPreferences || savingPreferences}
-                className="rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-base text-white focus:border-brand focus:outline-none"
-              >
-                {themeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/60">
+                Tampilan Aplikasi
+                <select
+                  name="theme"
+                  value={form.theme}
+                  onChange={handleInputChange}
+                  disabled={loadingPreferences || savingPreferences}
+                  className="rounded-[4px] border border-white/15 bg-[#333333] px-3.5 py-2.5 text-sm font-normal text-white focus:border-white focus:outline-none"
+                >
+                  {themeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -502,48 +525,41 @@ export default function ProfileSettingsPage() {
             </div>
             <button
               type="submit"
-              className="rounded-full bg-brand px-6 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-brand/80 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-[2px] bg-white px-6 py-2 text-sm font-bold text-black transition hover:bg-[#E50914] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
               disabled={savingPreferences || loadingPreferences}
             >
-              {savingPreferences ? "Menyimpan..." : "Simpan preferensi"}
+              {savingPreferences ? "Menyimpan..." : "Simpan Preferensi"}
             </button>
           </div>
         </form>
 
-        <section className="mt-10 grid gap-6 lg:grid-cols-2">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 backdrop-blur">
-            <h2 className="text-lg font-semibold text-white">Keamanan Akun</h2>
-            <p className="mt-1 text-sm text-white/60">Kelola akses masuk dan keamanan kredensialmu.</p>
-            <div className="mt-5 space-y-4">
-              <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div>
-                  <p className="text-sm font-medium text-white">Reset kata sandi</p>
-                  <p className="text-xs text-white/50">Kami akan mengirim tautan reset ke {user.email}.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handlePasswordReset}
-                  disabled={securityLoading}
-                  className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {securityLoading ? "Mengirim..." : "Kirim email"}
-                </button>
-              </div>
-            </div>
+        {/* Netflix Account Security & Danger Zone */}
+        <section className="grid gap-5 sm:grid-cols-2">
+          <div className="rounded-[4px] border border-white/10 bg-[#181818] p-5">
+            <h2 className="text-base font-semibold text-white">Keamanan Akun</h2>
+            <p className="mt-1 text-xs text-white/55">Kirim tautan reset kata sandi ke {user.email}.</p>
+            <button
+              type="button"
+              onClick={handlePasswordReset}
+              disabled={securityLoading}
+              className="mt-4 rounded-[2px] border border-[#808080] px-4 py-2 text-xs font-semibold text-white transition hover:border-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {securityLoading ? "Mengirim..." : "Kirim Email Reset Kata Sandi"}
+            </button>
           </div>
 
-          <div className="rounded-3xl border border-rose-500/40 bg-rose-500/10 p-6 backdrop-blur">
-            <h2 className="text-lg font-semibold text-rose-100">Zona Berbahaya</h2>
-            <p className="mt-1 text-sm text-rose-200/80">
-              Menghapus riwayat tontonan akan menghilangkan rekomendasi personal dan posisi terakhir tontonanmu.
+          <div className="rounded-[4px] border border-[#E50914]/40 bg-[#181818] p-5">
+            <h2 className="text-base font-semibold text-white">Riwayat Tontonan</h2>
+            <p className="mt-1 text-xs text-white/55">
+              Menghapus seluruh riwayat tontonan dan posisi terakhir pemutaran.
             </p>
             <button
               type="button"
               onClick={handleClearHistory}
               disabled={dangerLoading}
-              className="mt-5 rounded-full border border-rose-400 px-4 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-4 rounded-[2px] border border-[#E50914]/70 px-4 py-2 text-xs font-semibold text-[#ff6b6b] transition hover:bg-[#E50914] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {dangerLoading ? "Menghapus..." : "Hapus riwayat tontonan"}
+              {dangerLoading ? "Menghapus..." : "Hapus Riwayat Tontonan"}
             </button>
           </div>
         </section>
