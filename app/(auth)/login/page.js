@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { login, loginWithGoogle } from '../../../lib/auth';
+import { login, loginWithGoogle, logout } from '../../../lib/auth';
+import { readUserDoc, updateUserProfileDoc } from '../../../lib/firestore';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,13 +14,35 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const syncUserOnLogin = async (firebaseUser) => {
+    if (!firebaseUser?.uid) return true;
+    try {
+      const { data: existingData } = await readUserDoc(firebaseUser.uid);
+      if (existingData?.isActive === false || existingData?.status === 'suspend') {
+        await logout();
+        setError('Akun Anda sedang dinonaktifkan oleh admin.');
+        return false;
+      }
+      await updateUserProfileDoc(firebaseUser.uid, {
+        email: firebaseUser.email || existingData?.email || '',
+        displayName: existingData?.displayName || firebaseUser.displayName || '',
+        photoURL: firebaseUser.photoURL || existingData?.photoURL || null,
+        ...(existingData?.role ? {} : { role: 'pelanggan' }),
+      });
+    } catch {
+      // Jangan blokir login jika sinkronisasi non-kritis gagal
+    }
+    return true;
+  };
+
   const onSubmit = async (event) => {
     event.preventDefault();
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
-      router.push('/');
+      const credential = await login(email, password);
+      const allowed = await syncUserOnLogin(credential?.user);
+      if (allowed) router.push('/');
     } catch (err) {
       setError(err.message || 'Gagal masuk.');
     } finally {
@@ -31,8 +54,9 @@ export default function LoginPage() {
     setError('');
     setGoogleLoading(true);
     try {
-      await loginWithGoogle();
-      router.push('/');
+      const credential = await loginWithGoogle();
+      const allowed = await syncUserOnLogin(credential?.user);
+      if (allowed) router.push('/');
     } catch (err) {
       setError(err.message || 'Gagal masuk dengan Google.');
     } finally {

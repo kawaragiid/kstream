@@ -23,10 +23,66 @@ export default function WatchPlayer({
   const router = useRouter();
   const lastUpdateRef = useRef(0);
   const autoAdvanceRef = useRef(null);
+  const viewTrackedKeyRef = useRef('');
+  const lastTrackedTimeRef = useRef(0);
+  const pendingWatchSecondsRef = useRef(0);
+
+  const contentId = series?.id || video?.id || '';
+  const contentSlug = series?.slug || video?.slug || contentId;
+  const contentType = series ? 'series' : (video?.type === 'series' ? 'series' : 'movie');
+
+  const sendAnalyticsPing = useCallback(
+    ({ isNewView = false, watchSeconds = 0, beacon = false } = {}) => {
+      if (!contentId && !contentSlug) return;
+      if (!isNewView && watchSeconds < 1) return;
+      const payload = JSON.stringify({
+        id: contentId,
+        slug: contentSlug,
+        type: contentType,
+        title: series?.title || video?.title || '',
+        isNewView,
+        watchSeconds: Math.round(watchSeconds),
+      });
+      if (beacon && typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        const blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon('/api/analytics/view', blob);
+        return;
+      }
+      fetch('/api/analytics/view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        keepalive: true,
+      }).catch(() => undefined);
+    },
+    [contentId, contentSlug, contentType, series?.title, video?.title]
+  );
 
   useEffect(() => {
     lastUpdateRef.current = 0;
+    lastTrackedTimeRef.current = 0;
+    pendingWatchSecondsRef.current = 0;
   }, [video?.id]);
+
+  useEffect(() => {
+    const sessionKey = `${contentType}:${contentId}:${currentEpisode?.id || 'main'}`;
+    if (!contentId || viewTrackedKeyRef.current === sessionKey) return;
+    viewTrackedKeyRef.current = sessionKey;
+    sendAnalyticsPing({ isNewView: true, watchSeconds: 0 });
+  }, [contentId, contentType, currentEpisode?.id, sendAnalyticsPing]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingWatchSecondsRef.current >= 5) {
+        sendAnalyticsPing({
+          isNewView: false,
+          watchSeconds: pendingWatchSecondsRef.current,
+          beacon: true,
+        });
+        pendingWatchSecondsRef.current = 0;
+      }
+    };
+  }, [video?.id, sendAnalyticsPing]);
 
   useEffect(() => {
     return () => {
@@ -48,6 +104,18 @@ export default function WatchPlayer({
   }, [user, video]);
 
   const handleProgress = useCallback(({ currentTime, duration }) => {
+    if (typeof currentTime === 'number' && currentTime >= 0) {
+      const delta = currentTime - lastTrackedTimeRef.current;
+      if (delta > 0 && delta < 30) {
+        pendingWatchSecondsRef.current += delta;
+      }
+      lastTrackedTimeRef.current = currentTime;
+      if (pendingWatchSecondsRef.current >= 30) {
+        const toSend = pendingWatchSecondsRef.current;
+        pendingWatchSecondsRef.current = 0;
+        sendAnalyticsPing({ isNewView: false, watchSeconds: toSend });
+      }
+    }
     if (!user || !video?.id || !duration) return;
     const now = Date.now();
     const progressRatio = Math.min(currentTime / duration, 1);
@@ -59,7 +127,7 @@ export default function WatchPlayer({
       position: currentTime,
       duration,
     }).catch(() => undefined);
-  }, [user, video]);
+  }, [user, video, sendAnalyticsPing]);
 
   const handleEnded = useCallback(() => {
     if (!user || !video?.id) return;

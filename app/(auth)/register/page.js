@@ -27,6 +27,7 @@ export default function RegisterPage() {
       const credential = await register(email, password);
       try {
         await updateUserProfileDoc(credential.user.uid, {
+          email: credential.user.email || email.trim(),
           role: "pelanggan",
           displayName: displayName.trim() || null,
         });
@@ -50,7 +51,9 @@ export default function RegisterPage() {
       try {
         const { data: existingData } = await readUserDoc(credential.user.uid);
         const profilePayload = {
+          email: credential.user.email || existingData?.email || "",
           displayName: existingData?.displayName || credential.user.displayName || null,
+          photoURL: credential.user.photoURL || existingData?.photoURL || null,
         };
         if (!existingData?.role) {
           profilePayload.role = "pelanggan";
