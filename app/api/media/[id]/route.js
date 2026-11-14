@@ -50,7 +50,7 @@ async function resolvePlaybackAuthorization(request, isPremiumContent) {
       return { hasAuthHeader: true, authorized: false };
     }
     const row = rows[0];
-    if (row.is_active === false) {
+    if (row.is_active === false || row.data?.status === "suspend") {
       return { hasAuthHeader: true, authorized: false };
     }
     const role = String(row.role || row.data?.role || "").toLowerCase();
