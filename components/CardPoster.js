@@ -28,9 +28,14 @@ function getPreviewSources(item = {}) {
   const lowerTrailer = trailer.toLowerCase();
   const isGif = lowerTrailer.includes(".gif");
   const isVideo = lowerTrailer.includes(".mp4") || lowerTrailer.includes(".webm");
-  const fallbackGif = previewAnimation || (isGif ? trailer : "");
+  // Hemat biaya Mux: jangan auto-stream HLS (.m3u8) saat hover kartu karena memakan
+  // delivery minutes & mereset timer Automatic Cold Storage. Gunakan animated.gif ringan.
+  const muxGif = playbackId
+    ? `https://image.mux.com/${playbackId}/animated.gif?width=320&height=180&start=2&end=7&fps=10`
+    : "";
+  const fallbackGif = previewAnimation || (isGif ? trailer : "") || (!isVideo ? muxGif : "");
   const previewVideo = trailer && isVideo ? trailer : "";
-  const hlsUrl = !previewVideo && playbackId ? `https://stream.mux.com/${playbackId}.m3u8` : "";
+  const hlsUrl = "";
   const poster = item?.backdropUrl || item?.posterUrl || item?.thumbnailUrl || PLACEHOLDER_LANDSCAPE;
   return {
     previewVideo,
