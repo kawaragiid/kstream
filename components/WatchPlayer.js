@@ -1,10 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { saveHistoryProgress } from '../lib/firestore';
 import VideoPlayer from './VideoPlayer';
+
+const GUEST_DAILY_LIMIT = 1;
+const GUEST_PREVIEW_SECONDS = 180; // 3 menit preview untuk tamu tanpa login
 
 export default function WatchPlayer({
   video = {},
@@ -19,13 +23,14 @@ export default function WatchPlayer({
   autoplay = false,
   backHref,
 }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const lastUpdateRef = useRef(0);
   const autoAdvanceRef = useRef(null);
   const viewTrackedKeyRef = useRef('');
   const lastTrackedTimeRef = useRef(0);
   const pendingWatchSecondsRef = useRef(0);
+  const [guestLimitReason, setGuestLimitReason] = useState('');
 
   const contentId = series?.id || video?.id || '';
   const contentSlug = series?.slug || video?.slug || contentId;
@@ -65,11 +70,41 @@ export default function WatchPlayer({
   }, [video?.id]);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (user) {
+      setGuestLimitReason('');
+      return;
+    }
+    if (typeof window === 'undefined' || !contentId) return;
+    try {
+      const todayKey = `kstream_guest_watches_${new Date().toISOString().slice(0, 10)}`;
+      const sessionKey = `${contentType}:${contentId}:${currentEpisode?.id || 'main'}`;
+      const raw = window.localStorage.getItem(todayKey);
+      const list = raw ? JSON.parse(raw) : [];
+      const arr = Array.isArray(list) ? list : [];
+      if (arr.includes(sessionKey)) {
+        setGuestLimitReason('');
+        return;
+      }
+      if (arr.length >= GUEST_DAILY_LIMIT) {
+        setGuestLimitReason('daily');
+        return;
+      }
+      arr.push(sessionKey);
+      window.localStorage.setItem(todayKey, JSON.stringify(arr));
+      setGuestLimitReason('');
+    } catch {
+      setGuestLimitReason('');
+    }
+  }, [authLoading, user, contentType, contentId, currentEpisode?.id]);
+
+  useEffect(() => {
+    if (authLoading || guestLimitReason) return;
     const sessionKey = `${contentType}:${contentId}:${currentEpisode?.id || 'main'}`;
     if (!contentId || viewTrackedKeyRef.current === sessionKey) return;
     viewTrackedKeyRef.current = sessionKey;
     sendAnalyticsPing({ isNewView: true, watchSeconds: 0 });
-  }, [contentId, contentType, currentEpisode?.id, sendAnalyticsPing]);
+  }, [authLoading, guestLimitReason, contentId, contentType, currentEpisode?.id, sendAnalyticsPing]);
 
   useEffect(() => {
     return () => {
@@ -104,6 +139,11 @@ export default function WatchPlayer({
   }, [user, video]);
 
   const handleProgress = useCallback(({ currentTime, duration }) => {
+    if (!authLoading && !user && currentTime >= GUEST_PREVIEW_SECONDS) {
+      setGuestLimitReason('preview');
+      return;
+    }
+    if (!user || !video?.id || !duration) return;
     if (typeof currentTime === 'number' && currentTime >= 0) {
       const delta = currentTime - lastTrackedTimeRef.current;
       if (delta > 0 && delta < 30) {
@@ -116,7 +156,6 @@ export default function WatchPlayer({
         sendAnalyticsPing({ isNewView: false, watchSeconds: toSend });
       }
     }
-    if (!user || !video?.id || !duration) return;
     const now = Date.now();
     const progressRatio = Math.min(currentTime / duration, 1);
     if (progressRatio < 0.05 && lastUpdateRef.current !== 0) return;
@@ -127,7 +166,7 @@ export default function WatchPlayer({
       position: currentTime,
       duration,
     }).catch(() => undefined);
-  }, [user, video, sendAnalyticsPing]);
+  }, [authLoading, user, video, sendAnalyticsPing]);
 
   const handleEnded = useCallback(() => {
     if (!user || !video?.id) return;
@@ -187,6 +226,53 @@ export default function WatchPlayer({
       autoAdvanceRef.current = window.setTimeout(handleAutoAdvance, 2500);
     }
   }, [handleEnded, handleAutoAdvance, nextEpisode, autoplay]);
+
+  if (!authLoading && !user && guestLimitReason) {
+    return (
+      <div className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black px-4 text-white">
+        {poster && (
+          <img
+            src={poster}
+            alt={title || 'Preview'}
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 blur-xl scale-105"
+          />
+        )}
+        <div className="relative z-10 w-full max-w-md rounded-2xl border border-white/15 bg-black/75 p-7 text-center shadow-2xl backdrop-blur-2xl">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E50914]">
+            Akses Tamu Terbatas
+          </p>
+          <h2 className="mt-2 text-2xl font-bold text-white">
+            {guestLimitReason === 'preview'
+              ? 'Preview Tamu (3 Menit) Selesai'
+              : 'Batas Tontonan Tamu Tercapai'}
+          </h2>
+          <p className="mt-2.5 text-sm leading-relaxed text-white/70">
+            Pengguna tanpa login dibatasi 1 tontonan per hari (maks. 3 menit preview) untuk menghemat server &amp; database. Masuk atau daftar akun gratis untuk lanjut menonton penuh tanpa batas.
+          </p>
+          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
+            <Link
+              href="/login"
+              className="rounded-xl bg-[#E50914] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#f40612]"
+            >
+              Masuk Sekarang
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-xl border border-white/25 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/20"
+            >
+              Daftar Gratis
+            </Link>
+          </div>
+          <Link
+            href={backHref || video?.href || '/'}
+            className="mt-4 inline-block text-xs text-white/55 hover:text-white"
+          >
+            ← Kembali ke Katalog
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <VideoPlayer

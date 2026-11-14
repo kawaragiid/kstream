@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureNeonSchema, getSql, isNeonConfigured } from "@/lib/neonDb";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 function buildDefaultSummary() {
   return {
@@ -16,6 +17,10 @@ function buildDefaultSummary() {
 
 export async function POST(request) {
   try {
+    const rl = checkRateLimit(request, { key: "analytics-view", limit: 10, windowMs: 60_000 });
+    if (!rl.allowed) {
+      return NextResponse.json({ ok: true, rateLimited: true });
+    }
     const body = await request.json().catch(() => ({}));
     const id = String(body?.id || "").trim();
     const slug = String(body?.slug || id).trim();

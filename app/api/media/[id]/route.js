@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 let firestoreModule = null;
 
@@ -17,7 +18,15 @@ async function ensureFirestore() {
   return firestoreModule;
 }
 
-export async function GET(_request, context) {
+export async function GET(request, context) {
+  const rl = checkRateLimit(request, { key: "media", limit: 30, windowMs: 60_000 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Terlalu banyak permintaan. Coba lagi sebentar." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
+  }
+
   const { getVideoById, getSeriesEpisodes } = await ensureFirestore();
   const awaitedParams = await context?.params;
   const rawId = awaitedParams?.id || "";
@@ -43,10 +52,17 @@ export async function GET(_request, context) {
     episodes = await getSeriesEpisodes(video.id).catch(() => []);
   }
 
-  return NextResponse.json({
-    media: {
-      ...video,
-      episodes,
+  return NextResponse.json(
+    {
+      media: {
+        ...video,
+        episodes,
+      },
     },
-  });
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+      },
+    }
+  );
 }
