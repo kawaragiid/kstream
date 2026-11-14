@@ -298,12 +298,24 @@ export default function Navbar({ categories = [] }) {
 
           {/* Right Header Actions */}
           <div className="ml-auto flex items-center gap-2 sm:gap-4 text-sm">
-            {/* Netflix Inline Expandable Search */}
-            <div ref={searchRef} className="relative flex items-center">
+            {/* Mobile Direct Search Link (< sm) so inline input never squeezes the header */}
+            <Link
+              href="/search"
+              className="inline-flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-white transition hover:text-white/75 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/30 sm:hidden"
+              aria-label="Cari film atau series"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <circle cx="11" cy="11" r="7" />
+                <path strokeLinecap="round" d="M20 20l-3.5-3.5" />
+              </svg>
+            </Link>
+
+            {/* Netflix Inline Expandable Search (sm+) */}
+            <div ref={searchRef} className="relative hidden sm:flex items-center">
               {searchOpen ? (
                 <form
                   onSubmit={handleSearchSubmit}
-                  className="flex items-center border border-white/85 bg-black/85 px-2.5 py-1 transition-all duration-200 w-44 sm:w-64"
+                  className="flex items-center border border-white/85 bg-black/85 px-2.5 py-1 transition-all duration-200 w-56 md:w-64"
                 >
                   <button
                     type="submit"
@@ -454,39 +466,6 @@ export default function Navbar({ categories = [] }) {
           </div>
         </div>
 
-        {/* Netflix Mobile App Sub-Header Pill Row (Home only, hides smoothly on scroll) */}
-        {isHome && !scrolled && (
-          <div className="flex items-center gap-2 px-3.5 pb-2.5 pt-0.5 lg:hidden overflow-x-auto no-scrollbar">
-            <Link
-              href="/movies/trending"
-              className="shrink-0 rounded-full border border-white/30 bg-black/35 px-3.5 py-1 text-xs font-medium text-white/90 backdrop-blur-sm transition active:scale-95"
-            >
-              Trending
-            </Link>
-            <Link
-              href="/movies/new"
-              className="shrink-0 rounded-full border border-white/30 bg-black/35 px-3.5 py-1 text-xs font-medium text-white/90 backdrop-blur-sm transition active:scale-95"
-            >
-              Baru Rilis
-            </Link>
-            {categories.length > 0 && (
-              <button
-                type="button"
-                onClick={handleToggleMobileNav}
-                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/30 bg-black/35 px-3.5 py-1 text-xs font-medium text-white/90 backdrop-blur-sm transition active:scale-95"
-              >
-                <span>Kategori</span>
-                <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fillRule="evenodd"
-                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-            )}
-          </div>
-        )}
       </nav>
 
       {/* Fixed Slide-Over Drawer Modal (lg:hidden) */}
