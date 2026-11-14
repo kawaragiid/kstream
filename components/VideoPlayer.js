@@ -349,19 +349,6 @@ export default function VideoPlayer({
     }
   }, [isIOS]);
 
-  // Auto fullscreen & landscape ketika video dimulai di mobile / iOS
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handlePlay = () => {
-      enterMobileFullscreen();
-    };
-    const video = videoRef.current;
-    if (video) {
-      video.addEventListener("play", handlePlay);
-      return () => video.removeEventListener("play", handlePlay);
-    }
-  }, [enterMobileFullscreen, isIOS, videoSrc]);
-
   // Handle fullscreen changes and cleanup
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -441,6 +428,19 @@ export default function VideoPlayer({
     }
     return "";
   }, [playbackId, src, defaultSubtitleLang]);
+
+  // Auto fullscreen & landscape ketika video dimulai di mobile / iOS
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handlePlay = () => {
+      enterMobileFullscreen();
+    };
+    const video = videoRef.current;
+    if (video) {
+      video.addEventListener("play", handlePlay);
+      return () => video.removeEventListener("play", handlePlay);
+    }
+  }, [enterMobileFullscreen, isIOS, videoSrc]);
 
   const subtitleTracks = useMemo(() => {
     const unique = new Map();
