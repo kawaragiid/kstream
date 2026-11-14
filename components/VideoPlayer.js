@@ -422,11 +422,22 @@ export default function VideoPlayer({
     };
   }, [isIOS]);
 
-  // Handler untuk masuk ke mode landscape fullscreen di mobile (dipicu interaksi pengguna)
+  // Handler untuk masuk ke mode landscape fullscreen di mobile / native fullscreen di iOS
   const enterMobileFullscreen = useCallback(async () => {
     const video = videoRef.current;
     const container = containerRef.current || video;
-    if (!video || isIOS) return;
+    if (!video) return;
+
+    if (isIOS) {
+      try {
+        if (!video.webkitDisplayingFullscreen && typeof video.webkitEnterFullscreen === "function") {
+          video.webkitEnterFullscreen();
+        }
+      } catch {
+        // iOS membutuhkan user gesture langsung untuk webkitEnterFullscreen
+      }
+      return;
+    }
 
     try {
       if (window.innerWidth <= MOBILE_SCREEN_WIDTH) {
@@ -2030,7 +2041,7 @@ export default function VideoPlayer({
       }}
     >
       {isIOS ? (
-        // Native Safari iOS player
+        // Native Safari / WebKit iOS player (langsung buka native fullscreen saat play)
         <video
           ref={videoRef}
           className="w-full aspect-video sm:aspect-auto sm:h-full object-contain bg-black"
@@ -2041,9 +2052,6 @@ export default function VideoPlayer({
           preload="metadata"
           controls
           autoPlay={autoplay}
-          playsInline
-          webkit-playsinline="true"
-          x-webkit-playsinline="true"
           x-webkit-airplay="allow"
           style={{
             width: "100%",
