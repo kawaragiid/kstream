@@ -16,12 +16,6 @@ const languageOptions = [
   { value: "jp", label: "Bahasa Jepang" },
 ];
 
-const themeOptions = [
-  { value: "dark", label: "Tema Gelap" },
-  { value: "light", label: "Tema Terang" },
-  { value: "auto", label: "Ikuti Sistem" },
-];
-
 export default function ProfileSettingsPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
@@ -243,19 +237,8 @@ export default function ProfileSettingsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#141414] text-white">
-        <header className="border-b border-white/10 px-4 sm:px-8 lg:px-12 py-4 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-black uppercase tracking-[-0.04em] text-[#E50914]">
-            KSTREAM
-          </Link>
-          <Link
-            href="/"
-            className="rounded-[4px] border border-white/25 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-white/85 transition hover:border-white hover:text-white"
-          >
-            Kembali ke Beranda
-          </Link>
-        </header>
-        <main className="mx-auto max-w-4xl px-4 sm:px-6 pb-16">
-          <p className="mt-20 text-center text-white/60">Memuat profil...</p>
+        <main className="mx-auto max-w-4xl px-4 sm:px-6 pt-24 sm:pt-28 pb-16">
+          <p className="mt-10 text-center text-white/60">Memuat profil...</p>
         </main>
       </div>
     );
@@ -264,18 +247,7 @@ export default function ProfileSettingsPage() {
   if (!user) {
     return (
       <div className="min-h-screen bg-[#141414] text-white">
-        <header className="border-b border-white/10 px-4 sm:px-8 lg:px-12 py-4 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-black uppercase tracking-[-0.04em] text-[#E50914]">
-            KSTREAM
-          </Link>
-          <Link
-            href="/"
-            className="rounded-[4px] border border-white/25 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-white/85 transition hover:border-white hover:text-white"
-          >
-            Kembali ke Beranda
-          </Link>
-        </header>
-        <main className="mx-auto max-w-lg px-4 py-16">
+        <main className="mx-auto max-w-lg px-4 pt-24 sm:pt-28 pb-16">
           <div className="rounded-md border border-white/10 bg-[#181818] p-8 sm:p-10 text-center shadow-2xl">
             <h1 className="text-2xl sm:text-3xl font-bold text-white">Masuk untuk Mengelola Profil</h1>
             <p className="mt-3 text-sm text-white/65">Halaman ini hanya tersedia untuk akun yang sudah masuk.</p>
@@ -302,33 +274,7 @@ export default function ProfileSettingsPage() {
 
   return (
     <div className="min-h-screen bg-[#141414] text-white">
-      <header className="border-b border-white/10 bg-black/40 px-4 sm:px-8 lg:px-12 py-4 flex items-center justify-between gap-4">
-        <Link href="/" className="text-2xl font-black uppercase tracking-[-0.04em] text-[#E50914]">
-          KSTREAM
-        </Link>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Link
-            href="/profile/favorites"
-            className="hidden sm:inline-flex rounded-[4px] px-3 py-1.5 text-xs font-medium text-white/75 transition hover:text-white"
-          >
-            Daftar Saya
-          </Link>
-          <Link
-            href="/profile/history"
-            className="hidden sm:inline-flex rounded-[4px] px-3 py-1.5 text-xs font-medium text-white/75 transition hover:text-white"
-          >
-            Riwayat
-          </Link>
-          <Link
-            href="/"
-            className="rounded-[4px] border border-white/25 px-3.5 py-1.5 text-xs sm:text-sm font-semibold text-white/85 transition hover:border-white hover:text-white"
-          >
-            &larr; Beranda
-          </Link>
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-10 space-y-10">
+      <main className="mx-auto w-full max-w-4xl px-4 sm:px-6 pt-24 sm:pt-28 pb-16 space-y-10">
         {/* Netflix Edit Profile Header */}
         <div className="border-b border-[#2b2b2b] pb-5">
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">Edit Profil</h1>
@@ -479,8 +425,8 @@ export default function ProfileSettingsPage() {
               </button>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 pt-2">
-              <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/60">
+            <div className="pt-2">
+              <label className="flex max-w-xs flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/60">
                 Bahasa Subtitle Utama
                 <select
                   name="preferredLanguage"
@@ -490,23 +436,6 @@ export default function ProfileSettingsPage() {
                   className="rounded-[4px] border border-white/15 bg-[#333333] px-3.5 py-2.5 text-sm font-normal text-white focus:border-white focus:outline-none"
                 >
                   {languageOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="flex flex-col gap-1.5 text-xs font-semibold uppercase tracking-wider text-white/60">
-                Tampilan Aplikasi
-                <select
-                  name="theme"
-                  value={form.theme}
-                  onChange={handleInputChange}
-                  disabled={loadingPreferences || savingPreferences}
-                  className="rounded-[4px] border border-white/15 bg-[#333333] px-3.5 py-2.5 text-sm font-normal text-white focus:border-white focus:outline-none"
-                >
-                  {themeOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>

@@ -38,7 +38,7 @@ export default function FavoritesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[70vh] bg-[#141414] px-4 sm:px-8 lg:px-12 py-12">
+      <div className="min-h-[70vh] bg-[#141414] px-4 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-12">
         <p className="text-sm text-white/60">Memuat daftar saya...</p>
       </div>
     );
@@ -46,7 +46,7 @@ export default function FavoritesPage() {
 
   if (!user) {
     return (
-      <div className="min-h-[75vh] bg-[#141414] px-4 py-16">
+      <div className="min-h-[75vh] bg-[#141414] px-4 pt-24 sm:pt-28 pb-16">
         <div className="mx-auto max-w-md rounded-md border border-white/10 bg-[#181818] p-8 text-center shadow-2xl">
           <h1 className="text-2xl font-bold text-white">Daftar Saya</h1>
           <p className="mt-2 text-sm text-white/65">Masuk untuk menyimpan dan melihat daftar tontonan favoritmu.</p>
@@ -62,7 +62,7 @@ export default function FavoritesPage() {
   }
 
   return (
-    <div className="min-h-[75vh] bg-[#141414] px-4 sm:px-8 lg:px-12 py-10">
+    <div className="min-h-[75vh] bg-[#141414] px-4 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-14">
       <div className="mx-auto max-w-[1600px] space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-4">
           <div>

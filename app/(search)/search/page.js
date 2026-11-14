@@ -33,26 +33,30 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-10 space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold text-white">Cari</h1>
-        <p className="text-sm text-text-secondary">Temukan film, anime, atau series favoritmu.</p>
-      </div>
-      <SearchBar onSearch={handleSearch} />
-      {loading && <p className="text-sm text-text-muted">Mencari...</p>}
-      {error && <p className="text-sm text-rose-400">{error}</p>}
-      {results.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
-          {results.map((item) => (
-            <CardPoster key={`${item.type || "item"}-${item.id}`} item={item} />
-          ))}
+    <div className="min-h-[75vh] bg-[#141414] px-4 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-14">
+      <div className="mx-auto max-w-[1600px] space-y-6">
+        <div className="space-y-1">
+          <h1 className="text-2xl sm:text-3xl font-semibold text-white">Cari</h1>
+          <p className="text-sm text-white/60">Temukan film, anime, atau series favoritmu.</p>
         </div>
-      )}
-      {!loading && results.length === 0 && !error && (
-        <p className="text-sm text-text-muted">
-          {hasSearched ? 'Tidak ada konten yang cocok dengan kata kunci tersebut.' : 'Masukkan kata kunci untuk mulai mencari.'}
-        </p>
-      )}
+        <SearchBar onSearch={handleSearch} />
+        {loading && <p className="text-sm text-white/60">Mencari...</p>}
+        {error && <p className="text-sm text-rose-400">{error}</p>}
+        {results.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+            {results.map((item) => (
+              <CardPoster key={`${item.type || "item"}-${item.id}`} item={item} />
+            ))}
+          </div>
+        )}
+        {!loading && results.length === 0 && !error && (
+          <div className="rounded-md border border-white/10 bg-[#181818] p-10 text-center">
+            <p className="text-sm text-white/65">
+              {hasSearched ? 'Tidak ada konten yang cocok dengan kata kunci tersebut.' : 'Masukkan kata kunci untuk mulai mencari.'}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
