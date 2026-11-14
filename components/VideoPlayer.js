@@ -215,6 +215,7 @@ const SUBTITLE_BASE_OFFSET_PERCENT = 8; // Increased base offset
 const SUBTITLE_CONTROL_GAP_PX = 24; // Increased gap for better spacing with controls
 const SUBTITLE_FULLSCREEN_OFFSET_PERCENT = 10; // Specific offset for fullscreen mode
 const MOBILE_SCREEN_WIDTH = 768; // Breakpoint untuk layar mobile
+const PAUSE_REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // Refresh session after 5 minutes paused
 
 export default function VideoPlayer({
   playbackId = "",
@@ -269,6 +270,9 @@ export default function VideoPlayer({
   const [seekIndicator, setSeekIndicator] = useState(null);
   const lastTapRef = useRef({ time: 0, side: null });
   const seekIndicatorTimerRef = useRef(null);
+  const pausedAtRef = useRef(null);
+  const pendingResumeRef = useRef(null);
+  const [sessionNonce, setSessionNonce] = useState(0);
   const activeSubtitleRef = useRef(activeSubtitle);
   useEffect(() => {
     activeSubtitleRef.current = activeSubtitle;
@@ -632,6 +636,20 @@ export default function VideoPlayer({
                 .sort((a, b) => b.height - a.height);
               setQualityLevels(formatted);
               setSelectedQuality(-1);
+              if (pendingResumeRef.current) {
+                const { time, shouldPlay } = pendingResumeRef.current;
+                pendingResumeRef.current = null;
+                if (typeof time === "number" && time > 0) {
+                  try {
+                    media.currentTime = time;
+                  } catch {
+                    // ignore seek error
+                  }
+                }
+                if (shouldPlay) {
+                  media.play().catch(() => undefined);
+                }
+              }
             });
             hlsRef.current = hls;
             return;
@@ -659,7 +677,7 @@ export default function VideoPlayer({
       cancelled = true;
       detachHls();
     };
-  }, [attachSource, detachHls, isIOS]);
+  }, [attachSource, detachHls, isIOS, sessionNonce]);
 
   // Add subtitle and pseudo-fullscreen styles
   useEffect(() => {
@@ -850,6 +868,17 @@ export default function VideoPlayer({
     if (!media) return;
     showControlsTemporarily();
     if (media.paused) {
+      const pausedDuration = pausedAtRef.current ? Date.now() - pausedAtRef.current : 0;
+      if (pausedDuration >= PAUSE_REFRESH_THRESHOLD_MS) {
+        pendingResumeRef.current = { time: media.currentTime || 0, shouldPlay: true };
+        pausedAtRef.current = null;
+        setSessionNonce((n) => n + 1);
+        return;
+      }
+      pausedAtRef.current = null;
+      if (hlsRef.current && typeof hlsRef.current.startLoad === "function") {
+        hlsRef.current.startLoad(media.currentTime || -1);
+      }
       media.play().catch(() => undefined);
     } else {
       media.pause();
@@ -1149,8 +1178,20 @@ export default function VideoPlayer({
     const media = videoRef.current;
     if (!media) return;
 
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
+    const handlePlay = () => {
+      pausedAtRef.current = null;
+      if (hlsRef.current && typeof hlsRef.current.startLoad === "function") {
+        hlsRef.current.startLoad(-1);
+      }
+      setIsPlaying(true);
+    };
+    const handlePause = () => {
+      pausedAtRef.current = Date.now();
+      if (hlsRef.current && typeof hlsRef.current.stopLoad === "function") {
+        hlsRef.current.stopLoad();
+      }
+      setIsPlaying(false);
+    };
     const handleTimeUpdate = () => {
       if (!media.duration) return;
       const ratio = (media.currentTime / media.duration) * 100;
@@ -1406,7 +1447,7 @@ export default function VideoPlayer({
     : "bg-gradient-to-b from-black/80 via-transparent to-black/95";
   const showOverlay = controlsVisible;
   const controlButtonClass =
-    "inline-flex items-center justify-center rounded-full p-2 text-white/90 transition duration-150 hover:scale-110 hover:text-white active:scale-95 min-h-[40px] min-w-[40px] focus:outline-none focus:ring-2 focus:ring-white/40";
+    "inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-2 text-white/95 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.22)] transition duration-150 hover:scale-105 hover:border-white/35 hover:bg-white/20 hover:text-white active:scale-95 min-h-[40px] min-w-[40px] focus:outline-none focus:ring-2 focus:ring-white/40";
   useEffect(() => {
     setNextEpisodeDismissed(false);
     setQualityLevels([]);
@@ -1991,7 +2032,7 @@ export default function VideoPlayer({
             </div>
           )}
 
-          <div className="flex flex-col gap-2.5 rounded-2xl border border-white/15 bg-black/40 px-4 py-3 sm:px-5 sm:py-3.5 text-xs md:text-sm backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.18)]">
+          <div className="flex flex-col gap-3 px-1 sm:px-2 pb-1 text-xs md:text-sm">
             {/* Netflix Red Scrubber Bar */}
             <div className="flex items-center gap-3">
               <span className="hidden sm:inline-block w-12 text-right tabular-nums text-xs font-medium text-white/80">
