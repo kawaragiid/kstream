@@ -1,13 +1,16 @@
 "use client";
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import { login, loginWithGoogle, logout } from '../../../lib/auth';
 import { readUserDoc, updateUserProfileDoc } from '../../../lib/firestore';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawRedirect = searchParams.get('redirect') || '';
+  const redirectTo = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,7 +45,7 @@ export default function LoginPage() {
     try {
       const credential = await login(email, password);
       const allowed = await syncUserOnLogin(credential?.user);
-      if (allowed) router.push('/');
+      if (allowed) router.push(redirectTo);
     } catch (err) {
       setError(err.message || 'Gagal masuk.');
     } finally {
@@ -56,7 +59,7 @@ export default function LoginPage() {
     try {
       const credential = await loginWithGoogle();
       const allowed = await syncUserOnLogin(credential?.user);
-      if (allowed) router.push('/');
+      if (allowed) router.push(redirectTo);
     } catch (err) {
       setError(err.message || 'Gagal masuk dengan Google.');
     } finally {
@@ -138,5 +141,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#141414]" />}>
+      <LoginForm />
+    </Suspense>
   );
 }

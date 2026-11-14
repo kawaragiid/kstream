@@ -14,6 +14,19 @@ async function ensureFirestore() {
   return getVideosByGenre;
 }
 
+export async function generateMetadata({ params }) {
+  const { genre: rawGenre } = await params;
+  let genre = rawGenre || "";
+  try {
+    genre = decodeURIComponent(rawGenre || "");
+  } catch {
+    genre = rawGenre || "";
+  }
+  return {
+    title: `Kategori: ${genre} - Kstream`,
+  };
+}
+
 export default async function GenrePage({ params }) {
   const fetchByGenre = await ensureFirestore();
   const { genre: rawGenre } = await params;

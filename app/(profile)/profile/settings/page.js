@@ -16,6 +16,38 @@ const languageOptions = [
   { value: "jp", label: "Bahasa Jepang" },
 ];
 
+function SettingsTopBar() {
+  return (
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#141414]/95 backdrop-blur-md">
+      <div className="mx-auto flex h-14 sm:h-16 max-w-4xl items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="flex items-center gap-3 sm:gap-5">
+          <Link href="/" className="flex items-center shrink-0" aria-label="Beranda">
+            <img
+              src="/logo.png"
+              alt="Logo"
+              className="h-8 w-8 rounded-lg object-contain"
+            />
+          </Link>
+          <Link
+            href="/"
+            className="text-xs sm:text-sm font-medium text-white/80 transition hover:text-white"
+          >
+            ← Kembali ke Beranda
+          </Link>
+        </div>
+        <nav className="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm font-medium text-white/75">
+          <Link href="/profile/favorites" className="transition hover:text-white">
+            Daftar Saya
+          </Link>
+          <Link href="/profile/history" className="transition hover:text-white">
+            Riwayat
+          </Link>
+        </nav>
+      </div>
+    </header>
+  );
+}
+
 export default function ProfileSettingsPage() {
   const router = useRouter();
   const { user, loading } = useAuth();
@@ -237,7 +269,8 @@ export default function ProfileSettingsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#141414] text-white">
-        <main className="mx-auto max-w-4xl px-4 sm:px-6 pt-24 sm:pt-28 pb-16">
+        <SettingsTopBar />
+        <main className="mx-auto max-w-4xl px-4 sm:px-6 pt-10 sm:pt-12 pb-16">
           <p className="mt-10 text-center text-white/60">Memuat profil...</p>
         </main>
       </div>
@@ -247,7 +280,8 @@ export default function ProfileSettingsPage() {
   if (!user) {
     return (
       <div className="min-h-screen bg-[#141414] text-white">
-        <main className="mx-auto max-w-lg px-4 pt-24 sm:pt-28 pb-16">
+        <SettingsTopBar />
+        <main className="mx-auto max-w-lg px-4 pt-12 sm:pt-16 pb-16">
           <div className="rounded-md border border-white/10 bg-[#181818] p-8 sm:p-10 text-center shadow-2xl">
             <h1 className="text-2xl sm:text-3xl font-bold text-white">Masuk untuk Mengelola Profil</h1>
             <p className="mt-3 text-sm text-white/65">Halaman ini hanya tersedia untuk akun yang sudah masuk.</p>
@@ -274,7 +308,8 @@ export default function ProfileSettingsPage() {
 
   return (
     <div className="min-h-screen bg-[#141414] text-white">
-      <main className="mx-auto w-full max-w-4xl px-4 sm:px-6 pt-24 sm:pt-28 pb-16 space-y-10">
+      <SettingsTopBar />
+      <main className="mx-auto w-full max-w-4xl px-4 sm:px-6 pt-10 sm:pt-12 pb-16 space-y-10">
         {/* Netflix Edit Profile Header */}
         <div className="border-b border-[#2b2b2b] pb-5">
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">Edit Profil</h1>

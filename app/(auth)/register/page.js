@@ -1,13 +1,16 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { loginWithGoogle, register, updateProfile } from "../../../lib/auth";
 import { readUserDoc, updateUserProfileDoc } from "../../../lib/firestore";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawRedirect = searchParams.get("redirect") || "";
+  const redirectTo = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/";
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,7 +38,7 @@ export default function RegisterPage() {
       if (displayName.trim()) {
         await updateProfile(credential.user, { displayName: displayName.trim() });
       }
-      router.push("/");
+      router.push(redirectTo);
     } catch (err) {
       setError(err.message || "Gagal mendaftar.");
     } finally {
@@ -60,7 +63,7 @@ export default function RegisterPage() {
         }
         await updateUserProfileDoc(credential.user.uid, profilePayload);
       } catch {}
-      router.push("/");
+      router.push(redirectTo);
     } catch (err) {
       setError(err.message || "Gagal mendaftar dengan Google.");
     } finally {
@@ -148,5 +151,13 @@ export default function RegisterPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#141414]" />}>
+      <RegisterForm />
+    </Suspense>
   );
 }

@@ -656,6 +656,26 @@ export default function VideoPlayer({
             return;
           }
           if (media.canPlayType("application/vnd.apple.mpegurl")) {
+            if (pendingResumeRef.current) {
+              const applyPendingResume = () => {
+                if (isCancelled() || videoRef.current !== media) return;
+                const pending = pendingResumeRef.current;
+                if (!pending) return;
+                pendingResumeRef.current = null;
+                const { time, shouldPlay } = pending;
+                if (typeof time === "number" && time > 0) {
+                  try {
+                    media.currentTime = time;
+                  } catch {
+                    // ignore seek error
+                  }
+                }
+                if (shouldPlay) {
+                  media.play().catch(() => undefined);
+                }
+              };
+              media.addEventListener("loadedmetadata", applyPendingResume, { once: true });
+            }
             media.src = videoSrc;
             return;
           }
@@ -719,6 +739,13 @@ export default function VideoPlayer({
       document.head.appendChild(style);
       subtitleStylesRef.current = style;
     }
+
+    return () => {
+      if (subtitleStylesRef.current) {
+        subtitleStylesRef.current.remove();
+        subtitleStylesRef.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -1281,10 +1308,12 @@ export default function VideoPlayer({
           togglePlay();
           break;
         case "arrowright":
+          event.preventDefault();
           media.currentTime = Math.min(media.duration || Infinity, media.currentTime + (event.shiftKey ? 30 : 10));
           showControlsTemporarily();
           break;
         case "arrowleft":
+          event.preventDefault();
           media.currentTime = Math.max(0, media.currentTime - (event.shiftKey ? 30 : 10));
           showControlsTemporarily();
           break;
@@ -1502,6 +1531,15 @@ export default function VideoPlayer({
     remainingSeconds > 0 &&
     remainingSeconds <= 10;
 
+  useEffect(() => {
+    return () => {
+      if (seekIndicatorTimerRef.current) {
+        clearTimeout(seekIndicatorTimerRef.current);
+        seekIndicatorTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const triggerSeekFeedback = (side) => {
     if (seekIndicatorTimerRef.current) {
       clearTimeout(seekIndicatorTimerRef.current);
@@ -1691,7 +1729,7 @@ export default function VideoPlayer({
           <button
             type="button"
             onClick={togglePlay}
-            aria-label="Play"
+            aria-label="Putar"
             className="pointer-events-auto flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white shadow-[0_12px_40px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-2xl transition duration-200 hover:scale-110 hover:border-white/60 hover:bg-white/25 active:scale-95"
           >
             <svg viewBox="0 0 24 24" fill="currentColor" className="ml-1 h-8 w-8 sm:h-10 sm:w-10 drop-shadow">
@@ -1709,13 +1747,13 @@ export default function VideoPlayer({
         >
           <div className="flex items-center justify-between border-b border-white/15 px-5 py-4">
             <div>
-              <span className="text-sm font-bold tracking-wide text-white">Episodes</span>
+              <span className="text-sm font-bold tracking-wide text-white">Daftar Episode</span>
               {title && <p className="text-xs text-white/60 truncate max-w-[220px]">{title}</p>}
             </div>
             <button
               type="button"
               onClick={() => setEpisodePanelOpen(false)}
-              aria-label="Close episodes"
+              aria-label="Tutup daftar episode"
               className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
@@ -1895,7 +1933,7 @@ export default function VideoPlayer({
                           : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
                       }`}
                     >
-                      Off
+                      Nonaktif
                     </button>
                     {subtitleTracks.map((track) => {
                       const trackVal = track.lang || track.label;
@@ -2085,8 +2123,8 @@ export default function VideoPlayer({
                   type="button"
                   onClick={togglePlay}
                   className={controlButtonClass}
-                  aria-label={isPlaying ? "Pause" : "Play"}
-                  title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+                  aria-label={isPlaying ? "Jeda" : "Putar"}
+                  title={isPlaying ? "Jeda (Space)" : "Putar (Space)"}
                 >
                   {icons[isPlaying ? "pause" : "play"]}
                 </button>
@@ -2153,7 +2191,7 @@ export default function VideoPlayer({
                     }}
                     className={controlButtonClass}
                     aria-label={activeSubtitle === "off" ? "Nyalakan subtitle" : "Matikan subtitle"}
-                    title={activeSubtitle === "off" ? "Subtitles: Off" : "Subtitles: On"}
+                    title={activeSubtitle === "off" ? "Subtitle: Nonaktif" : "Subtitle: Aktif"}
                   >
                     {icons[activeSubtitle === "off" ? "subsOff" : "subsOn"]}
                   </button>
@@ -2179,7 +2217,7 @@ export default function VideoPlayer({
                     }}
                     className={controlButtonClass}
                     aria-label="Daftar episode"
-                    title="Episodes"
+                    title="Daftar Episode"
                   >
                     {icons.episodes}
                   </button>
@@ -2190,7 +2228,7 @@ export default function VideoPlayer({
                     onClick={handleNextEpisode}
                     className={controlButtonClass}
                     aria-label="Episode berikutnya"
-                    title="Next Episode"
+                    title="Episode Berikutnya"
                   >
                     {icons.next}
                   </button>
@@ -2200,7 +2238,7 @@ export default function VideoPlayer({
                   onClick={requestFullscreen}
                   className={controlButtonClass}
                   aria-label={isFullscreen ? "Keluar layar penuh" : "Layar penuh"}
-                  title={isFullscreen ? "Exit Fullscreen (F)" : "Fullscreen (F)"}
+                  title={isFullscreen ? "Keluar Layar Penuh (F)" : "Layar Penuh (F)"}
                 >
                   {icons[isFullscreen ? "exitFull" : "full"]}
                 </button>

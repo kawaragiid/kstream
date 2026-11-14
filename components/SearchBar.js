@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-export default function SearchBar({ onSearch }) {
-  const [q, setQ] = useState('');
+export default function SearchBar({ onSearch, initialValue = '' }) {
+  const [q, setQ] = useState(initialValue);
+
+  useEffect(() => {
+    setQ(initialValue);
+  }, [initialValue]);
+
   return (
     <form
       onSubmit={(e) => {
@@ -13,6 +18,8 @@ export default function SearchBar({ onSearch }) {
       className="flex gap-3"
     >
       <input
+        id="kstream-search-input"
+        aria-label="Cari film, anime, atau series"
         className="flex-1 rounded-full border border-white/10 bg-surface-100 px-4 py-2 text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none"
         placeholder="Cari film, series..."
         value={q}

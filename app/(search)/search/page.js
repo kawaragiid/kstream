@@ -1,17 +1,21 @@
 "use client";
 
-import { useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import CardPoster from '../../../components/CardPoster';
 import SearchBar from '../../../components/SearchBar';
 
-export default function SearchPage() {
+function SearchContent() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get('q') || '';
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
 
-  const handleSearch = async (query) => {
-    if (!query) {
+  const handleSearch = useCallback(async (query) => {
+    const trimmed = (query || '').trim();
+    if (!trimmed) {
       setResults([]);
       setHasSearched(false);
       return;
@@ -21,7 +25,7 @@ export default function SearchPage() {
     setError('');
     setHasSearched(true);
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`);
       if (!res.ok) throw new Error('Gagal mengambil hasil');
       const data = await res.json();
       setResults(data.items || []);
@@ -30,7 +34,16 @@ export default function SearchPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (initialQuery) {
+      handleSearch(initialQuery);
+    } else {
+      setResults([]);
+      setHasSearched(false);
+    }
+  }, [initialQuery, handleSearch]);
 
   return (
     <div className="min-h-[75vh] bg-[#141414] px-4 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-14">
@@ -39,7 +52,7 @@ export default function SearchPage() {
           <h1 className="text-2xl sm:text-3xl font-semibold text-white">Cari</h1>
           <p className="text-sm text-white/60">Temukan film, anime, atau series favoritmu.</p>
         </div>
-        <SearchBar onSearch={handleSearch} />
+        <SearchBar onSearch={handleSearch} initialValue={initialQuery} />
         {loading && <p className="text-sm text-white/60">Mencari...</p>}
         {error && <p className="text-sm text-rose-400">{error}</p>}
         {results.length > 0 && (
@@ -58,5 +71,13 @@ export default function SearchPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[75vh] bg-[#141414] px-4 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-14 text-sm text-white/60">Memuat pencarian...</div>}>
+      <SearchContent />
+    </Suspense>
   );
 }

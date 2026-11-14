@@ -11,7 +11,6 @@ const ALLOWED_CLIENT_PATCH_KEYS = new Set([
   'history',
   'preferences',
   'preferredLanguage',
-  'email',
 ]);
 
 async function verifyRequestUid(request, targetUid) {
@@ -107,29 +106,33 @@ export async function POST(request) {
     }
     await ensureNeonSchema();
     const sql = getSql();
-    const existing = await sql`SELECT data, email, display_name, role, plan, is_active, expires_at FROM users WHERE uid = ${uid} LIMIT 1`;
+    const existing = await sql`SELECT email, display_name, role, plan, is_active, expires_at FROM users WHERE uid = ${uid} LIMIT 1`;
     const prev = existing[0] || {};
-    const mergedData = { ...(prev.data || {}), ...patch, updatedAt: new Date().toISOString() };
-    await sql`
+    const derivedEmail = prev.email || authCheck.decoded?.email || '';
+    const patchWithTimestamp = { ...patch, updatedAt: new Date().toISOString() };
+    const patchJson = JSON.stringify(patchWithTimestamp);
+    const hasDisplayName = patch.displayName !== undefined;
+    const rows = await sql`
       INSERT INTO users (uid, email, display_name, role, plan, is_active, expires_at, data, updated_at)
       VALUES (
         ${uid},
-        ${patch.email ?? prev.email ?? authCheck.decoded?.email ?? ''},
+        ${derivedEmail},
         ${patch.displayName ?? prev.display_name ?? ''},
         ${prev.role ?? 'pelanggan'},
         ${prev.plan ?? 'free'},
         ${prev.is_active !== false},
         ${prev.expires_at ?? null},
-        ${JSON.stringify(mergedData)}::jsonb,
+        ${patchJson}::jsonb,
         NOW()
       )
       ON CONFLICT (uid) DO UPDATE SET
-        email = EXCLUDED.email,
-        display_name = EXCLUDED.display_name,
-        data = EXCLUDED.data,
+        email = COALESCE(NULLIF(users.email, ''), EXCLUDED.email),
+        display_name = CASE WHEN ${hasDisplayName} THEN EXCLUDED.display_name ELSE users.display_name END,
+        data = COALESCE(users.data, '{}'::jsonb) || ${patchJson}::jsonb,
         updated_at = NOW()
+      RETURNING data
     `;
-    return NextResponse.json({ ok: true, data: mergedData });
+    return NextResponse.json({ ok: true, data: rows[0]?.data || patchWithTimestamp });
   } catch (error) {
     console.warn('[api/user] POST error:', error?.message || error);
     return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });

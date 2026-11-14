@@ -45,6 +45,23 @@ function PlayerChrome({ children }) {
   );
 }
 
+export async function generateMetadata(props) {
+  const searchParams = (await props?.searchParams) ?? {};
+  const { getVideoById } = await ensureFirestore();
+  const rawId = extractParam(searchParams, "id");
+  const rawType = extractParam(searchParams, "type");
+  const resolvedId = decodeParam(rawId);
+  if (!resolvedId) return { title: "Pemutar - Kstream" };
+  const normalizedType = (rawType || "").toString().toLowerCase();
+  const preferredType = normalizedType === "series" ? "series" : normalizedType === "movie" ? "movie" : undefined;
+  const video = await getVideoById(resolvedId, preferredType).catch(() => null);
+  const title = video?.title || "Pemutar";
+  return {
+    title: `${title} - Kstream`,
+    description: video?.overview,
+  };
+}
+
 export default async function PlayerPage(props) {
   const searchParams = (await props?.searchParams) ?? {};
   const { getVideoById, getSeriesEpisodes, getSeriesEpisode } = await ensureFirestore();

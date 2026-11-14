@@ -37,7 +37,7 @@ export default function Top10Row({ title = "Top 10 Hari Ini", items = [] }) {
 
         <div
           ref={scrollerRef}
-          className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 scrollbar-none scroll-smooth"
+          className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 no-scrollbar scroll-smooth"
         >
           {topItems.map((item, idx) => {
             const rank = idx + 1;

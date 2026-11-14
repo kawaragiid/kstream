@@ -56,7 +56,7 @@ export default async function RootLayout({ children }) {
   const categories = settings?.categories || [];
 
   return (
-    <html lang="en" className="dark bg-black">
+    <html lang="id" className="dark bg-black">
       <body
         suppressHydrationWarning
         className="min-h-screen bg-black text-text-primary antialiased overflow-x-hidden selection:bg-brand selection:text-white"

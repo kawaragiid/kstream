@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import HistoryRow from '../../../../components/HistoryRow';
-import { clearUserHistory, getUserHistory } from '../../../../lib/firestore';
+import CardPoster from '../../../../components/CardPoster';
+import { clearUserHistory, getUserHistory, removeHistoryItem } from '../../../../lib/firestore';
 import { useAuth } from '../../../../hooks/useAuth';
 
 export default function HistoryPage() {
@@ -20,6 +20,16 @@ export default function HistoryPage() {
       setItems([]);
     } finally {
       setClearing(false);
+    }
+  };
+
+  const handleRemoveItem = async (itemId) => {
+    if (!user?.uid || !itemId) return;
+    try {
+      await removeHistoryItem(user.uid, itemId);
+      setItems((prev) => prev.filter((item) => item.id !== itemId));
+    } catch (err) {
+      console.warn('Gagal menghapus riwayat:', err);
     }
   };
 
@@ -49,7 +59,7 @@ export default function HistoryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[70vh] bg-[#141414] px-4 sm:px-8 lg:px-12 py-12">
+      <div className="min-h-[70vh] bg-[#141414] px-4 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-12">
         <p className="text-sm text-white/60">Memuat riwayat tonton...</p>
       </div>
     );
@@ -57,7 +67,7 @@ export default function HistoryPage() {
 
   if (!user) {
     return (
-      <div className="min-h-[75vh] bg-[#141414] px-4 py-16">
+      <div className="min-h-[75vh] bg-[#141414] px-4 pt-24 sm:pt-28 pb-16">
         <div className="mx-auto max-w-md rounded-md border border-white/10 bg-[#181818] p-8 text-center shadow-2xl">
           <h1 className="text-2xl font-bold text-white">Riwayat Tonton</h1>
           <p className="mt-2 text-sm text-white/65">Masuk untuk melanjutkan dan melihat riwayat tontonan kamu.</p>
@@ -103,7 +113,20 @@ export default function HistoryPage() {
         {fetching ? (
           <p className="text-sm text-white/60">Mengambil riwayat...</p>
         ) : items.length ? (
-          <HistoryRow items={items} loading={fetching} />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+            {items.map((item) => (
+              <div key={item.id} className="space-y-2">
+                <CardPoster item={item} />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveItem(item.id)}
+                  className="w-full rounded-[4px] border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/75 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
+                >
+                  Hapus
+                </button>
+              </div>
+            ))}
+          </div>
         ) : (
           <div className="rounded-md border border-white/10 bg-[#181818] p-10 text-center">
             <p className="text-sm text-white/65">Belum ada riwayat tontonan.</p>

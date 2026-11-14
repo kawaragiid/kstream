@@ -23,6 +23,23 @@ async function ensureDataModule() {
   return dataModule;
 }
 
+export async function generateMetadata({ params }) {
+  const { getVideoById } = await ensureDataModule();
+  const { id: rawId } = await params;
+  let id = rawId || "";
+  try {
+    id = decodeURIComponent(rawId || "");
+  } catch {
+    id = rawId || "";
+  }
+  const series = await getVideoById(id, "series").catch(() => null);
+  if (!series) return { title: "Detail Series - Kstream" };
+  return {
+    title: `${series.title} - Kstream`,
+    description: series.overview,
+  };
+}
+
 export default async function SeriesDetailPage({ params }) {
   const { getVideoById, getSeriesEpisodes, getVideosByGenre } = await ensureDataModule();
   const { id: rawId } = await params;

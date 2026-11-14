@@ -42,13 +42,13 @@ export async function POST(request) {
       if (type === "series") {
         await sql`
           UPDATE series
-          SET views = COALESCE(views, 0) + 1, updated_at = NOW()
+          SET views = COALESCE(views, 0) + 1
           WHERE id = ${id} OR slug = ${slug}
         `;
       } else {
         await sql`
           UPDATE movies
-          SET views = COALESCE(views, 0) + 1, updated_at = NOW()
+          SET views = COALESCE(views, 0) + 1
           WHERE id = ${id} OR slug = ${slug}
         `;
       }
