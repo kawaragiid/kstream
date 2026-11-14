@@ -35,7 +35,7 @@ a {
   margin-right: auto;
 }
 
-header, footer {
+footer {
   background: linear-gradient(180deg, rgba(12, 12, 12, 0.95), rgba(12, 12, 12, 0.75));
 }
 

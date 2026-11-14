@@ -8,7 +8,80 @@ import { getUserHistory, saveHistoryProgress } from '../lib/firestore';
 import VideoPlayer from './VideoPlayer';
 
 const GUEST_DAILY_LIMIT = 1;
-const GUEST_PREVIEW_SECONDS = 180; // 3 menit preview untuk tamu tanpa login
+const GUEST_PREVIEW_MAX_SECONDS = 180; // 3 menit preview untuk tamu tanpa login
+const GUEST_PREVIEW_STORAGE_KEY = 'kstream_guest_preview_sec_v1';
+
+const getLocalDateKey = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const readGuestPreviewState = (todayKey, contentKey, episodeKey) => {
+  if (typeof window === 'undefined' || !todayKey || !contentKey) {
+    return { seconds: 0, episodePosition: 0 };
+  }
+  try {
+    const raw = window.localStorage.getItem(GUEST_PREVIEW_STORAGE_KEY);
+    if (!raw) return { seconds: 0, episodePosition: 0 };
+    const parsed = JSON.parse(raw);
+    const dayBucket = parsed && typeof parsed === 'object' ? parsed[todayKey] : null;
+    const entry = dayBucket && typeof dayBucket === 'object' ? dayBucket[contentKey] : null;
+    if (typeof entry === 'number' && Number.isFinite(entry)) {
+      const clamped = Math.max(0, entry);
+      return { seconds: clamped, episodePosition: clamped };
+    }
+    if (entry && typeof entry === 'object') {
+      const seconds = Math.max(0, Number(entry.seconds) || 0);
+      const positions = entry.positions && typeof entry.positions === 'object' ? entry.positions : null;
+      let episodePosition = 0;
+      if (positions && typeof positions[episodeKey] === 'number' && Number.isFinite(positions[episodeKey])) {
+        episodePosition = Math.max(0, positions[episodeKey]);
+      } else if (!entry.episodeId || entry.episodeId === episodeKey) {
+        episodePosition = seconds;
+      }
+      return { seconds, episodePosition };
+    }
+  } catch {
+    // ignore storage errors
+  }
+  return { seconds: 0, episodePosition: 0 };
+};
+
+const writeGuestPreviewState = (todayKey, contentKey, episodeKey, seconds, episodePosition) => {
+  if (typeof window === 'undefined' || !todayKey || !contentKey) return;
+  try {
+    const raw = window.localStorage.getItem(GUEST_PREVIEW_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    const prevDay =
+      parsed && typeof parsed === 'object' && parsed[todayKey] && typeof parsed[todayKey] === 'object'
+        ? parsed[todayKey]
+        : {};
+    const prevEntry =
+      prevDay[contentKey] && typeof prevDay[contentKey] === 'object' ? prevDay[contentKey] : {};
+    const prevPositions =
+      prevEntry.positions && typeof prevEntry.positions === 'object' ? prevEntry.positions : {};
+    const safeSeconds = Math.max(0, Math.min(GUEST_PREVIEW_MAX_SECONDS, Number(seconds) || 0));
+    const safePos = Math.max(0, Number(episodePosition) || 0);
+    const nextStore = {
+      [todayKey]: {
+        ...prevDay,
+        [contentKey]: {
+          seconds: safeSeconds,
+          episodeId: episodeKey,
+          positions: {
+            ...prevPositions,
+            [episodeKey]: safePos,
+          },
+        },
+      },
+    };
+    window.localStorage.setItem(GUEST_PREVIEW_STORAGE_KEY, JSON.stringify(nextStore));
+  } catch {
+    // ignore storage errors
+  }
+};
 
 export default function WatchPlayer({
   video = {},
@@ -30,12 +103,18 @@ export default function WatchPlayer({
   const viewTrackedKeyRef = useRef('');
   const lastTrackedTimeRef = useRef(0);
   const pendingWatchSecondsRef = useRef(0);
+  const guestPreviewSecondsRef = useRef(0);
+  const lastSavedPreviewSecRef = useRef(-1);
+  const latestVideoRef = useRef(video);
   const [guestLimitReason, setGuestLimitReason] = useState('');
   const [resumePosition, setResumePosition] = useState(0);
+  const [guestResumePosition, setGuestResumePosition] = useState(0);
 
-  const contentId = series?.id || video?.id || '';
+  const contentId = series?.id || video?.seriesId || video?.id || '';
   const contentSlug = series?.slug || video?.slug || contentId;
   const contentType = series ? 'series' : (video?.type === 'series' ? 'series' : 'movie');
+  const contentKey = contentId ? `${contentType}:${contentId}` : '';
+  const episodeKey = currentEpisode?.id || 'main';
 
   const sendAnalyticsPing = useCallback(
     ({ isNewView = false, watchSeconds = 0, beacon = false } = {}) => {
@@ -65,39 +144,73 @@ export default function WatchPlayer({
   );
 
   useEffect(() => {
+    latestVideoRef.current = video;
+  }, [video]);
+
+  useEffect(() => {
     lastUpdateRef.current = 0;
     lastTrackedTimeRef.current = 0;
     pendingWatchSecondsRef.current = 0;
-  }, [video?.id]);
+    lastSavedPreviewSecRef.current = -1;
+  }, [video?.id, currentEpisode?.id]);
 
   useEffect(() => {
     if (authLoading) return;
     if (user) {
       setGuestLimitReason('');
+      setGuestResumePosition(0);
+      guestPreviewSecondsRef.current = 0;
       return;
     }
-    if (typeof window === 'undefined' || !contentId) return;
+    if (typeof window === 'undefined' || !contentKey) return;
+    const todayKey = `kstream_guest_watches_${getLocalDateKey()}`;
     try {
-      const todayKey = `kstream_guest_watches_${new Date().toISOString().slice(0, 10)}`;
-      const sessionKey = `${contentType}:${contentId}:${currentEpisode?.id || 'main'}`;
       const raw = window.localStorage.getItem(todayKey);
       const list = raw ? JSON.parse(raw) : [];
       const arr = Array.isArray(list) ? list : [];
-      if (arr.includes(sessionKey)) {
-        setGuestLimitReason('');
-        return;
-      }
-      if (arr.length >= GUEST_DAILY_LIMIT) {
+      const isTrackedToday = arr.includes(contentKey);
+      if (!isTrackedToday && arr.length >= GUEST_DAILY_LIMIT) {
         setGuestLimitReason('daily');
+        setGuestResumePosition(0);
         return;
       }
-      arr.push(sessionKey);
-      window.localStorage.setItem(todayKey, JSON.stringify(arr));
+      if (!isTrackedToday) {
+        arr.push(contentKey);
+        window.localStorage.setItem(todayKey, JSON.stringify(arr));
+      }
+
+      const { seconds, episodePosition } = readGuestPreviewState(todayKey, contentKey, episodeKey);
+      guestPreviewSecondsRef.current = seconds;
+      lastSavedPreviewSecRef.current = Math.floor(seconds);
+      if (seconds >= GUEST_PREVIEW_MAX_SECONDS) {
+        setGuestLimitReason('preview');
+        setGuestResumePosition(0);
+        return;
+      }
+      setGuestResumePosition(episodePosition);
       setGuestLimitReason('');
     } catch {
       setGuestLimitReason('');
+      return;
     }
-  }, [authLoading, user, contentType, contentId, currentEpisode?.id]);
+
+    const persistGuestPreview = () => {
+      if (guestPreviewSecondsRef.current > 0) {
+        writeGuestPreviewState(
+          todayKey,
+          contentKey,
+          episodeKey,
+          guestPreviewSecondsRef.current,
+          lastTrackedTimeRef.current
+        );
+      }
+    };
+    window.addEventListener('pagehide', persistGuestPreview);
+    return () => {
+      window.removeEventListener('pagehide', persistGuestPreview);
+      persistGuestPreview();
+    };
+  }, [authLoading, user, contentKey, episodeKey]);
 
   useEffect(() => {
     if (authLoading || guestLimitReason) return;
@@ -148,44 +261,93 @@ export default function WatchPlayer({
   }, [user?.uid, video?.id]);
 
   useEffect(() => {
-    if (!user || !video?.id) return;
+    const currentVideo = latestVideoRef.current;
+    if (!user?.uid || !video?.id || !currentVideo?.id) return;
     saveHistoryProgress(
       user.uid,
-      video,
-      { progress: 0, position: 0, duration: video.duration || 0 },
+      currentVideo,
+      { progress: 0, position: 0, duration: currentVideo.duration || 0 },
       { preserveExisting: true }
     ).catch(() => undefined);
-  }, [user, video]);
+  }, [user?.uid, video?.id, currentEpisode?.id]);
 
   const handleProgress = useCallback(({ currentTime, duration }) => {
-    if (!authLoading && !user && currentTime >= GUEST_PREVIEW_SECONDS) {
-      setGuestLimitReason('preview');
-      return;
-    }
-    if (!user || !video?.id || !duration) return;
-    if (typeof currentTime === 'number' && currentTime >= 0) {
+    const currentVideo = latestVideoRef.current;
+    const isGuest = !authLoading && !user;
+    const hasValidTime = typeof currentTime === 'number' && Number.isFinite(currentTime) && currentTime >= 0;
+
+    if (hasValidTime) {
       const delta = currentTime - lastTrackedTimeRef.current;
-      if (delta > 0 && delta < 30) {
+      if (delta > 0 && delta <= 2.5) {
         pendingWatchSecondsRef.current += delta;
+        if (isGuest) {
+          guestPreviewSecondsRef.current += delta;
+        }
       }
       lastTrackedTimeRef.current = currentTime;
-      if (pendingWatchSecondsRef.current >= 30) {
+
+      if ((contentId || currentVideo?.id) && pendingWatchSecondsRef.current >= 30) {
         const toSend = pendingWatchSecondsRef.current;
         pendingWatchSecondsRef.current = 0;
         sendAnalyticsPing({ isNewView: false, watchSeconds: toSend });
       }
     }
+
+    if (isGuest) {
+      const todayKey = `kstream_guest_watches_${getLocalDateKey()}`;
+      const reachedCap =
+        (hasValidTime && currentTime >= GUEST_PREVIEW_MAX_SECONDS) ||
+        guestPreviewSecondsRef.current >= GUEST_PREVIEW_MAX_SECONDS;
+
+      if (reachedCap) {
+        guestPreviewSecondsRef.current = Math.max(
+          guestPreviewSecondsRef.current,
+          GUEST_PREVIEW_MAX_SECONDS
+        );
+        if (contentKey) {
+          writeGuestPreviewState(
+            todayKey,
+            contentKey,
+            episodeKey,
+            guestPreviewSecondsRef.current,
+            hasValidTime ? currentTime : 0
+          );
+          lastSavedPreviewSecRef.current = Math.floor(guestPreviewSecondsRef.current);
+        }
+        if (pendingWatchSecondsRef.current >= 5) {
+          const toSend = pendingWatchSecondsRef.current;
+          pendingWatchSecondsRef.current = 0;
+          sendAnalyticsPing({ isNewView: false, watchSeconds: toSend });
+        }
+        setGuestLimitReason('preview');
+        return;
+      }
+
+      const currentFloorSec = Math.floor(guestPreviewSecondsRef.current);
+      if (contentKey && currentFloorSec > lastSavedPreviewSecRef.current) {
+        writeGuestPreviewState(
+          todayKey,
+          contentKey,
+          episodeKey,
+          guestPreviewSecondsRef.current,
+          hasValidTime ? currentTime : 0
+        );
+        lastSavedPreviewSecRef.current = currentFloorSec;
+      }
+    }
+
+    if (!user?.uid || !currentVideo?.id || !duration || !hasValidTime) return;
     const now = Date.now();
     const progressRatio = Math.min(currentTime / duration, 1);
     if (progressRatio < 0.05 && lastUpdateRef.current !== 0) return;
     if (now - lastUpdateRef.current < 15000 && progressRatio < 0.95) return;
     lastUpdateRef.current = now;
-    saveHistoryProgress(user.uid, video, {
+    saveHistoryProgress(user.uid, currentVideo, {
       progress: progressRatio,
       position: currentTime,
       duration,
     }).catch(() => undefined);
-  }, [authLoading, user, video, sendAnalyticsPing]);
+  }, [authLoading, user, contentId, contentKey, episodeKey, sendAnalyticsPing]);
 
   const handleEnded = useCallback(() => {
     if (!user || !video?.id) return;
@@ -303,7 +465,7 @@ export default function WatchPlayer({
       episodes={episodes}
       currentEpisode={currentEpisode}
       autoplay={autoplay}
-      initialTime={resumePosition}
+      initialTime={user ? resumePosition : guestResumePosition}
       backHref={backHref || video?.href || '/'}
       defaultSubtitleLang={defaultSubtitleLang}
       onSelectEpisode={handleEpisodeSelect}

@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+export const metadata = { title: "Halaman Tidak Ditemukan" };
+
 export default function NotFound() {
   return (
     <div className="flex min-h-[80vh] flex-col items-center justify-center bg-[#141414] px-4 pt-24 pb-16 text-center text-white">

@@ -500,7 +500,7 @@ export default function Navbar({ categories = [] }) {
           />
 
           <aside
-            className="relative z-10 flex h-full w-[82vw] max-w-xs flex-col justify-between overflow-y-auto border-r border-white/10 bg-[#141414]/98 p-5 text-white/85 shadow-2xl backdrop-blur-xl sm:p-6"
+            className="relative z-10 flex h-full w-[82vw] max-w-xs flex-col justify-between overflow-y-auto overscroll-contain border-r border-white/10 bg-[#141414]/98 p-5 text-white/85 shadow-2xl backdrop-blur-xl sm:p-6"
             style={{
               paddingTop: "max(1.25rem, env(safe-area-inset-top, 0px))",
               paddingBottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))",

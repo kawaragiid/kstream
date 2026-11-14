@@ -24,20 +24,21 @@ function formatDuration(seconds) {
 }
 
 function getPreviewSources(item = {}) {
-  const trailer = item?.trailerUrl || "";
+  const rawTrailer = item?.trailerUrl || "";
   const previewAnimation = item?.previewAnimation || "";
   const playbackId = item?.playbackId || item?.mux_playback_id || "";
-  const lowerTrailer = trailer.toLowerCase();
+  const lowerTrailer = rawTrailer.toLowerCase();
   const isGif = lowerTrailer.includes(".gif");
+  const isHls = lowerTrailer.includes(".m3u8");
   const isVideo = lowerTrailer.includes(".mp4") || lowerTrailer.includes(".webm");
-  // Hemat biaya Mux: jangan auto-stream HLS (.m3u8) saat hover kartu karena memakan
-  // delivery minutes & mereset timer Automatic Cold Storage. Gunakan animated.gif ringan.
+  // Hemat biaya Mux: hanya putar HLS jika trailerUrl secara eksplisit berformat .m3u8;
+  // jika tidak, gunakan animated.gif ringan agar tidak memboroskan delivery minutes.
   const muxGif = playbackId
     ? `https://image.mux.com/${playbackId}/animated.gif?width=320&height=180&start=2&end=7&fps=10`
     : "";
-  const fallbackGif = previewAnimation || (isGif ? trailer : "") || (!isVideo ? muxGif : "");
-  const previewVideo = trailer && isVideo ? trailer : "";
-  const hlsUrl = "";
+  const fallbackGif = previewAnimation || (isGif ? rawTrailer : "") || (!isVideo ? muxGif : "");
+  const previewVideo = rawTrailer && isVideo ? rawTrailer : "";
+  const hlsUrl = rawTrailer && isHls ? rawTrailer : "";
   const poster = item?.backdropUrl || item?.posterUrl || item?.thumbnailUrl || PLACEHOLDER_LANDSCAPE;
   return {
     previewVideo,
@@ -134,12 +135,7 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
     if (previewVideo) {
       videoEl.src = previewVideo;
       videoEl.addEventListener("loadeddata", startPlayback, { once: true });
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    if (hlsUrl) {
+    } else if (hlsUrl) {
       if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
         videoEl.src = hlsUrl;
         videoEl.addEventListener("loadedmetadata", startPlayback, { once: true });
@@ -172,9 +168,18 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
 
     return () => {
       cancelled = true;
+      videoEl.removeEventListener("loadeddata", startPlayback);
+      videoEl.removeEventListener("loadedmetadata", startPlayback);
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
+      }
+      try {
+        videoEl.pause();
+        videoEl.removeAttribute("src");
+        videoEl.load();
+      } catch {
+        // Ignore media teardown errors
       }
     };
   }, [showPreview, previewVideo, hlsUrl]);
@@ -188,17 +193,18 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
   const updatePopoverPosition = () => {
     if (typeof window === "undefined" || !cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
-    const popoverWidth = window.innerWidth >= 1024 ? 400 : 360;
+    const popoverWidth = Math.min(window.innerWidth >= 1024 ? 400 : 360, Math.max(240, window.innerWidth - 32));
     const minLeft = 16;
     const maxLeft = Math.max(minLeft, window.innerWidth - popoverWidth - 16);
     const rawLeft = rect.left + rect.width / 2 - popoverWidth / 2;
     const left = Math.min(Math.max(rawLeft, minLeft), maxLeft);
 
-    const estimatedHalfHeight = popoverWidth === 400 ? 180 : 168;
-    const minTop = Math.min(estimatedHalfHeight + 16, window.innerHeight / 2);
-    const maxTop = Math.max(window.innerHeight - estimatedHalfHeight - 16, window.innerHeight / 2);
+    const estimatedHalfHeight = 210;
+    const minTop = Math.min(estimatedHalfHeight + 12, window.innerHeight / 2);
+    const maxTop = Math.max(window.innerHeight - estimatedHalfHeight - 12, window.innerHeight / 2);
     const rawTop = rect.top + rect.height / 2;
-    const top = Math.min(Math.max(rawTop, minTop), maxTop);
+    const clampedTop = Math.min(Math.max(rawTop, minTop), maxTop);
+    const top = Math.min(Math.max(clampedTop, 12), Math.max(12, window.innerHeight - 12));
 
     setPopoverPos({ left, top, width: popoverWidth });
   };
@@ -378,7 +384,7 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
             }}
             className="hidden md:block"
           >
-            <div className="w-full overflow-hidden rounded-md bg-[#181818] text-white shadow-[0_18px_48px_rgba(0,0,0,0.92)] ring-1 ring-white/20 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-full max-h-[calc(100vh-24px)] overflow-y-auto overflow-x-hidden rounded-md bg-[#181818] text-white shadow-[0_18px_48px_rgba(0,0,0,0.92)] ring-1 ring-white/20 animate-in fade-in zoom-in-95 duration-150">
               {/* 16:9 Live Video Preview */}
               <div className="relative aspect-video w-full overflow-hidden bg-black" style={{ aspectRatio: "16 / 9" }}>
               <Image

@@ -31,7 +31,11 @@ export default function FavoriteButton({ video, className = "" }) {
 
   const handleToggle = async () => {
     if (!user) {
-      router.push('/login');
+      const redirectTarget =
+        typeof window !== 'undefined'
+          ? window.location.pathname + window.location.search
+          : '/';
+      router.push(`/login?redirect=${encodeURIComponent(redirectTarget)}`);
       return;
     }
     setLoading(true);

@@ -267,17 +267,26 @@ export default function VideoPlayer({
   const [playbackRate, setPlaybackRate] = useState(1);
   const [qualityLevels, setQualityLevels] = useState([]);
   const [selectedQuality, setSelectedQuality] = useState(-1);
+  const [audioTracks, setAudioTracks] = useState([]);
+  const [activeAudioTrack, setActiveAudioTrack] = useState(-1);
   const [nextEpisodeDismissed, setNextEpisodeDismissed] = useState(false);
   const [seekIndicator, setSeekIndicator] = useState(null);
   const lastTapRef = useRef({ time: 0, side: null });
+  const singleTapTimerRef = useRef(null);
   const seekIndicatorTimerRef = useRef(null);
   const pausedAtRef = useRef(null);
   const pendingResumeRef = useRef(null);
+  const validatedSubtitleUrlsRef = useRef(new Set());
+  const resumeAppliedRef = useRef("");
+  const hasOpenPopoverRef = useRef(false);
   const [sessionNonce, setSessionNonce] = useState(0);
   const activeSubtitleRef = useRef(activeSubtitle);
   useEffect(() => {
     activeSubtitleRef.current = activeSubtitle;
   }, [activeSubtitle]);
+  useEffect(() => {
+    hasOpenPopoverRef.current = isSettingsOpen || isEpisodePanelOpen;
+  }, [isSettingsOpen, isEpisodePanelOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -369,18 +378,36 @@ export default function VideoPlayer({
   // Deteksi orientasi & auto fullscreen di landscape
   useEffect(() => {
     if (isIOS) return;
+    let orientationTimer = null;
     const handleOrientation = () => {
-      const video = videoRef.current;
-      if (!video) return;
-      const isLandscape = window.innerWidth > window.innerHeight;
-      if (isLandscape && window.innerWidth <= MOBILE_SCREEN_WIDTH) {
-        (containerRef.current || video).requestFullscreen?.().catch(() => {});
-      } else if (!isLandscape && document.fullscreenElement) {
-        document.exitFullscreen?.().catch(() => {});
+      if (orientationTimer) {
+        window.clearTimeout(orientationTimer);
       }
+      orientationTimer = window.setTimeout(() => {
+        orientationTimer = null;
+        const video = videoRef.current;
+        if (!video) return;
+        const orientationType = window.screen?.orientation?.type;
+        const isLandscape = orientationType
+          ? orientationType.startsWith("landscape")
+          : window.matchMedia?.("(orientation: landscape)")?.matches ??
+            window.innerWidth > window.innerHeight;
+        const isMobileViewportNow =
+          Math.min(window.innerWidth, window.innerHeight) <= MOBILE_SCREEN_WIDTH;
+        if (isLandscape && isMobileViewportNow) {
+          (containerRef.current || video).requestFullscreen?.().catch(() => {});
+        } else if (!isLandscape && document.fullscreenElement) {
+          document.exitFullscreen?.().catch(() => {});
+        }
+      }, 150);
     };
     window.addEventListener("orientationchange", handleOrientation);
-    return () => window.removeEventListener("orientationchange", handleOrientation);
+    return () => {
+      if (orientationTimer) {
+        window.clearTimeout(orientationTimer);
+      }
+      window.removeEventListener("orientationchange", handleOrientation);
+    };
   }, [isIOS]);
 
   // Handler untuk masuk ke mode landscape fullscreen di mobile
@@ -443,9 +470,9 @@ export default function VideoPlayer({
       }
     };
 
-    // Handle ESC key for pseudo-fullscreen
+    // Handle ESC key for pseudo-fullscreen (only when no settings/episode popover is open)
     const handleEscKey = (e) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !hasOpenPopoverRef.current) {
         const container = containerRef.current;
         if (container?.classList.contains("pseudo-fullscreen")) {
           container.classList.remove("pseudo-fullscreen");
@@ -541,36 +568,50 @@ export default function VideoPlayer({
     if (!media || !activeSubtitle || activeSubtitle === "off") return null;
     const textTracks = Array.from(media.textTracks || []);
     if (!textTracks.length) return null;
-    // 1) Try direct match by language/label/id/kind
+
+    const hasCues = (track) => Boolean(track?.cues && track.cues.length > 0);
+    // 1) Try direct match by language/label/id/kind, preferring tracks that already have cues
     const targetKeys = new Set([activeSubtitle, activeSubtitleMeta?.lang, activeSubtitleMeta?.label].map(normalizeSubtitleKey).filter(Boolean));
     if (targetKeys.size) {
+      const exactMatches = [];
+      const prefixMatches = [];
       for (const track of textTracks) {
         const keys = [track.language, track.label, track.id, track.kind].map(normalizeSubtitleKey).filter(Boolean);
         if (keys.some((k) => targetKeys.has(k))) {
-          return track;
+          exactMatches.push(track);
+          continue;
         }
         const lang = normalizeSubtitleKey(track.language || "");
-        for (const tk of targetKeys) {
-          if (!tk) continue;
-          if (lang.startsWith(tk) || tk.startsWith(lang)) {
-            return track;
+        if (lang) {
+          for (const tk of targetKeys) {
+            if (tk && (lang.startsWith(tk) || tk.startsWith(lang))) {
+              prefixMatches.push(track);
+              break;
+            }
           }
         }
+      }
+      const matches = [...exactMatches, ...prefixMatches];
+      if (matches.length) {
+        return matches.find(hasCues) || matches[0];
       }
     }
     // 2) Fallback by index based on our subtitleTracks order
     const idx = (subtitleTracks || []).findIndex((t) => {
       const a = normalizeSubtitleKey(activeSubtitle);
+      if (!a) return false;
       return [t.lang, t.label]
         .map(normalizeSubtitleKey)
         .filter(Boolean)
         .some((v) => v === a || a.startsWith(v) || v.startsWith(a));
     });
     if (idx >= 0 && idx < textTracks.length) {
-      return textTracks[idx];
+      const candidate = textTracks[idx];
+      if (hasCues(candidate)) return candidate;
+      return textTracks.find(hasCues) || candidate;
     }
-    // 3) Last resort: first available
-    return textTracks[0] || null;
+    // 3) Last resort: prefer a track with cues, then first available
+    return textTracks.find(hasCues) || textTracks[0] || null;
   }, [activeSubtitle, activeSubtitleMeta, subtitleTracks]);
 
   // subtitleSizeClass sudah digantikan dengan versi responsif di bawah
@@ -595,6 +636,7 @@ export default function VideoPlayer({
 
   const attachSource = useCallback(
     async (isCancelled = () => false) => {
+      detachHls();
       const media = videoRef.current;
       if (!media || !videoSrc) return;
 
@@ -605,9 +647,11 @@ export default function VideoPlayer({
           if (Hls?.isSupported()) {
             detachHls();
             const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+            if (isCancelled() || videoRef.current !== media) {
+              hls.destroy();
+              return;
+            }
             hls.subtitleDisplay = false;
-            hls.loadSource(videoSrc);
-            hls.attachMedia(media);
             hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
               if (isCancelled() || videoRef.current !== media) return;
               const tracks = Array.isArray(hls.subtitleTracks) ? hls.subtitleTracks : [];
@@ -624,6 +668,45 @@ export default function VideoPlayer({
                   normalizeSubtitleKey(t.name) === target
               );
               hls.subtitleTrack = idx >= 0 ? idx : 0;
+            });
+            hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, (_event, data) => {
+              if (isCancelled() || videoRef.current !== media) return;
+              const tracks = Array.isArray(data?.audioTracks)
+                ? data.audioTracks
+                : Array.isArray(hls.audioTracks)
+                ? hls.audioTracks
+                : [];
+              const formatted = tracks.map((track, index) => ({
+                index,
+                id: track.id ?? index,
+                name: track.name || track.lang || `Audio ${index + 1}`,
+                lang: track.lang || "",
+                label:
+                  track.name && track.lang && track.name.toLowerCase() !== track.lang.toLowerCase()
+                    ? `${track.name} (${track.lang})`
+                    : track.name || (track.lang ? track.lang.toUpperCase() : `Audio ${index + 1}`),
+              }));
+              setAudioTracks(formatted);
+              if (typeof hls.audioTrack === "number" && hls.audioTrack >= 0) {
+                setActiveAudioTrack(hls.audioTrack);
+              } else if (formatted.length) {
+                const defaultIdx = tracks.findIndex((t) => t.default);
+                setActiveAudioTrack(defaultIdx >= 0 ? defaultIdx : 0);
+              } else {
+                setActiveAudioTrack(-1);
+              }
+            });
+            hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, (_event, data) => {
+              if (isCancelled() || videoRef.current !== media) return;
+              const nextIdx =
+                typeof hls.audioTrack === "number" && hls.audioTrack >= 0
+                  ? hls.audioTrack
+                  : typeof data?.id === "number"
+                  ? data.id
+                  : -1;
+              if (nextIdx >= 0) {
+                setActiveAudioTrack(nextIdx);
+              }
             });
             hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
               if (isCancelled() || videoRef.current !== media) return;
@@ -652,6 +735,12 @@ export default function VideoPlayer({
                 }
               }
             });
+            if (isCancelled() || videoRef.current !== media) {
+              hls.destroy();
+              return;
+            }
+            hls.loadSource(videoSrc);
+            hls.attachMedia(media);
             hlsRef.current = hls;
             return;
           }
@@ -719,20 +808,27 @@ export default function VideoPlayer({
 
         .pseudo-fullscreen {
           position: fixed !important;
+          inset: 0 !important;
           top: 0 !important;
           left: 0 !important;
           width: 100vw !important;
-          height: 100vh !important;
+          height: 100dvh !important;
           max-width: 100vw !important;
-          max-height: 100vh !important;
+          max-height: 100dvh !important;
+          aspect-ratio: unset !important;
+          transform: none !important;
           z-index: 99999 !important;
-          background-color: black;
+          background: #000 !important;
         }
         @media (orientation: portrait) {
           .pseudo-fullscreen {
-            height: 56.25vw !important; /* 16:9 aspect ratio */
-            top: 50% !important;
-            transform: translateY(-50%) !important;
+            inset: 0 !important;
+            top: 0 !important;
+            width: 100vw !important;
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            transform: none !important;
+            background: #000 !important;
           }
         }
       `;
@@ -807,8 +903,18 @@ export default function VideoPlayer({
   }, [subtitleTracks]);
 
   useEffect(() => {
+    validatedSubtitleUrlsRef.current.clear();
+  }, [playbackId, videoSrc]);
+
+  useEffect(() => {
     if (!subtitleTracks.length) return;
-    const tracksNeedingValidation = subtitleTracks.filter((track) => track.sourceUrl && track.url && track.url !== track.sourceUrl);
+    const tracksNeedingValidation = subtitleTracks.filter(
+      (track) =>
+        track.sourceUrl &&
+        track.url &&
+        track.url !== track.sourceUrl &&
+        !validatedSubtitleUrlsRef.current.has(track.url)
+    );
     if (!tracksNeedingValidation.length) return;
 
     let cancelled = false;
@@ -819,9 +925,15 @@ export default function VideoPlayer({
           if (!response.ok) {
             throw new Error(`status ${response.status}`);
           }
+          if (!cancelled) {
+            validatedSubtitleUrlsRef.current.add(track.url);
+          }
           return null;
         } catch (error) {
-          console.warn("[VideoPlayer] Subtitle URL failed, falling back to original manifest URI", { attempted: track.url, fallback: track.sourceUrl, reason: error?.message });
+          if (!cancelled) {
+            validatedSubtitleUrlsRef.current.add(track.url);
+            console.warn("[VideoPlayer] Subtitle URL failed, falling back to original manifest URI", { attempted: track.url, fallback: track.sourceUrl, reason: error?.message });
+          }
           return track.sourceUrl;
         }
       })
@@ -870,6 +982,7 @@ export default function VideoPlayer({
     setDuration(0);
     setIsPlaying(false);
     setSubtitleLines([]);
+    resumeAppliedRef.current = "";
   }, [videoSrc]);
 
   useEffect(() => {
@@ -1064,12 +1177,6 @@ export default function VideoPlayer({
             } catch (err) {
               console.warn("Failed to lock orientation:", err);
             }
-          } else if (window.orientation !== undefined) {
-            try {
-              await window.screen.orientation?.lock("landscape");
-            } catch (err) {
-              console.warn("Failed to lock legacy orientation:", err);
-            }
           }
         }
       }
@@ -1133,8 +1240,33 @@ export default function VideoPlayer({
         return;
       }
       const activeTrack = resolveActiveTextTrack();
+      const activeHasCues = Boolean(activeTrack?.cues && activeTrack.cues.length > 0);
+      const targetKeys = new Set(
+        [activeSubtitle, activeSubtitleMeta?.lang, activeSubtitleMeta?.label]
+          .map(normalizeSubtitleKey)
+          .filter(Boolean)
+      );
       tracks.forEach((track) => {
-        track.mode = track === activeTrack ? "hidden" : "disabled";
+        if (track === activeTrack) {
+          track.mode = "hidden";
+          return;
+        }
+        // Keep matching sibling tracks hidden (never showing) while activeTrack has 0 cues so <track> elements still load
+        if (!activeHasCues && activeSubtitle && activeSubtitle !== "off") {
+          const keys = [track.language, track.label, track.id]
+            .map(normalizeSubtitleKey)
+            .filter(Boolean);
+          const matchesTarget = keys.some(
+            (k) =>
+              targetKeys.has(k) ||
+              Array.from(targetKeys).some((tk) => tk && (k.startsWith(tk) || tk.startsWith(k)))
+          );
+          if (matchesTarget) {
+            track.mode = "hidden";
+            return;
+          }
+        }
+        track.mode = "disabled";
       });
       if (!activeTrack) {
         setSubtitleLines([]);
@@ -1145,12 +1277,14 @@ export default function VideoPlayer({
     textTracks.addEventListener?.("addtrack", syncTrackModes);
     textTracks.addEventListener?.("change", syncTrackModes);
     textTracks.addEventListener?.("removetrack", syncTrackModes);
+    media.addEventListener("load", syncTrackModes, true);
     return () => {
       textTracks.removeEventListener?.("addtrack", syncTrackModes);
       textTracks.removeEventListener?.("change", syncTrackModes);
       textTracks.removeEventListener?.("removetrack", syncTrackModes);
+      media.removeEventListener("load", syncTrackModes, true);
     };
-  }, [resolveActiveTextTrack, subtitleTracks, isIOS, videoSrc]);
+  }, [resolveActiveTextTrack, activeSubtitle, activeSubtitleMeta, subtitleTracks, isIOS, videoSrc]);
 
   useEffect(() => {
     if (!autoplay) return;
@@ -1202,6 +1336,36 @@ export default function VideoPlayer({
     }
   }, [isEpisodePanelOpen]);
 
+  const applyInitialResume = useCallback(() => {
+    const media = videoRef.current;
+    if (!media || !initialTime || initialTime <= 0) return;
+    const resumeKey = `${videoSrc}::${initialTime}`;
+    if (resumeAppliedRef.current === resumeKey) return;
+    if (media.readyState < 1) return;
+
+    const hasValidDuration = Number.isFinite(media.duration) && media.duration > 0;
+    if (hasValidDuration && media.duration <= initialTime + 5) {
+      resumeAppliedRef.current = resumeKey;
+      return;
+    }
+
+    if (media.currentTime < 5) {
+      try {
+        media.currentTime = initialTime;
+        setCurrentTime(initialTime);
+      } catch {
+        // Defer retry to durationchange/canplay if seek fails before stream settles
+      }
+    }
+
+    if (
+      (media.currentTime > 0 && Math.abs(media.currentTime - initialTime) <= 1) ||
+      media.currentTime >= 5
+    ) {
+      resumeAppliedRef.current = resumeKey;
+    }
+  }, [initialTime, videoSrc]);
+
   useEffect(() => {
     const media = videoRef.current;
     if (!media) return;
@@ -1232,11 +1396,16 @@ export default function VideoPlayer({
       });
     };
     const handleLoadedMetadata = () => {
-      setDuration(media.duration || 0);
-      if (initialTime > 5 && media.duration > initialTime + 5 && media.currentTime < 5) {
-        media.currentTime = initialTime;
-      }
+      setDuration(Number.isFinite(media.duration) ? media.duration : 0);
+      applyInitialResume();
       setCurrentTime(media.currentTime || 0);
+    };
+    const handleDurationChange = () => {
+      setDuration(Number.isFinite(media.duration) ? media.duration : 0);
+      applyInitialResume();
+    };
+    const handleCanPlay = () => {
+      applyInitialResume();
     };
     const handleVolumeUpdate = () => {
       setVolume(media.volume);
@@ -1251,6 +1420,8 @@ export default function VideoPlayer({
     media.addEventListener("pause", handlePause);
     media.addEventListener("timeupdate", handleTimeUpdate);
     media.addEventListener("loadedmetadata", handleLoadedMetadata);
+    media.addEventListener("durationchange", handleDurationChange);
+    media.addEventListener("canplay", handleCanPlay);
     media.addEventListener("volumechange", handleVolumeUpdate);
     media.addEventListener("ended", handleEnded);
 
@@ -1259,19 +1430,16 @@ export default function VideoPlayer({
       media.removeEventListener("pause", handlePause);
       media.removeEventListener("timeupdate", handleTimeUpdate);
       media.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      media.removeEventListener("durationchange", handleDurationChange);
+      media.removeEventListener("canplay", handleCanPlay);
       media.removeEventListener("volumechange", handleVolumeUpdate);
       media.removeEventListener("ended", handleEnded);
     };
-  }, [onEnded, onProgress, videoSrc, initialTime]);
+  }, [onEnded, onProgress, videoSrc, applyInitialResume]);
 
   useEffect(() => {
-    const media = videoRef.current;
-    if (!media || initialTime <= 5) return;
-    if (media.readyState >= 1 && media.duration > initialTime + 5 && media.currentTime < 5) {
-      media.currentTime = initialTime;
-      setCurrentTime(initialTime);
-    }
-  }, [initialTime, videoSrc]);
+    applyInitialResume();
+  }, [applyInitialResume]);
 
   // Track fullscreen state changes
   useEffect(() => {
@@ -1297,12 +1465,28 @@ export default function VideoPlayer({
 
   useEffect(() => {
     const handler = (event) => {
-      const tagName = event.target?.tagName?.toLowerCase?.();
-      if (tagName === "input" || tagName === "textarea" || tagName === "select" || event.target?.isContentEditable) return;
+      if (event.key === "Escape" && (isSettingsOpen || isEpisodePanelOpen)) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (isSettingsOpen) setIsSettingsOpen(false);
+        if (isEpisodePanelOpen) setEpisodePanelOpen(false);
+        return;
+      }
+      const target = event.target;
+      const tagName = target?.tagName?.toLowerCase?.();
+      if (tagName === "input" || tagName === "textarea" || tagName === "select" || target?.isContentEditable) return;
+      const isInteractiveButtonOrSettings =
+        tagName === "button" ||
+        tagName === "a" ||
+        Boolean(target?.closest?.('button, [role="button"], a, [data-settings-popover="true"]'));
       const media = videoRef.current;
       if (!media) return;
       switch (event.key.toLowerCase()) {
         case " ":
+          if (isInteractiveButtonOrSettings) return;
+          event.preventDefault();
+          togglePlay();
+          break;
         case "k":
           event.preventDefault();
           togglePlay();
@@ -1363,7 +1547,7 @@ export default function VideoPlayer({
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [activeSubtitle, subtitleTracks, togglePlay, requestFullscreen, toggleMute, handleVolumeChange, volume, showControlsTemporarily, nextEpisode, handleNextEpisode, hasEpisodes, handleEpisodePanelToggle]);
+  }, [activeSubtitle, subtitleTracks, togglePlay, requestFullscreen, toggleMute, handleVolumeChange, volume, showControlsTemporarily, nextEpisode, handleNextEpisode, hasEpisodes, handleEpisodePanelToggle, isSettingsOpen, isEpisodePanelOpen]);
 
   useEffect(() => {
     if (!activeSubtitle || activeSubtitle === "off") {
@@ -1430,6 +1614,7 @@ export default function VideoPlayer({
     textTracks?.addEventListener?.("addtrack", bindActiveTrack);
     textTracks?.addEventListener?.("change", bindActiveTrack);
     textTracks?.addEventListener?.("removetrack", bindActiveTrack);
+    media.addEventListener("load", bindActiveTrack, true);
 
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
@@ -1439,6 +1624,7 @@ export default function VideoPlayer({
       textTracks?.removeEventListener?.("addtrack", bindActiveTrack);
       textTracks?.removeEventListener?.("change", bindActiveTrack);
       textTracks?.removeEventListener?.("removetrack", bindActiveTrack);
+      media.removeEventListener("load", bindActiveTrack, true);
     };
   }, [resolveActiveTextTrack, activeSubtitle, subtitleTracks, isIOS, videoSrc]);
 
@@ -1494,6 +1680,8 @@ export default function VideoPlayer({
     setNextEpisodeDismissed(false);
     setQualityLevels([]);
     setSelectedQuality(-1);
+    setAudioTracks([]);
+    setActiveAudioTrack(-1);
   }, [videoSrc, currentEpisode?.id]);
 
   useEffect(() => {
@@ -1507,6 +1695,16 @@ export default function VideoPlayer({
     setSelectedQuality(levelIndex);
     if (hlsRef.current) {
       hlsRef.current.currentLevel = levelIndex;
+    }
+    showControlsTemporarily();
+  };
+
+  const handleAudioTrackChange = (trackIndex) => {
+    const idx = Number(trackIndex);
+    if (Number.isNaN(idx)) return;
+    setActiveAudioTrack(idx);
+    if (hlsRef.current) {
+      hlsRef.current.audioTrack = idx;
     }
     showControlsTemporarily();
   };
@@ -1537,6 +1735,10 @@ export default function VideoPlayer({
         clearTimeout(seekIndicatorTimerRef.current);
         seekIndicatorTimerRef.current = null;
       }
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -1555,6 +1757,11 @@ export default function VideoPlayer({
     if (controlBarRef.current?.contains(event.target)) return;
     if (event.target?.closest?.("button, a, input, select")) return;
 
+    if (singleTapTimerRef.current) {
+      clearTimeout(singleTapTimerRef.current);
+      singleTapTimerRef.current = null;
+    }
+
     const rect = containerRef.current?.getBoundingClientRect();
     if (rect && rect.width > 0) {
       const relX = (event.clientX - rect.left) / rect.width;
@@ -1569,11 +1776,19 @@ export default function VideoPlayer({
       lastTapRef.current = { time: now, side };
     }
 
-    if (showControls) {
-      setShowControls(false);
-    } else {
-      showControlsTemporarily();
-    }
+    const wasControlsVisible = showControls;
+    singleTapTimerRef.current = window.setTimeout(() => {
+      singleTapTimerRef.current = null;
+      if (wasControlsVisible) {
+        if (controlsTimerRef.current) {
+          clearTimeout(controlsTimerRef.current);
+          controlsTimerRef.current = null;
+        }
+        setShowControls(false);
+      } else {
+        showControlsTemporarily();
+      }
+    }, 280);
   };
 
   return (
@@ -1712,6 +1927,7 @@ export default function VideoPlayer({
                           : 1;
                       return `${+(baseVw * subtitleSizeScale).toFixed(2)}vw`;
                     })(),
+                    lineHeight: 1.35,
                     maxWidth: "90%",
                     wordBreak: "break-word",
                   }}
@@ -1849,7 +2065,10 @@ export default function VideoPlayer({
         {/* Liquid Glass Control Dock + Settings Popover */}
         <div ref={controlBarRef} className="pointer-events-auto relative mx-3 mb-3 sm:mx-6 sm:mb-5">
           {isSettingsOpen && (
-            <div className="absolute bottom-full right-0 mb-3 max-h-[70vh] w-[min(92vw,360px)] overflow-y-auto rounded-2xl border border-white/20 bg-black/70 p-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-2xl space-y-4">
+            <div
+              data-settings-popover="true"
+              className="absolute bottom-full right-0 mb-3 max-h-[70vh] w-[min(92vw,360px)] overflow-y-auto rounded-2xl border border-white/20 bg-black/70 p-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-2xl space-y-4"
+            >
               <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                 <span className="text-xs font-bold uppercase tracking-widest text-white/70">Pengaturan Pemutaran</span>
                 <button
@@ -1916,6 +2135,31 @@ export default function VideoPlayer({
                   ))}
                 </div>
               </div>
+
+              {audioTracks.length > 1 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-semibold text-white/60">Audio / Dubbing</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {audioTracks.map((track) => {
+                      const active = activeAudioTrack === track.index;
+                      return (
+                        <button
+                          key={`${track.index}-${track.lang || track.name}`}
+                          type="button"
+                          onClick={() => handleAudioTrackChange(track.index)}
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                            active
+                              ? "bg-[#E50914] text-white shadow"
+                              : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                          }`}
+                        >
+                          {track.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {subtitleTracks.length > 0 && (
                 <div className="space-y-1.5">

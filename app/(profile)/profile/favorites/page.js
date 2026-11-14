@@ -51,7 +51,7 @@ export default function FavoritesPage() {
           <h1 className="text-2xl font-bold text-white">Daftar Saya</h1>
           <p className="mt-2 text-sm text-white/65">Masuk untuk menyimpan dan melihat daftar tontonan favoritmu.</p>
           <Link
-            href="/login"
+            href="/login?redirect=/profile/favorites"
             className="mt-6 inline-flex items-center rounded-[4px] bg-[#E50914] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#f6121d]"
           >
             Masuk Sekarang

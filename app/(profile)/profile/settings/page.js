@@ -25,6 +25,8 @@ function SettingsTopBar() {
             <img
               src="/logo.png"
               alt="Logo"
+              width={32}
+              height={32}
               className="h-8 w-8 rounded-lg object-contain"
             />
           </Link>
@@ -57,7 +59,6 @@ export default function ProfileSettingsPage() {
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [securityLoading, setSecurityLoading] = useState(false);
   const [dangerLoading, setDangerLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
 
   const [form, setForm] = useState({
     displayName: "",
@@ -65,13 +66,10 @@ export default function ProfileSettingsPage() {
     preferredLanguage: "id",
     autoplay: true,
     dataSaver: false,
-    theme: "dark",
   });
 
   const [photoUrl, setPhotoUrl] = useState("");
   const [photoUrlInput, setPhotoUrlInput] = useState("");
-  const [file, setFile] = useState(null);
-  const [filePreview, setFilePreview] = useState("");
 
   const [profileMessage, setProfileMessage] = useState("");
   const [profileError, setProfileError] = useState("");
@@ -89,8 +87,6 @@ export default function ProfileSettingsPage() {
     }));
     setPhotoUrl(user.photoURL || "");
     setPhotoUrlInput("");
-    setFile(null);
-    setFilePreview("");
     setProfileMessage("");
     setProfileError("");
   }, [user]);
@@ -110,7 +106,6 @@ export default function ProfileSettingsPage() {
           preferredLanguage: preferences.preferredLanguage || prev.preferredLanguage || "id",
           autoplay: typeof preferences.autoplay === "boolean" ? preferences.autoplay : true,
           dataSaver: typeof preferences.dataSaver === "boolean" ? preferences.dataSaver : false,
-          theme: preferences.theme || "dark",
         }));
       })
       .catch(() => undefined)
@@ -122,22 +117,11 @@ export default function ProfileSettingsPage() {
     };
   }, [user]);
 
-  useEffect(() => {
-    if (!file) {
-      setFilePreview("");
-      return undefined;
-    }
-    const url = URL.createObjectURL(file);
-    setFilePreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
-
   const previewPhoto = useMemo(() => {
     if (photoUrlInput.trim()) return photoUrlInput.trim();
-    if (filePreview) return filePreview;
     if (photoUrl) return photoUrl;
     return PLACEHOLDER_AVATAR;
-  }, [filePreview, photoUrl, photoUrlInput]);
+  }, [photoUrl, photoUrlInput]);
 
   const avatarInitial = useMemo(() => {
     const source = form.displayName || user?.email || "K";
@@ -190,7 +174,6 @@ export default function ProfileSettingsPage() {
 
       setPhotoUrl(nextPhotoUrl || "");
       setPhotoUrlInput("");
-      setFile(null);
       setProfileMessage("Profil berhasil diperbarui.");
     } catch (error) {
       setProfileError(error?.message || "Gagal memperbarui profil.");
@@ -211,7 +194,6 @@ export default function ProfileSettingsPage() {
           preferredLanguage: form.preferredLanguage,
           autoplay: form.autoplay,
           dataSaver: form.dataSaver,
-          theme: form.theme,
         },
       });
       setStatus({ type: "success", message: "Preferensi pemutaran berhasil disimpan." });
@@ -389,7 +371,7 @@ export default function ProfileSettingsPage() {
               <button
                 type="submit"
                 className="inline-flex items-center rounded-[2px] bg-white px-6 py-2 text-sm font-bold text-black transition hover:bg-[#E50914] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={savingProfile || uploading}
+                disabled={savingProfile}
               >
                 {savingProfile ? "Menyimpan..." : "Simpan"}
               </button>
@@ -397,8 +379,6 @@ export default function ProfileSettingsPage() {
                 type="button"
                 onClick={() => {
                   setPhotoUrlInput("");
-                  setFile(null);
-                  setFilePreview("");
                   setProfileMessage("");
                   setProfileError("");
                 }}

@@ -1,4 +1,4 @@
-﻿export const metadata = { title: 'Ketentuan Layanan - Kstream' };
+﻿export const metadata = { title: 'Ketentuan Layanan' };
 
 export default function TermsPage() {
   return (

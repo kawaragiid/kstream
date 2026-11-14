@@ -104,26 +104,27 @@ function ModalFavoriteButton({ video }) {
   );
 }
 
-function EpisodeListSection({ episodes = [], onPlay, resumeEpisodeId }) {
+function EpisodeListSection({ seriesId, episodes = [], onPlay, resumeEpisodeId }) {
   const seasons = useMemo(() => {
     return Array.from(
       new Set(episodes.map((ep) => Number(ep.seasonNumber || 1)))
     ).sort((a, b) => a - b);
   }, [episodes]);
 
-  const [selectedSeason, setSelectedSeason] = useState(seasons[0] ?? 1);
+  const firstSeason = seasons[0] ?? 1;
+  const [selectedSeason, setSelectedSeason] = useState(firstSeason);
 
   useEffect(() => {
-    if (seasons.length > 0 && !seasons.includes(selectedSeason)) {
-      setSelectedSeason(seasons[0]);
-    }
-  }, [seasons, selectedSeason]);
+    setSelectedSeason(firstSeason);
+  }, [seriesId, firstSeason]);
+
+  const effectiveSeason = seasons.includes(selectedSeason) ? selectedSeason : firstSeason;
 
   const visibleEpisodes = useMemo(() => {
     return seasons.length > 1
-      ? episodes.filter((ep) => Number(ep.seasonNumber || 1) === selectedSeason)
+      ? episodes.filter((ep) => Number(ep.seasonNumber || 1) === effectiveSeason)
       : episodes;
-  }, [episodes, seasons, selectedSeason]);
+  }, [episodes, seasons, effectiveSeason]);
 
   if (!episodes.length) return null;
 
@@ -138,7 +139,7 @@ function EpisodeListSection({ episodes = [], onPlay, resumeEpisodeId }) {
         {seasons.length > 1 && (
           <select
             aria-label="Pilih Season"
-            value={selectedSeason}
+            value={effectiveSeason}
             onChange={(e) => setSelectedSeason(Number(e.target.value))}
             className="rounded-[4px] border border-white/25 bg-[#242424] px-3.5 py-2 text-sm font-semibold text-white outline-none transition hover:border-white/50 focus:border-white"
           >
@@ -257,6 +258,7 @@ export default function MediaOverlayRoot() {
   const [ready, setReady] = useState(false);
   const lastPathnameRef = useRef(pathname);
   const closeTimerRef = useRef(null);
+  const dialogRef = useRef(null);
 
   const resolvedId = useMemo(() => media?.slug || media?.id || null, [media]);
 
@@ -390,17 +392,66 @@ export default function MediaOverlayRoot() {
     }, 250);
   }, [closeMedia]);
 
-  // Escape key accessibility handler
+  // Escape key & focus trap accessibility handler
   useEffect(() => {
+    if (!isOpen) return;
+    const dialog = dialogRef.current;
+    const previousFocused = document.activeElement;
+    if (dialog && !dialog.contains(previousFocused)) {
+      dialog.focus({ preventScroll: true });
+    }
+
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         handleClose();
+        return;
+      }
+
+      if (event.key === "Tab" && dialog) {
+        const focusable = Array.from(
+          dialog.querySelectorAll(
+            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((el) => {
+          if (el.hasAttribute("disabled") || el.getAttribute("aria-hidden") === "true") return false;
+          const style = window.getComputedStyle(el);
+          return style.display !== "none" && style.visibility !== "hidden";
+        });
+
+        if (focusable.length === 0) {
+          event.preventDefault();
+          return;
+        }
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement;
+
+        if (!dialog.contains(active)) {
+          event.preventDefault();
+          (event.shiftKey ? last : first).focus();
+          return;
+        }
+
+        if (event.shiftKey) {
+          if (active === first || active === dialog) {
+            event.preventDefault();
+            last.focus();
+          }
+        } else if (active === last) {
+          event.preventDefault();
+          first.focus();
+        }
       }
     };
-    if (isOpen) {
-      window.addEventListener("keydown", handleKeyDown);
-      return () => window.removeEventListener("keydown", handleKeyDown);
-    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (previousFocused && typeof previousFocused.focus === "function" && document.contains(previousFocused)) {
+        previousFocused.focus({ preventScroll: true });
+      }
+    };
   }, [isOpen, handleClose]);
 
   const releaseYear = useMemo(() => {
@@ -495,10 +546,12 @@ export default function MediaOverlayRoot() {
 
       {/* Netflix Title Detail Popup Modal */}
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={detail?.title || media?.title || "Detail Konten"}
-        className="pointer-events-auto relative z-[121] h-[100dvh] w-full max-w-4xl overflow-y-auto overscroll-contain rounded-none bg-[#181818] text-white shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-lg"
+        className="pointer-events-auto relative z-[121] h-[100dvh] w-full max-w-4xl overflow-y-auto overscroll-contain rounded-none bg-[#181818] text-white shadow-2xl focus:outline-none sm:h-auto sm:max-h-[90vh] sm:rounded-lg"
       >
         {/* Crisp top-right close button */}
         <button
@@ -654,6 +707,7 @@ export default function MediaOverlayRoot() {
               {/* Conditional Series Episodes Section */}
               {detail.type === "series" && detail.episodes?.length > 0 && (
                 <EpisodeListSection
+                  seriesId={detail.id}
                   episodes={detail.episodes}
                   onPlay={handlePlayEpisode}
                   resumeEpisodeId={resumeEpisode?.id || firstEpisode?.id}

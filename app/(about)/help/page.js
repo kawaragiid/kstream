@@ -1,6 +1,6 @@
 ﻿import Link from 'next/link';
 
-export const metadata = { title: 'Bantuan - Kstream' };
+export const metadata = { title: 'Bantuan' };
 
 export default function HelpPage() {
   return (

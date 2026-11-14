@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatDuration } from '../lib/helpers';
@@ -81,9 +81,11 @@ function EpisodeCard({ episode, href }) {
 }
 
 export default function EpisodeList({ episodes = [], baseHref = '' }) {
-  const seasons = Array.from(
-    new Set(episodes.map((ep) => Number(ep.seasonNumber || 1)))
-  ).sort((a, b) => a - b);
+  const seasons = useMemo(() => {
+    return Array.from(
+      new Set(episodes.map((ep) => Number(ep.seasonNumber || 1)))
+    ).sort((a, b) => a - b);
+  }, [episodes]);
   const defaultSeason = Number(
     episodes.find((ep) => ep.playbackId || ep.streamUrl)?.seasonNumber || seasons[0] || 1
   );
@@ -134,8 +136,9 @@ export default function EpisodeList({ episodes = [], baseHref = '' }) {
         </div>
       )}
       <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
-        {visibleEpisodes.map((ep) => {
-          const encodedId = encodeURIComponent(ep.id);
+        {visibleEpisodes.map((ep, idx) => {
+          const rawEpId = ep.id || ep.episodeId || `ep-${ep.episodeNumber || idx + 1}`;
+          const encodedId = encodeURIComponent(rawEpId);
           let href = "#";
           if (typeof baseHref === "function") {
             href = baseHref(ep);
@@ -143,7 +146,7 @@ export default function EpisodeList({ episodes = [], baseHref = '' }) {
             const separator = baseHref.includes("?") ? "&" : "?";
             href = `${baseHref}${separator}ep=${encodedId}&autoplay=1`;
           }
-          return <EpisodeCard key={ep.id} episode={ep} href={href} />;
+          return <EpisodeCard key={rawEpId} episode={ep} href={href} />;
         })}
       </div>
     </div>

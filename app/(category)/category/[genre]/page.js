@@ -23,7 +23,7 @@ export async function generateMetadata({ params }) {
     genre = rawGenre || "";
   }
   return {
-    title: `Kategori: ${genre} - Kstream`,
+    title: `Kategori: ${genre}`,
   };
 }
 

@@ -10,11 +10,18 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthChange((firebaseUser) => {
-      setUser(firebaseUser);
-      setLoading(false);
-    });
-    return () => unsubscribe();
+    const unsubscribe = onAuthChange(
+      (firebaseUser) => {
+        setUser(firebaseUser);
+        setLoading(false);
+      },
+      (error) => {
+        console.warn('[useAuth] Auth listener error:', error?.message || error);
+        setUser(null);
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe?.();
   }, []);
 
   const value = useMemo(() => ({ user, loading }), [user, loading]);

@@ -49,7 +49,10 @@ export async function GET(request, context) {
 
   let episodes = [];
   if (video.type === "series") {
-    episodes = await getSeriesEpisodes(video.id).catch(() => []);
+    episodes =
+      Array.isArray(video.episodes) && video.episodes.length
+        ? video.episodes
+        : await getSeriesEpisodes(video.id).catch(() => []);
   }
 
   return NextResponse.json(

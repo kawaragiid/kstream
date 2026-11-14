@@ -14,6 +14,7 @@ export default function HistoryPage() {
 
   const handleClearHistory = async () => {
     if (!user?.uid || clearing) return;
+    if (typeof window !== "undefined" && !window.confirm("Hapus seluruh riwayat tontonan?")) return;
     setClearing(true);
     try {
       await clearUserHistory(user.uid);
@@ -72,7 +73,7 @@ export default function HistoryPage() {
           <h1 className="text-2xl font-bold text-white">Riwayat Tonton</h1>
           <p className="mt-2 text-sm text-white/65">Masuk untuk melanjutkan dan melihat riwayat tontonan kamu.</p>
           <Link
-            href="/login"
+            href="/login?redirect=/profile/history"
             className="mt-6 inline-flex items-center rounded-[4px] bg-[#E50914] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#f6121d]"
           >
             Masuk Sekarang

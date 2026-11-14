@@ -16,8 +16,12 @@ export default function SliderRow({
 }) {
   const scrollRef = useRef(null);
 
+  const validItems = useMemo(
+    () => (Array.isArray(items) ? items.filter(Boolean) : []),
+    [items]
+  );
   const skeletonOrientationClass = orientation === "portrait" ? "aspect-[2/3]" : "aspect-video";
-  const hasItems = items.length > 0;
+  const hasItems = validItems.length > 0;
 
   const handleScroll = useCallback((direction) => {
     const container = scrollRef.current;
@@ -79,9 +83,9 @@ export default function SliderRow({
           className="-mx-4 -my-20 flex gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar scroll-smooth px-4 py-20 snap-x snap-mandatory scroll-pl-4 [-webkit-overflow-scrolling:touch]"
         >
           {hasItems
-            ? items.map((item) => (
+            ? validItems.map((item, idx) => (
                 <div
-                  key={`${item.type || "item"}-${item.id}`}
+                  key={`${item.type || "item"}-${item.id || idx}`}
                   className="w-[62vw] shrink-0 snap-start sm:w-[40vw] md:w-[27vw] lg:w-[21vw] xl:w-[18.5vw]"
                 >
                   <CardPoster item={item} orientation={orientation} />

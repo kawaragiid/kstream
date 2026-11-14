@@ -38,7 +38,11 @@ function PlayerChrome({ children }) {
   return (
     <div
       className="relative flex h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-black text-white"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      style={{
+        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingLeft: "env(safe-area-inset-left)",
+        paddingRight: "env(safe-area-inset-right)",
+      }}
     >
       <div className="flex h-full w-full items-center justify-center">{children}</div>
     </div>
@@ -47,18 +51,44 @@ function PlayerChrome({ children }) {
 
 export async function generateMetadata(props) {
   const searchParams = (await props?.searchParams) ?? {};
-  const { getVideoById } = await ensureFirestore();
+  const { getVideoById, getSeriesEpisode, getSeriesEpisodes } = await ensureFirestore();
   const rawId = extractParam(searchParams, "id");
   const rawType = extractParam(searchParams, "type");
+  const rawEpisode = extractParam(searchParams, "ep");
   const resolvedId = decodeParam(rawId);
-  if (!resolvedId) return { title: "Pemutar - Kstream" };
+  if (!resolvedId) return { title: "Pemutar" };
   const normalizedType = (rawType || "").toString().toLowerCase();
   const preferredType = normalizedType === "series" ? "series" : normalizedType === "movie" ? "movie" : undefined;
   const video = await getVideoById(resolvedId, preferredType).catch(() => null);
-  const title = video?.title || "Pemutar";
+  let title = video?.title || "Pemutar";
+  let description = video?.overview;
+
+  if (video && (normalizedType === "series" || video.type === "series")) {
+    const episodeId = decodeParam(rawEpisode);
+    let currentEpisode = null;
+    if (episodeId) {
+      currentEpisode = await getSeriesEpisode(video.id, episodeId).catch(() => null);
+    }
+    if (!currentEpisode) {
+      const episodes = await getSeriesEpisodes(video.id).catch(() => []);
+      currentEpisode = episodes?.[0] || null;
+    }
+    if (currentEpisode) {
+      const epLabel = currentEpisode.number
+        ? `Ep ${currentEpisode.number}`
+        : currentEpisode.title || "";
+      if (epLabel) {
+        title = `${video.title} \u2022 ${epLabel}`;
+      }
+      if (currentEpisode.overview) {
+        description = currentEpisode.overview;
+      }
+    }
+  }
+
   return {
-    title: `${title} - Kstream`,
-    description: video?.overview,
+    title,
+    description,
   };
 }
 
@@ -122,6 +152,7 @@ export default async function PlayerPage(props) {
       <PlayerChrome>
         <div className="w-full max-w-[120rem]">
           <WatchPlayer
+            key={currentEpisode?.id || video.id}
             video={trackerVideo}
             backHref={seriesHref}
             playbackId={currentEpisode.playbackId || video.playbackId}
@@ -149,6 +180,7 @@ export default async function PlayerPage(props) {
     <PlayerChrome>
       <div className="w-full max-w-[120rem]">
         <WatchPlayer
+          key={video.id}
           video={trackerMovie}
           backHref={trackerMovie.href}
           playbackId={video.playbackId}

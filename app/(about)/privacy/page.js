@@ -1,4 +1,4 @@
-﻿export const metadata = { title: 'Kebijakan Privasi - Kstream' };
+﻿export const metadata = { title: 'Kebijakan Privasi' };
 
 export default function PrivacyPage() {
   return (

@@ -33,10 +33,24 @@ export async function generateMetadata({ params }) {
     id = rawId || "";
   }
   const series = await getVideoById(id, "series").catch(() => null);
-  if (!series) return { title: "Detail Series - Kstream" };
+  if (!series) return { title: "Detail Series" };
+  const title = series.title;
+  const description = series.overview;
+  const posterUrl = series.backdropUrl || series.posterUrl;
   return {
-    title: `${series.title} - Kstream`,
-    description: series.overview,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: posterUrl ? [posterUrl] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: posterUrl ? [posterUrl] : undefined,
+    },
   };
 }
 

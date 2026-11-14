@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import EpisodeList from "@/components/EpisodeList";
+import { notFound, redirect } from "next/navigation";
 import FavoriteButton from "@/components/FavoriteButton";
 import SliderRow from "@/components/SliderRow";
 
@@ -15,12 +14,21 @@ async function ensureDataModule() {
       console.warn("Data server belum siap:", error.message);
       return {
         getVideoById: async () => null,
-        getSeriesEpisodes: async () => [],
         getVideosByGenre: async () => [],
       };
     }
   }
   return dataModule;
+}
+
+function formatHumanDuration(seconds) {
+  const total = Number(seconds || 0);
+  if (!total || Number.isNaN(total)) return "";
+  const mins = Math.round(total / 60);
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h}j ${m}m` : `${h}j`;
 }
 
 export async function generateMetadata({ params }) {
@@ -33,15 +41,29 @@ export async function generateMetadata({ params }) {
     id = rawId || "";
   }
   const video = await getVideoById(id, "movie").catch(() => null);
-  if (!video) return { title: "Detail - Kstream" };
+  if (!video) return { title: "Detail" };
+  const title = video.title;
+  const description = video.overview;
+  const posterUrl = video.backdropUrl || video.posterUrl;
   return {
-    title: `${video.title} - Kstream`,
-    description: video.overview,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: posterUrl ? [posterUrl] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: posterUrl ? [posterUrl] : undefined,
+    },
   };
 }
 
 export default async function MovieDetailPage({ params }) {
-  const { getVideoById, getSeriesEpisodes, getVideosByGenre } = await ensureDataModule();
+  const { getVideoById, getVideosByGenre } = await ensureDataModule();
   const { id: rawId } = await params;
   let id = rawId || "";
   try {
@@ -55,23 +77,26 @@ export default async function MovieDetailPage({ params }) {
     notFound();
   }
 
-  const episodes = video.type === "series" ? await getSeriesEpisodes(video.id) : [];
+  if (video.type === "series") {
+    redirect(`/series/${encodeURIComponent(video.slug || video.id)}`);
+  }
+
   const similarGenre = video.genres?.[0] || video.category;
   const recommendations = similarGenre ? await getVideosByGenre(similarGenre, 18, { excludeId: video.id }) : [];
 
-  const releaseYear = video.releaseDate ? new Date(video.releaseDate).getFullYear() : null;
+  const parsedYear = video.releaseDate ? new Date(video.releaseDate).getFullYear() : null;
+  const releaseYear = video.releaseYear || (parsedYear && !Number.isNaN(parsedYear) ? parsedYear : null);
   const slugId = encodeURIComponent(video.slug || video.id);
-  const baseHref = `/${video.type === "series" ? "series" : "movies"}/${slugId}`;
-  const primaryEpisode = episodes?.[0];
-  const watchHref =
-    video.watchHref ||
-    (video.type === "series"
-      ? primaryEpisode?.id
-        ? `/player?id=${slugId}&type=series&ep=${encodeURIComponent(primaryEpisode.id)}`
-        : `/player?id=${slugId}&type=series`
-      : `/player?id=${slugId}&type=movie`);
+  const baseHref = `/movies/${slugId}`;
+  const watchHref = video.watchHref || `/player?id=${slugId}&type=movie`;
 
-  const metadataPills = [releaseYear, video.maturityRating, video.category].filter(Boolean);
+  const durationLabel = formatHumanDuration(video.duration);
+  const genrePills = Array.isArray(video.genres) && video.genres.length > 0
+    ? video.genres
+    : [video.category].filter(Boolean);
+  const metadataPills = Array.from(
+    new Set([releaseYear, video.maturityRating, durationLabel, ...genrePills].filter(Boolean))
+  );
 
   return (
     <div className="space-y-10 sm:space-y-14 pb-12 sm:pb-16">
@@ -130,7 +155,7 @@ export default async function MovieDetailPage({ params }) {
                   href={video.trailerUrl}
                   className="inline-flex w-full sm:w-auto min-h-[44px] items-center justify-center gap-2 rounded-[4px] border border-white/25 bg-[#6d6d6e]/60 px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#6d6d6e]/85 active:scale-95 transition"
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                 >
                   Trailer
                 </a>
@@ -139,21 +164,6 @@ export default async function MovieDetailPage({ params }) {
           </div>
         </section>
       </div>
-
-      {video.type === "series" && (
-        <section className="mx-auto w-full max-w-[120rem] space-y-6 px-4 sm:px-6 md:px-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-text-primary">Daftar Episode</h2>
-            {episodes.length > 0 && (
-              <span className="text-xs uppercase tracking-widest text-text-muted">{episodes.length} episode</span>
-            )}
-          </div>
-          <EpisodeList
-            episodes={episodes}
-            baseHref={`/player?id=${slugId}&type=series`}
-          />
-        </section>
-      )}
 
       {recommendations.length > 0 && (
         <div className="mx-auto w-full max-w-[120rem] px-4 sm:px-6 md:px-8">

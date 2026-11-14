@@ -1,7 +1,7 @@
 import CardPoster from "../../../../components/CardPoster";
 
 export const revalidate = 60;
-export const metadata = { title: "Baru Rilis - Kstream" };
+export const metadata = { title: "Baru Rilis" };
 
 let getNewReleases;
 
