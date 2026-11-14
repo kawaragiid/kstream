@@ -17,7 +17,7 @@ function buildDefaultSummary() {
 
 export async function POST(request) {
   try {
-    const rl = checkRateLimit(request, { key: "analytics-view", limit: 10, windowMs: 60_000 });
+    const rl = await checkRateLimit(request, { key: "analytics-view", limit: 10, windowMs: 60_000 });
     if (!rl.allowed) {
       return NextResponse.json({ ok: true, rateLimited: true });
     }

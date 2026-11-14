@@ -50,7 +50,7 @@ export default async function SeriesDetailPage({ params }) {
     Number(series.totalSeasons || 1),
     ...(episodes.length ? episodes.map((ep) => Number(ep.seasonNumber || 1)) : [1])
   );
-  const primaryEpisode = episodes?.[0];
+  const primaryEpisode = episodes.find((ep) => ep.playbackId || ep.streamUrl) || episodes?.[0];
   const watchHref = primaryEpisode?.id
     ? `/player?id=${slugId}&type=series&ep=${encodeURIComponent(primaryEpisode.id)}&autoplay=1`
     : series.watchHref || `/player?id=${slugId}&type=series`;

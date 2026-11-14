@@ -19,7 +19,7 @@ async function ensureFirestore() {
 }
 
 export async function GET(request, context) {
-  const rl = checkRateLimit(request, { key: "media", limit: 30, windowMs: 60_000 });
+  const rl = await checkRateLimit(request, { key: "media", limit: 30, windowMs: 60_000 });
   if (!rl.allowed) {
     return NextResponse.json(
       { error: "Terlalu banyak permintaan. Coba lagi sebentar." },

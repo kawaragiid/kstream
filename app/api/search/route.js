@@ -15,7 +15,7 @@ async function ensureFirestore() {
 }
 
 export async function GET(request) {
-  const rl = checkRateLimit(request, { key: 'search', limit: 20, windowMs: 60_000 });
+  const rl = await checkRateLimit(request, { key: 'search', limit: 20, windowMs: 60_000 });
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'Terlalu banyak permintaan pencarian. Coba lagi sebentar atau masuk ke akun.' },
