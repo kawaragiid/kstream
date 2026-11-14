@@ -4,7 +4,7 @@ export const metadata = { title: 'Tentang Kstream' };
 
 export default function AboutPage() {
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-14 space-y-6">
+    <div className="container mx-auto max-w-4xl px-4 pt-24 sm:pt-28 pb-16 space-y-6">
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#E50914]">Kstream by Kawaragi</p>
         <h1 className="text-3xl font-bold text-white">Tentang Kstream</h1>

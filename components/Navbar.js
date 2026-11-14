@@ -572,6 +572,17 @@ export default function Navbar({ categories = [] }) {
                 >
                   Cari
                 </Link>
+                <Link
+                  href="/premium/upgrade"
+                  onClick={() => setMobileNavOpen(false)}
+                  className={`flex min-h-[44px] items-center rounded-md px-3.5 py-2.5 transition ${
+                    pathname === "/premium/upgrade"
+                      ? "border-l-[3px] border-[#E50914] bg-white/10 font-semibold text-white pl-3"
+                      : "text-[#E50914] hover:bg-white/10 font-semibold"
+                  }`}
+                >
+                  Donasi
+                </Link>
               </nav>
 
               {categories.length > 0 && (

@@ -3,13 +3,25 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import HistoryRow from '../../../../components/HistoryRow';
-import { getUserHistory } from '../../../../lib/firestore';
+import { clearUserHistory, getUserHistory } from '../../../../lib/firestore';
 import { useAuth } from '../../../../hooks/useAuth';
 
 export default function HistoryPage() {
   const { user, loading } = useAuth();
   const [items, setItems] = useState([]);
   const [fetching, setFetching] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  const handleClearHistory = async () => {
+    if (!user?.uid || clearing) return;
+    setClearing(true);
+    try {
+      await clearUserHistory(user.uid);
+      setItems([]);
+    } finally {
+      setClearing(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -61,19 +73,31 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="min-h-[75vh] bg-[#141414] px-4 sm:px-8 lg:px-12 py-10">
+    <div className="min-h-[75vh] bg-[#141414] px-4 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-14">
       <div className="mx-auto max-w-[1600px] space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-semibold text-white">Riwayat Tonton</h1>
             <p className="mt-1 text-sm text-white/60">Lanjutkan tontonan terakhirmu dari posisi terakhir.</p>
           </div>
-          <Link
-            href="/profile/settings"
-            className="rounded-[4px] border border-white/25 px-3.5 py-1.5 text-xs font-semibold text-white/85 transition hover:border-white hover:text-white"
-          >
-            Kelola Profil
-          </Link>
+          <div className="flex items-center gap-2.5">
+            {items.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearHistory}
+                disabled={clearing}
+                className="rounded-[4px] border border-rose-500/40 bg-rose-500/10 px-3.5 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20 disabled:opacity-50"
+              >
+                {clearing ? 'Membersihkan...' : 'Bersihkan Riwayat'}
+              </button>
+            )}
+            <Link
+              href="/profile/settings"
+              className="rounded-[4px] border border-white/25 px-3.5 py-1.5 text-xs font-semibold text-white/85 transition hover:border-white hover:text-white"
+            >
+              Kelola Profil
+            </Link>
+          </div>
         </div>
 
         {fetching ? (

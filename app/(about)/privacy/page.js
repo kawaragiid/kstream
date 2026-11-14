@@ -2,7 +2,7 @@
 
 export default function PrivacyPage() {
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-14 space-y-8">
+    <div className="container mx-auto max-w-4xl px-4 pt-24 sm:pt-28 pb-16 space-y-8">
       <header className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#E50914]">Privasi</p>
         <h1 className="text-3xl font-bold tracking-tight text-white">Kebijakan Privasi</h1>
