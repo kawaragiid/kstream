@@ -233,6 +233,13 @@ export default function VideoPlayer({
   const [subtitleBottom, setSubtitleBottom] = useState(`${SUBTITLE_BASE_OFFSET_PERCENT}%`);
   const controlBarRef = useRef(null);
   const controlsVisible = !isIOS && (showControls || isEpisodePanelOpen);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [qualityLevels, setQualityLevels] = useState([]);
+  const [selectedQuality, setSelectedQuality] = useState(-1);
+  const [nextEpisodeDismissed, setNextEpisodeDismissed] = useState(false);
+  const [seekIndicator, setSeekIndicator] = useState(null);
+  const lastTapRef = useRef({ time: 0, side: null });
+  const seekIndicatorTimerRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -534,6 +541,19 @@ export default function VideoPlayer({
             const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
             hls.loadSource(videoSrc);
             hls.attachMedia(media);
+            hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
+              if (isCancelled() || videoRef.current !== media) return;
+              const levels = Array.isArray(data?.levels) ? data.levels : [];
+              const formatted = levels
+                .map((lvl, index) => ({
+                  index,
+                  height: lvl.height || 0,
+                  label: lvl.height ? `${lvl.height}p` : `Level ${index + 1}`,
+                }))
+                .sort((a, b) => b.height - a.height);
+              setQualityLevels(formatted);
+              setSelectedQuality(-1);
+            });
             hlsRef.current = hls;
             return;
           }
@@ -1291,14 +1311,76 @@ export default function VideoPlayer({
   const showOverlay = controlsVisible;
   const controlButtonClass =
     "inline-flex items-center justify-center rounded-full p-2 text-white/90 transition duration-150 hover:scale-110 hover:text-white active:scale-95 min-h-[40px] min-w-[40px] focus:outline-none focus:ring-2 focus:ring-white/40";
+  useEffect(() => {
+    setNextEpisodeDismissed(false);
+    setQualityLevels([]);
+    setSelectedQuality(-1);
+  }, [videoSrc, currentEpisode?.id]);
+
+  useEffect(() => {
+    const media = videoRef.current;
+    if (!media) return;
+    media.playbackRate = playbackRate;
+  }, [playbackRate, videoSrc]);
+
+  const handleQualityChange = (event) => {
+    const levelIndex = Number(event.target.value);
+    setSelectedQuality(levelIndex);
+    if (hlsRef.current) {
+      hlsRef.current.currentLevel = levelIndex;
+    }
+    showControlsTemporarily();
+  };
+
+  const handlePlaybackRateChange = (event) => {
+    const nextRate = Number(event.target.value) || 1;
+    setPlaybackRate(nextRate);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = nextRate;
+    }
+    showControlsTemporarily();
+  };
+
   const shouldShowBackdropGradient = !isFullscreen;
   const shouldRenderSubtitles = !isIOS && activeSubtitle !== "off" && subtitleLines.length > 0;
   const remainingSeconds = Math.max(0, (duration || 0) - (currentTime || 0));
+  const showNextEpisodeCountdown =
+    !isIOS &&
+    Boolean(nextEpisode) &&
+    !nextEpisodeDismissed &&
+    duration > 20 &&
+    remainingSeconds > 0 &&
+    remainingSeconds <= 10;
+
+  const triggerSeekFeedback = (side) => {
+    if (seekIndicatorTimerRef.current) {
+      clearTimeout(seekIndicatorTimerRef.current);
+    }
+    setSeekIndicator({ side, key: Date.now() });
+    seekIndicatorTimerRef.current = setTimeout(() => {
+      setSeekIndicator(null);
+    }, 650);
+  };
 
   const handleContainerTap = (event) => {
     if (isIOS || isEpisodePanelOpen) return;
     if (controlBarRef.current?.contains(event.target)) return;
     if (event.target?.closest?.("button, a, input, select")) return;
+
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect && rect.width > 0) {
+      const relX = (event.clientX - rect.left) / rect.width;
+      const side = relX < 0.35 ? "left" : relX > 0.65 ? "right" : "center";
+      const now = Date.now();
+      if (side !== "center" && lastTapRef.current.side === side && now - lastTapRef.current.time < 280) {
+        seekBy(side === "left" ? -10 : 10);
+        triggerSeekFeedback(side);
+        lastTapRef.current = { time: 0, side: null };
+        return;
+      }
+      lastTapRef.current = { time: now, side };
+    }
+
     if (showControls) {
       setShowControls(false);
     } else {
@@ -1650,6 +1732,35 @@ export default function VideoPlayer({
             </div>
 
             <div className="flex items-center gap-1 sm:gap-2.5">
+              {!isMobileViewport && qualityLevels.length > 0 && (
+                <select
+                  aria-label="Kualitas video"
+                  className="cursor-pointer rounded-sm border border-white/20 bg-[#181818]/90 px-2 py-1.5 text-xs font-medium text-white/90 transition hover:border-white/50 focus:outline-none"
+                  value={selectedQuality}
+                  onChange={handleQualityChange}
+                >
+                  <option value={-1} className="bg-[#181818] text-white">Auto</option>
+                  {qualityLevels.map((lvl) => (
+                    <option key={lvl.index} value={lvl.index} className="bg-[#181818] text-white">
+                      {lvl.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {!isMobileViewport && (
+                <select
+                  aria-label="Kecepatan putar"
+                  className="cursor-pointer rounded-sm border border-white/20 bg-[#181818]/90 px-2 py-1.5 text-xs font-medium text-white/90 transition hover:border-white/50 focus:outline-none"
+                  value={playbackRate}
+                  onChange={handlePlaybackRateChange}
+                >
+                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                    <option key={rate} value={rate} className="bg-[#181818] text-white">
+                      {rate}x
+                    </option>
+                  ))}
+                </select>
+              )}
               {!isMobileViewport && (
                 <select
                   aria-label="Ukuran subtitle"
@@ -1740,6 +1851,45 @@ export default function VideoPlayer({
             </div>
           </div>
         </div>
+      {seekIndicator && (
+        <div
+          key={seekIndicator.key}
+          className={`pointer-events-none absolute top-1/2 -translate-y-1/2 z-20 flex flex-col items-center justify-center rounded-full bg-black/65 px-5 py-3 text-white backdrop-blur-sm animate-pulse ${
+            seekIndicator.side === "left" ? "left-8 sm:left-16" : "right-8 sm:right-16"
+          }`}
+        >
+          <span className="text-sm sm:text-base font-bold">{seekIndicator.side === "left" ? "-10s" : "+10s"}</span>
+        </div>
+      )}
+
+      {showNextEpisodeCountdown && (
+        <div className="pointer-events-auto absolute bottom-24 right-4 sm:right-8 z-30 w-72 sm:w-80 rounded-md border border-white/15 bg-[#141414]/95 p-4 text-white shadow-2xl backdrop-blur-md">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60">
+            Episode berikutnya dalam {Math.ceil(remainingSeconds)} detik
+          </p>
+          <p className="mt-1 truncate text-sm font-bold text-white">
+            {nextEpisode.number ? `E${nextEpisode.number}: ` : ""}
+            {nextEpisode.title}
+          </p>
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleNextEpisode}
+              className="flex-1 rounded-[4px] bg-white px-3 py-1.5 text-xs font-bold text-black transition hover:bg-white/85"
+            >
+              Putar Sekarang
+            </button>
+            <button
+              type="button"
+              onClick={() => setNextEpisodeDismissed(true)}
+              className="rounded-[4px] border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
+            >
+              Batal
+            </button>
+          </div>
+        </div>
+      )}
+
       </div>
     </div>
   );

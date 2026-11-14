@@ -66,19 +66,67 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-950 px-4 py-16">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top,_#1e293b,_transparent_55%)]" />
-      <div className="w-full max-w-md space-y-8 rounded-3xl border border-white/10 bg-black/70 p-8 sm:p-10 shadow-2xl backdrop-blur">
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-semibold text-white">Buat Akun Kstream</h1>
-          <p className="text-sm text-white/60">Daftar gratis untuk menyimpan favorit dan riwayat tontonanmu.</p>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#141414] px-4 py-16">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_rgba(229,9,20,0.18),_transparent_55%)]" />
+      <div className="w-full max-w-md space-y-6 rounded-md border border-white/10 bg-black/80 p-8 sm:p-12 shadow-2xl backdrop-blur-sm">
+        <div className="space-y-1.5">
+          <h1 className="text-3xl font-bold tracking-tight text-white">Daftar Akun</h1>
+          <p className="text-sm text-white/60">Simpan daftar favorit dan riwayat tontonanmu.</p>
+        </div>
+
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div>
+            <input
+              aria-label="Nama Tampilan"
+              className="w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-3.5 text-sm text-white placeholder:text-white/50 focus:border-white/50 focus:bg-[#454545] focus:outline-none"
+              placeholder="Nama tampilan (opsional)"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+          </div>
+          <div>
+            <input
+              aria-label="Email"
+              className="w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-3.5 text-sm text-white placeholder:text-white/50 focus:border-white/50 focus:bg-[#454545] focus:outline-none"
+              placeholder="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <input
+              aria-label="Password"
+              className="w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-3.5 text-sm text-white placeholder:text-white/50 focus:border-white/50 focus:bg-[#454545] focus:outline-none"
+              placeholder="Password (minimal 6 karakter)"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          {error && <p className="rounded-[4px] bg-[#e87c03]/15 px-3 py-2 text-xs text-[#e87c03]">{error}</p>}
+
+          <button
+            className="w-full rounded-[4px] bg-[#E50914] py-3.5 text-sm font-bold text-white transition hover:bg-[#f40612] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={loading}
+          >
+            {loading ? "Memproses..." : "Daftar Sekarang"}
+          </button>
+        </form>
+
+        <div className="relative text-center text-xs uppercase tracking-widest text-white/40">
+          <div className="absolute left-0 top-1/2 w-full -translate-y-1/2 border-t border-white/10" aria-hidden="true" />
+          <span className="relative z-10 bg-black/80 px-3">atau</span>
         </div>
 
         <button
           type="button"
           onClick={onGoogleRegister}
           disabled={googleLoading}
-          className="flex w-full items-center justify-center gap-3 rounded-full border border-white/20 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed"
+          className="flex w-full items-center justify-center gap-3 rounded-[4px] border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
             <path
@@ -89,59 +137,9 @@ export default function RegisterPage() {
           {googleLoading ? "Menghubungkan..." : "Daftar dengan Google"}
         </button>
 
-        <div className="relative text-center text-xs uppercase tracking-[0.3em] text-white/40">
-          <div className="absolute left-0 top-1/2 w-full -translate-y-1/2 border-t border-white/10" aria-hidden="true" />
-          <span className="relative z-10 bg-black/70 px-3">atau gunakan email</span>
-        </div>
-
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-widest text-white/60">
-              Nama Tampilan (Opsional)
-            </label>
-            <input
-              className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-brand focus:outline-none"
-              placeholder="Nama kamu"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-widest text-white/60">Email</label>
-            <input
-              className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-brand focus:outline-none"
-              placeholder="nama@email.com"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-widest text-white/60">Password</label>
-            <input
-              className="w-full rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-brand focus:outline-none"
-              placeholder="Minimal 6 karakter"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          {error && <p className="text-sm text-red-400">{error}</p>}
-
-          <button
-            className="w-full rounded-full bg-brand py-3 text-sm font-semibold text-white shadow-poster transition hover:bg-brand-dark disabled:cursor-not-allowed"
-            disabled={loading}
-          >
-            {loading ? "Memproses..." : "Daftar Sekarang"}
-          </button>
-        </form>
-
         <p className="text-center text-xs text-white/60">
           Sudah punya akun?{" "}
-          <Link href="/login" className="font-semibold text-brand hover:text-brand-dark">
+          <Link href="/login" className="font-semibold text-white hover:underline">
             Masuk di sini
           </Link>
         </p>

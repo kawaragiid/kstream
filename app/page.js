@@ -1,6 +1,7 @@
 import HeroBanner from '../components/HeroBanner';
 import SliderRow from '../components/SliderRow';
 import HomeHistoryRow from '../components/HomeHistoryRow';
+import Top10Row from '../components/Top10Row';
 
 let getTrending;
 let getNewReleases;
@@ -19,7 +20,7 @@ async function loadData() {
         getVideoById,
       } = await import('../lib/firestoreServer'));
     } catch (error) {
-      console.warn('Firestore admin belum siap:', error.message);
+      console.warn('Data server belum siap:', error.message);
       getTrending = async () => [];
       getNewReleases = async () => [];
       getPlatformSettings = async () => ({ hero: null, categories: [] });
@@ -94,6 +95,9 @@ export default async function HomePage() {
       </div>
 
       <div className="space-y-6 sm:space-y-10">
+        <div className="mx-auto w-full max-w-[120rem] px-4">
+          <Top10Row title="Top 10 Hari Ini" items={trending} />
+        </div>
         <div className="mx-auto w-full max-w-[120rem] px-4">
           <SliderRow title="Sedang Trending" items={trending} actionHref="/movies/trending" />
         </div>
