@@ -199,12 +199,19 @@ export default function Navbar({ categories = [] }) {
             </svg>
           </button>
 
-          {/* Netflix-style Brand Wordmark */}
+          {/* Netflix-style Brand Wordmark + Logo */}
           <Link
             href="/"
-            className="text-[#E50914] text-xl sm:text-2xl lg:text-[26px] font-black uppercase tracking-[-0.04em] leading-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.75)] select-none shrink-0"
+            className="flex items-center gap-2 select-none shrink-0"
           >
-            KSTREAM
+            <img
+              src="/logo.png"
+              alt="Kstream logo"
+              className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.75)]"
+            />
+            <span className="text-[#E50914] text-xl sm:text-2xl lg:text-[26px] font-black uppercase tracking-[-0.04em] leading-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.75)]">
+              KSTREAM
+            </span>
           </Link>
 
           {/* Desktop Navigation Links */}
