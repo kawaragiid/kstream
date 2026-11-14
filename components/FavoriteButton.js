@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { isFavorite, toggleFavorite } from '../lib/firestore';
 
-export default function FavoriteButton({ video }) {
+export default function FavoriteButton({ video, className = "" }) {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -49,9 +49,15 @@ export default function FavoriteButton({ video }) {
 
   return (
     <button
+      type="button"
       onClick={handleToggle}
-      className="inline-flex items-center rounded border border-white/30 px-4 py-2 text-sm text-white hover:bg-white/10"
+      className={`inline-flex items-center justify-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 min-h-[44px] ${
+        favorite
+          ? 'border-brand/60 bg-brand/10 text-white hover:bg-brand/20'
+          : 'border-white/30 bg-white/5 text-white hover:bg-white/10'
+      } ${className}`}
       disabled={loading}
+      aria-label={favorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit'}
     >
       {loading ? 'Menyimpan...' : favorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit'}
     </button>

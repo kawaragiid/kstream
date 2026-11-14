@@ -62,7 +62,10 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
     };
   }, []);
 
-  const handleMouseEnter = () => {
+  const handleMouseEnter = (event) => {
+    if (typeof window === 'undefined') return;
+    if (!window.matchMedia('(hover: hover)').matches) return;
+    if (event?.nativeEvent?.pointerType === 'touch') return;
     if (previewTimer.current) clearTimeout(previewTimer.current);
     if (cardRef.current && typeof window !== 'undefined') {
       const rect = cardRef.current.getBoundingClientRect();
@@ -129,7 +132,9 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
   return (
     <div
       ref={cardRef}
-      className="relative cursor-pointer"
+      data-card="true"
+      data-href={detailHref}
+      className="relative cursor-pointer select-none active:scale-95 transition-transform duration-150"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onFocus={handleMouseEnter}
@@ -154,7 +159,7 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
             alt={title}
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-105"
-            sizes="(max-width: 768px) 45vw, (max-width: 1024px) 20vw, 15vw"
+            sizes="(max-width: 640px) 36vw, (max-width: 768px) 28vw, (max-width: 1024px) 20vw, 15vw"
             onError={() => setPosterSrc(defaultPoster)}
           />
           {progressValue !== null && (
@@ -174,6 +179,7 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
       </div>
       {showPreview && (
         <div
+          data-popover="true"
           className={`absolute top-2 z-40 hidden md:block ${
             previewAlign === 'left'
               ? 'left-0'

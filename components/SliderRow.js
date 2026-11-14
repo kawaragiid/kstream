@@ -22,7 +22,7 @@ export default function SliderRow({
   const handleScroll = useCallback((direction) => {
     const container = scrollRef.current;
     if (!container) return;
-    const firstCard = container.querySelector(":scope > div > div");
+    const firstCard = container.querySelector(":scope > div > div") || container.querySelector(":scope > div");
     const cardWidth = firstCard?.offsetWidth || 320;
     const amount = cardWidth * DEFAULT_SCROLL_FACTOR;
     container.scrollBy({
@@ -62,7 +62,7 @@ export default function SliderRow({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-4">
-        {title && <h3 className="text-xl font-semibold text-text-primary">{title}</h3>}
+        {title && <h2 className="text-xl font-semibold text-text-primary">{title}</h2>}
         {actionHref && hasItems && (
           <Link
             href={actionHref}
@@ -74,24 +74,25 @@ export default function SliderRow({
       </div>
       <div className="relative">
         {arrowButtons}
-        <div ref={scrollRef} className="-mx-4 -my-4 overflow-x-auto scroll-smooth py-8">
-          <div className="flex gap-4 px-4">
-            {hasItems
-              ? items.map((item) => (
-                  <div
-                    key={`${item.type || "item"}-${item.id}`}
-                    className="w-[46vw] flex-shrink-0 sm:w-[28vw] md:w-[20vw] lg:w-[16vw] xl:w-[14vw]"
-                  >
-                    <CardPoster item={item} orientation={orientation} />
-                  </div>
-                ))
-              : [...Array(6)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={`w-[46vw] flex-shrink-0 sm:w-[28vw] md:w-[20vw] lg:w-[16vw] xl:w-[14vw] ${skeletonOrientationClass} animate-pulse rounded-xl bg-surface-200`}
-                  />
-                ))}
-          </div>
+        <div
+          ref={scrollRef}
+          className="-mx-4 -my-4 flex gap-4 overflow-x-auto no-scrollbar scroll-smooth px-4 py-8 snap-x snap-mandatory scroll-pl-4 [-webkit-overflow-scrolling:touch]"
+        >
+          {hasItems
+            ? items.map((item) => (
+                <div
+                  key={`${item.type || "item"}-${item.id}`}
+                  className="w-[36vw] shrink-0 snap-start sm:w-[28vw] md:w-[20vw] lg:w-[16vw] xl:w-[14vw]"
+                >
+                  <CardPoster item={item} orientation={orientation} />
+                </div>
+              ))
+            : [...Array(6)].map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-[36vw] shrink-0 snap-start sm:w-[28vw] md:w-[20vw] lg:w-[16vw] xl:w-[14vw] ${skeletonOrientationClass} animate-pulse rounded-xl bg-surface-200`}
+                />
+              ))}
         </div>
       </div>
     </section>

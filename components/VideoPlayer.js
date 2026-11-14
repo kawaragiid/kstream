@@ -1275,14 +1275,26 @@ export default function VideoPlayer({
   }[subtitleSize || autoSubtitleSize] || 1;
   const overlayBackgroundClass = isFullscreen ? "bg-transparent" : "bg-gradient-to-b from-black/80 via-black/10 to-black/90";
   const showOverlay = controlsVisible;
-  const controlButtonClass = "inline-flex items-center justify-center rounded-full bg-white/10 text-white text-[10px] md:text-sm transition hover:bg-white/20 h-8 w-8 md:h-auto md:w-auto md:px-3";
+  const controlButtonClass = "inline-flex items-center justify-center rounded-full bg-white/10 text-white text-[10px] md:text-sm transition hover:bg-white/20 active:scale-95 h-10 w-10 min-h-[40px] min-w-[40px] md:h-auto md:w-auto md:min-h-[36px] md:px-3";
   const shouldShowBackdropGradient = !isFullscreen;
   const shouldRenderSubtitles = !isIOS && activeSubtitle !== "off" && subtitleLines.length > 0;
+
+  const handleContainerTap = (event) => {
+    if (isIOS || isEpisodePanelOpen) return;
+    if (controlBarRef.current?.contains(event.target)) return;
+    if (event.target?.closest?.("button, a, input, select")) return;
+    if (showControls) {
+      setShowControls(false);
+    } else {
+      showControlsTemporarily();
+    }
+  };
 
   return (
     <div
       ref={containerRef}
       className="relative bg-black overflow-hidden w-full max-w-full"
+      onClick={handleContainerTap}
       onMouseMove={showControlsTemporarily}
       onMouseLeave={() => {
         if (!isEpisodePanelOpen) {
@@ -1454,26 +1466,37 @@ export default function VideoPlayer({
         </div>
       )}
 
+      {isIOS && backHref ? (
+        <button
+          type="button"
+          onClick={handleBack}
+          className="pointer-events-auto absolute left-3 top-3 z-20 inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/25 bg-black/60 text-white backdrop-blur-sm transition duration-200 hover:bg-black/80 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
+          aria-label="Kembali"
+        >
+          <BackIcon className="h-4 w-4" />
+        </button>
+      ) : null}
+
       <div className={`pointer-events-none absolute inset-0 flex flex-col justify-between ${overlayBackgroundClass} transition-opacity duration-300 ${showOverlay ? "opacity-100" : "opacity-0"}`}>
-        <div className="flex items-start justify-between px-6 pt-6 text-white drop-shadow">
-          <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between px-3 pt-3 sm:px-6 sm:pt-6 text-white drop-shadow">
+          <div className="flex min-w-0 items-center gap-3">
             {backHref ? (
               <button
                 type="button"
                 onClick={handleBack}
-                className={`pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white transition duration-200 hover:border-white/40 hover:bg-black/70 focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-0 ${
-                  showOverlay ? "opacity-100" : "opacity-0"
+                className={`pointer-events-auto inline-flex h-11 w-11 min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white transition duration-200 hover:border-white/40 hover:bg-black/70 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-0 ${
+                  isIOS || showOverlay ? "opacity-100" : "opacity-0"
                 }`}
                 aria-label="Kembali"
               >
                 <BackIcon className="h-4 w-4" />
               </button>
             ) : null}
-            <div className="space-y-1">
-              <p className="text-[10px] uppercase tracking-[0.45em] text-white/60">Now Playing</p>
-              <h3 className="text-lg font-semibold md:text-2xl">{title}</h3>
+            <div className="min-w-0 space-y-0.5 sm:space-y-1">
+              <p className="text-[10px] uppercase tracking-[0.35em] sm:tracking-[0.45em] text-white/60">Now Playing</p>
+              <h3 className="truncate text-sm font-semibold sm:text-lg md:text-2xl">{title}</h3>
               {currentEpisode && (
-                <p className="text-xs text-white/70 md:text-sm">
+                <p className="truncate text-xs text-white/70 md:text-sm">
                   Episode {currentEpisode.number}: {currentEpisode.title}
                 </p>
               )}

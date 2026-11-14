@@ -80,8 +80,8 @@ export default async function HomePage() {
   const detailHref = heroItem?.href || '';
 
   return (
-    <div className="space-y-12 pb-12">
-      <div className="mx-auto w-full max-w-[120rem] px-4 pt-6">
+    <div className="space-y-8 sm:space-y-12 pb-8 sm:pb-12">
+      <div className="mx-auto w-full max-w-[120rem] px-4 pt-4 sm:pt-6">
         <HeroBanner
           title={heroTitle}
           subtitle={heroSubtitle}
@@ -93,7 +93,7 @@ export default async function HomePage() {
         />
       </div>
 
-      <div className="space-y-10">
+      <div className="space-y-6 sm:space-y-10">
         <div className="mx-auto w-full max-w-[120rem] px-4">
           <SliderRow title="Sedang Trending" items={trending} actionHref="/movies/trending" />
         </div>

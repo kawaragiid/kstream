@@ -17,34 +17,35 @@ function EpisodeCard({ episode, href }) {
   return (
     <Link
       href={href}
-      className="group flex gap-4 rounded-2xl border border-white/10 bg-surface-100/60 p-4 backdrop-blur transition hover:border-brand hover:bg-white/5"
+      data-episode-card
+      className="group flex gap-3 sm:gap-4 rounded-2xl border border-white/10 bg-surface-100/60 p-3 sm:p-4 backdrop-blur transition-all duration-200 hover:border-brand hover:bg-white/5 active:scale-[0.99]"
     >
-      <div className="relative h-24 w-40 flex-shrink-0 overflow-hidden rounded-xl bg-black sm:h-28 sm:w-48">
+      <div className="relative aspect-video w-28 sm:w-40 md:w-48 flex-shrink-0 overflow-hidden rounded-xl bg-black">
         <Image
           src={thumbSrc}
           alt={episode.title || `Episode ${episode.number}`}
           fill
           className="object-cover transition-transform duration-300 group-hover:scale-105"
-          sizes="(max-width: 1024px) 40vw, 25vw"
+          sizes="(max-width: 640px) 112px, (max-width: 1024px) 160px, 192px"
           onError={() => setThumbSrc(FALLBACK_THUMB)}
         />
       </div>
-      <div className="flex flex-1 flex-col justify-center gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-text-primary md:text-base">
-            <span className="mr-2 text-xs font-bold uppercase tracking-wider text-brand">
+      <div className="flex flex-1 flex-col justify-center gap-1.5 sm:gap-2 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <p className="line-clamp-2 text-xs sm:text-sm font-semibold text-text-primary md:text-base leading-snug">
+            <span className="mr-1.5 inline-block text-xs font-bold uppercase tracking-wider text-brand">
               S{String(episode.seasonNumber || 1).padStart(2, '0')}E{String(episode.number || 0).padStart(2, '0')}
             </span>
             {episode.title}
           </p>
           {episode.duration ? (
-            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] text-text-muted">
+            <span className="flex-shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] sm:text-[11px] text-text-muted">
               {formatDuration(episode.duration)}
             </span>
           ) : null}
         </div>
         {episode.overview && (
-          <p className="line-clamp-2 text-xs text-text-muted md:text-sm">{episode.overview}</p>
+          <p className="line-clamp-2 text-xs text-text-muted md:text-sm leading-relaxed">{episode.overview}</p>
         )}
       </div>
     </Link>
@@ -76,18 +77,24 @@ export default function EpisodeList({ episodes = [], baseHref = '' }) {
     : episodes;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       {seasons.length > 1 && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div
+          role="tablist"
+          aria-label="Pilih Season"
+          className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth snap-x py-1 -mx-4 px-4 sm:mx-0 sm:px-0"
+        >
           {seasons.map((season) => (
             <button
               key={season}
               type="button"
+              role="tab"
+              aria-selected={selectedSeason === season}
               onClick={() => setSelectedSeason(season)}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+              className={`flex-shrink-0 snap-start inline-flex items-center justify-center rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition-all duration-200 min-h-[38px] active:scale-95 ${
                 selectedSeason === season
-                  ? 'bg-white text-black'
-                  : 'border border-white/15 bg-white/5 text-white/80 hover:border-white/30'
+                  ? 'bg-white text-black shadow-sm'
+                  : 'border border-white/15 bg-white/5 text-white/80 hover:border-white/30 hover:bg-white/10'
               }`}
             >
               Season {season}
@@ -95,7 +102,7 @@ export default function EpisodeList({ episodes = [], baseHref = '' }) {
           ))}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
         {visibleEpisodes.map((ep) => {
           const encodedId = encodeURIComponent(ep.id);
           let href = "#";
