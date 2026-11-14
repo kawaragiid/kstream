@@ -9,6 +9,7 @@ const links = [
   { label: "Privasi", href: "/privacy" },
   { label: "Tentang", href: "/about" },
   { label: "Bantuan", href: "/help" },
+  { label: "Donasi", href: "/premium/upgrade" },
 ];
 
 export default function Footer() {

@@ -251,6 +251,15 @@ export default function Navbar({ categories = [] }) {
               </Link>
             )}
 
+            <Link
+              href="/premium/upgrade"
+              className={`transition-colors duration-150 hover:text-[#ff4b55] ${
+                pathname === "/premium/upgrade" ? "text-white font-semibold" : "text-[#E50914] font-semibold"
+              }`}
+            >
+              Donasi
+            </Link>
+
             {/* Netflix-style Genre / Kategori Dropdown */}
             {categories.length > 0 && (
               <div className="relative" ref={genreRef}>

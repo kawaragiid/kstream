@@ -87,6 +87,7 @@ export default async function PlayerPage(props) {
     const watchHref = `/player?id=${encodeURIComponent(slugOrId)}&type=series&ep=${encodeURIComponent(currentEpisodeId)}`;
     const trackerVideo = {
       id: `${video.id}-${currentEpisodeId}`,
+      seriesId: video.id,
       title: `${video.title} \u2022 Episode ${currentEpisode.number}`,
       type: "series",
       slug: slugOrId,

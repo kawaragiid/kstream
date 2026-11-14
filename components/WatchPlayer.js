@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
-import { saveHistoryProgress } from '../lib/firestore';
+import { getUserHistory, saveHistoryProgress } from '../lib/firestore';
 import VideoPlayer from './VideoPlayer';
 
 const GUEST_DAILY_LIMIT = 1;
@@ -31,6 +31,7 @@ export default function WatchPlayer({
   const lastTrackedTimeRef = useRef(0);
   const pendingWatchSecondsRef = useRef(0);
   const [guestLimitReason, setGuestLimitReason] = useState('');
+  const [resumePosition, setResumePosition] = useState(0);
 
   const contentId = series?.id || video?.id || '';
   const contentSlug = series?.slug || video?.slug || contentId;
@@ -127,6 +128,24 @@ export default function WatchPlayer({
       }
     };
   }, [video?.id]);
+
+  useEffect(() => {
+    setResumePosition(0);
+    if (!user?.uid || !video?.id) return;
+    let active = true;
+    getUserHistory(user.uid, 50)
+      .then((items) => {
+        if (!active || !Array.isArray(items)) return;
+        const found = items.find((item) => item.id === video.id);
+        if (found && Number(found.position) > 5 && Number(found.progress || 0) < 0.95) {
+          setResumePosition(Number(found.position));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [user?.uid, video?.id]);
 
   useEffect(() => {
     if (!user || !video?.id) return;
@@ -284,6 +303,7 @@ export default function WatchPlayer({
       episodes={episodes}
       currentEpisode={currentEpisode}
       autoplay={autoplay}
+      initialTime={resumePosition}
       backHref={backHref || video?.href || '/'}
       defaultSubtitleLang={defaultSubtitleLang}
       onSelectEpisode={handleEpisodeSelect}

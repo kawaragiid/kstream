@@ -1,18 +1,26 @@
+import Link from 'next/link';
+
 export const metadata = { title: 'Tentang Kstream' };
 
 export default function AboutPage() {
   return (
-    <div className="container mx-auto max-w-4xl px-4 py-12 space-y-6">
-      <h1 className="text-3xl font-bold text-white">Tentang Kstream</h1>
+    <div className="container mx-auto max-w-4xl px-4 py-14 space-y-6">
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#E50914]">Kstream by Kawaragi</p>
+        <h1 className="text-3xl font-bold text-white">Tentang Kstream</h1>
+      </div>
       <div className="space-y-4 rounded-3xl border border-white/10 bg-surface-100/60 p-6 md:p-8 backdrop-blur">
         <p className="text-white/80 leading-relaxed">
-          Kstream adalah platform streaming gratis yang menghadirkan film, serial, dan anime terbaik untuk Anda. Kami berkomitmen membangun pengalaman menonton yang nyaman, cepat, dan menyenangkan layaknya layanan streaming terkemuka.
+          Kstream adalah platform streaming independen yang menghadirkan film, serial, dan anime pilihan dengan pemutar video modern bergaya Liquid Glass, dukungan kualitas adaptif hingga 1080p, serta subtitle multi-bahasa (Indonesia, English, dan 日本語) yang dapat dikustomisasi sepenuhnya.
         </p>
         <p className="text-white/80 leading-relaxed">
-          Melalui Kstream, Anda dapat menikmati berbagai film dan serial favorit dengan mudah dan tanpa batasan region. Kami menyediakan layanan streaming tanpa biaya langganan, sehingga Anda bebas menonton kapan saja dan di mana saja.
+          Seluruh tayangan dapat diakses gratis dengan membuat akun Kstream agar Anda bisa menyimpan daftar favorit, melanjutkan tontonan dari menit &amp; episode terakhir, serta menikmati pemutaran penuh tanpa batas. Untuk pengunjung tanpa login, akses dibatasi 1 judul/hari (maksimal 3 menit preview) guna menjaga efisiensi server dan database.
         </p>
         <p className="text-white/80 leading-relaxed">
-          Dukungan Anda sangat berarti bagi kami. Jika Anda tertarik untuk bergabung sebagai fansubber atau ingin berkontribusi dalam komunitas Kstream, silakan hubungi Admin. Bersama Kstream, mari ciptakan pengalaman menonton yang lebih seru dan berkualitas.
+          Kstream dikelola secara independen tanpa biaya langganan wajib. Jika Anda menyukai layanan ini, Anda dapat mendukung biaya server dan bandwidth melalui{' '}
+          <Link href="/premium/upgrade" className="font-semibold text-[#E50914] hover:underline">
+            halaman Donasi (lynk.id/kawaragi)
+          </Link>.
         </p>
       </div>
     </div>

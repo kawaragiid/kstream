@@ -226,6 +226,7 @@ export default function VideoPlayer({
   episodes = [],
   currentEpisode = null,
   autoplay = false,
+  initialTime = 0,
   defaultSubtitleLang = "en",
   backHref = "/",
   onSelectEpisode,
@@ -1205,6 +1206,9 @@ export default function VideoPlayer({
     };
     const handleLoadedMetadata = () => {
       setDuration(media.duration || 0);
+      if (initialTime > 5 && media.duration > initialTime + 5 && media.currentTime < 5) {
+        media.currentTime = initialTime;
+      }
       setCurrentTime(media.currentTime || 0);
     };
     const handleVolumeUpdate = () => {
@@ -1231,7 +1235,16 @@ export default function VideoPlayer({
       media.removeEventListener("volumechange", handleVolumeUpdate);
       media.removeEventListener("ended", handleEnded);
     };
-  }, [onEnded, onProgress, videoSrc]);
+  }, [onEnded, onProgress, videoSrc, initialTime]);
+
+  useEffect(() => {
+    const media = videoRef.current;
+    if (!media || initialTime <= 5) return;
+    if (media.readyState >= 1 && media.duration > initialTime + 5 && media.currentTime < 5) {
+      media.currentTime = initialTime;
+      setCurrentTime(initialTime);
+    }
+  }, [initialTime, videoSrc]);
 
   // Track fullscreen state changes
   useEffect(() => {

@@ -2,47 +2,33 @@
 
 export default function PrivacyPage() {
   return (
-    <div className="container mx-auto px-4 py-10">
-      <div className="max-w-4xl space-y-8">
-        <header className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Kebijakan Privasi</h1>
-          <p className="text-white/70">Transparansi mengenai data Anda di Kstream.</p>
-        </header>
+    <div className="container mx-auto max-w-4xl px-4 py-14 space-y-8">
+      <header className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#E50914]">Privasi</p>
+        <h1 className="text-3xl font-bold tracking-tight text-white">Kebijakan Privasi</h1>
+        <p className="text-white/70">Transparansi mengenai pengelolaan data akun Anda di Kstream.</p>
+      </header>
 
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold">1. Informasi yang Kami Kumpulkan</h2>
+      <div className="space-y-6 rounded-3xl border border-white/10 bg-surface-100/60 p-6 md:p-8 backdrop-blur">
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold text-white">1. Data yang Kami Simpan</h2>
           <ul className="list-disc pl-6 text-white/80 leading-relaxed space-y-1">
-            <li>Data akun (nama, email) dan preferensi tontonan.</li>
-            <li>Riwayat akses dan interaksi dasar untuk meningkatkan layanan.</li>
+            <li>Identitas autentikasi dasar (UID, email, nama tampilan, foto profil) melalui Firebase Authentication.</li>
+            <li>Daftar favorit, riwayat tontonan (termasuk posisi menit terakhir), dan preferensi bahasa subtitle di database Neon Postgres.</li>
           </ul>
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold">2. Cara Kami Menggunakan Data</h2>
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold text-white">2. Penggunaan &amp; Perlindungan Data</h2>
           <p className="text-white/80 leading-relaxed">
-            Data digunakan untuk personalisasi rekomendasi, perbaikan performa, dan keamanan. Kami tidak menjual data pribadi Anda.
+            Data hanya digunakan untuk menyinkronkan profil, fitur Lanjutkan Menonton, dan statistik tayangan agregat. Akses API profil pengguna dilindungi verifikasi Firebase ID Token. Kami tidak menjual atau membagikan data pribadi Anda kepada pihak ketiga untuk iklan.
           </p>
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold">3. Penyimpanan dan Keamanan</h2>
+        <section className="space-y-2">
+          <h2 className="text-xl font-semibold text-white">3. Penyimpanan Lokal (Browser)</h2>
           <p className="text-white/80 leading-relaxed">
-            Kami menerapkan praktik keamanan yang wajar untuk melindungi data. Meski demikian, tidak ada sistem yang sepenuhnya aman.
-          </p>
-        </section>
-
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold">4. Hak Anda</h2>
-          <ul className="list-disc pl-6 text-white/80 leading-relaxed space-y-1">
-            <li>Mengakses, memperbarui, atau menghapus informasi tertentu.</li>
-            <li>Mengatur preferensi komunikasi dan privasi.</li>
-          </ul>
-        </section>
-
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold">5. Perubahan Kebijakan</h2>
-          <p className="text-white/80 leading-relaxed">
-            Kebijakan ini dapat berubah. Pembaruan akan ditampilkan pada halaman ini.
+            Kstream menyimpan pengaturan tampilan subtitle dan penghitung kuota preview tamu harian di <code>localStorage</code> browser Anda agar preferensi tetap aktif tanpa membebani server.
           </p>
         </section>
       </div>
