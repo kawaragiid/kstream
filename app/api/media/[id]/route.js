@@ -73,9 +73,27 @@ async function resolvePlaybackAuthorization(request, isPremiumContent) {
 
 function stripStreamUrls(video) {
   const episodes = Array.isArray(video.episodes)
-    ? video.episodes.map(({ streamUrl: _epStream, ...epRest }) => epRest)
+    ? video.episodes.map(
+        ({
+          streamUrl: _epStream,
+          playbackId: _epPlaybackId,
+          mux_playback_id: _epMuxPlaybackId,
+          mux_video_id: _epMuxVideoId,
+          trailerUrl: _epTrailerUrl,
+          previewAnimation: _epPreviewAnimation,
+          ...epRest
+        }) => epRest
+      )
     : [];
-  const { streamUrl: _stream, ...rest } = video;
+  const {
+    streamUrl: _stream,
+    playbackId: _playbackId,
+    mux_playback_id: _muxPlaybackId,
+    mux_video_id: _muxVideoId,
+    trailerUrl: _trailerUrl,
+    previewAnimation: _previewAnimation,
+    ...rest
+  } = video;
   return {
     ...rest,
     episodes,

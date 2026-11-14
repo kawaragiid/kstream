@@ -123,6 +123,20 @@ export async function POST(request) {
             .map((item) => [`${item.type || "movie"}:${item.id}`, item])
         );
 
+        const itemWatchStats = {
+          ...(prev.itemWatchStats && typeof prev.itemWatchStats === "object" ? prev.itemWatchStats : {}),
+        };
+        for (const [key, item] of prevTopMap.entries()) {
+          if (itemWatchStats[key] === undefined && Number.isFinite(Number(item?.watchTime))) {
+            itemWatchStats[key] = Number(item.watchTime);
+          }
+        }
+        const currentContentKey = `${type}:${resolvedContentId}`;
+        if (watchMinutesDelta > 0) {
+          itemWatchStats[currentContentKey] =
+            Math.round((Number(itemWatchStats[currentContentKey] || 0) + watchMinutesDelta) * 10) / 10;
+        }
+
         let combinedTop = Array.isArray(prev.topContent) ? [...prev.topContent] : [];
         let trending = Array.isArray(prev.trending) ? [...prev.trending] : [];
         let totalUsers = Number(prevTotals.totalUsers || 0);
@@ -136,28 +150,28 @@ export async function POST(request) {
 
           combinedTop = [
             ...topMovies.map((m) => {
-              const prevEntry = prevTopMap.get(`movie:${m.id}`);
-              const baseWatch = Number(prevEntry?.watchTime || 0);
-              const delta = m.id === resolvedContentId && type === "movie" ? watchMinutesDelta : 0;
+              const key = `movie:${m.id}`;
+              const prevEntry = prevTopMap.get(key);
+              const watchTime = Math.round(Number(itemWatchStats[key] ?? prevEntry?.watchTime ?? 0) * 10) / 10;
               return {
                 id: m.id,
                 title: m.title,
                 type: "movie",
                 views: Number(m.views || 0),
-                watchTime: Math.round((baseWatch + delta) * 10) / 10,
+                watchTime,
                 ctr: Number(prevEntry?.ctr || 0),
               };
             }),
             ...topSeries.map((s) => {
-              const prevEntry = prevTopMap.get(`series:${s.id}`);
-              const baseWatch = Number(prevEntry?.watchTime || 0);
-              const delta = s.id === resolvedContentId && type === "series" ? watchMinutesDelta : 0;
+              const key = `series:${s.id}`;
+              const prevEntry = prevTopMap.get(key);
+              const watchTime = Math.round(Number(itemWatchStats[key] ?? prevEntry?.watchTime ?? 0) * 10) / 10;
               return {
                 id: s.id,
                 title: s.title,
                 type: "series",
                 views: Number(s.views || 0),
-                watchTime: Math.round((baseWatch + delta) * 10) / 10,
+                watchTime,
                 ctr: Number(prevEntry?.ctr || 0),
               };
             }),
@@ -194,6 +208,7 @@ export async function POST(request) {
           trend: trimmedTrend,
           topContent: combinedTop,
           trending,
+          itemWatchStats,
           avgWatchDuration: {
             perUser: totalUsers > 0 ? Math.round((nextWatchTime / totalUsers) * 10) / 10 : 0,
             perSession: nextViews > 0 ? Math.round((nextWatchTime / nextViews) * 10) / 10 : 0,

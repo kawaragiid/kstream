@@ -4,6 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import FavoriteButton from "@/components/FavoriteButton";
 import SliderRow from "@/components/SliderRow";
 
+export const revalidate = 300;
+
 let dataModule = null;
 
 async function ensureDataModule() {
@@ -106,10 +108,11 @@ export default async function MovieDetailPage({ params }) {
     return true;
   });
 
+  const rawTrailerUrl = typeof video.trailerUrl === "string" ? video.trailerUrl.trim() : "";
   const hasPlayableTrailer =
-    Boolean(video.trailerUrl) &&
-    !/animated\.gif/i.test(video.trailerUrl) &&
-    !/\.gif($|\?)/i.test(video.trailerUrl);
+    /^https?:\/\//i.test(rawTrailerUrl) &&
+    !/animated\.gif/i.test(rawTrailerUrl) &&
+    !/\.gif($|\?)/i.test(rawTrailerUrl);
 
   return (
     <div className="space-y-10 sm:space-y-14 pb-12 sm:pb-16">
@@ -165,7 +168,7 @@ export default async function MovieDetailPage({ params }) {
               />
               {hasPlayableTrailer && (
                 <a
-                  href={video.trailerUrl}
+                  href={rawTrailerUrl}
                   className="inline-flex w-full sm:w-auto min-h-[44px] items-center justify-center gap-2 rounded-[4px] border border-white/25 bg-[#6d6d6e]/60 px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#6d6d6e]/85 active:scale-95 transition"
                   target="_blank"
                   rel="noopener noreferrer"

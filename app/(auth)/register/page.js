@@ -30,8 +30,13 @@ function parseExpiryMs(expiresAt) {
 function isAccountBlocked(userData) {
   if (!userData || typeof userData !== "object") return false;
   if (userData.isActive === false || userData.status === "suspend") return true;
-  const expiryMs = parseExpiryMs(userData.expiresAt);
-  if (expiryMs !== null && expiryMs <= Date.now()) return true;
+  const role = String(userData.role || "pelanggan").toLowerCase();
+  const isStaff = ["super-admin", "admin", "editor"].includes(role);
+  const plan = String(userData.plan || "free").toLowerCase();
+  if (!isStaff && plan === "premium") {
+    const expiryMs = parseExpiryMs(userData.expiresAt);
+    if (expiryMs !== null && expiryMs <= Date.now()) return true;
+  }
   return false;
 }
 
@@ -97,7 +102,11 @@ function RegisterForm() {
           displayName: displayName.trim() || null,
         });
       } catch {
-        await credential.user.delete?.().catch(() => {});
+        try {
+          await credential.user.delete?.();
+        } catch {
+          await logout().catch(() => {});
+        }
         const syncErr = new Error("Gagal menyimpan profil akun ke server. Silakan coba lagi.");
         syncErr.isCustomSyncError = true;
         throw syncErr;
@@ -131,11 +140,17 @@ function RegisterForm() {
           fetchOk = true;
           const json = await res.json().catch(() => null);
           existingData = json?.data || {};
-        } else if (res.status === 403) {
+        } else if (res.status === 401 || res.status === 403 || res.status === 503) {
           try {
             await logout();
           } catch {}
-          setError("Akun Anda sedang dinonaktifkan oleh admin.");
+          setError(
+            res.status === 503
+              ? "Layanan server sedang tidak tersedia. Silakan coba beberapa saat lagi."
+              : res.status === 401
+                ? "Sesi autentikasi tidak valid. Silakan masuk kembali."
+                : "Akun Anda sedang dinonaktifkan oleh admin."
+          );
           return;
         }
       } catch {

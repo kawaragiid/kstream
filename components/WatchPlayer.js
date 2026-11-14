@@ -87,6 +87,7 @@ export default function WatchPlayer({
   video = {},
   playbackId,
   src,
+  isPremium = false,
   poster,
   title,
   subtitles = [],
@@ -114,6 +115,10 @@ export default function WatchPlayer({
   const [userDataSaver, setUserDataSaver] = useState(false);
   const [userPreferredLang, setUserPreferredLang] = useState('');
   const [posterError, setPosterError] = useState(false);
+  const isPremiumContent = Boolean(isPremium || video?.isPremium);
+  const [resolvedSrc, setResolvedSrc] = useState(src || '');
+  const [mediaLoading, setMediaLoading] = useState(Boolean(!src && isPremiumContent));
+  const [premiumDenied, setPremiumDenied] = useState(false);
 
   const contentId = series?.id || video?.seriesId || video?.id || '';
   const contentSlug = series?.slug || video?.slug || contentId;
@@ -240,16 +245,90 @@ export default function WatchPlayer({
   }, [authLoading, user, contentKey, episodeKey]);
 
   useEffect(() => {
+    setResolvedSrc(src || '');
+    setPremiumDenied(false);
+    setMediaLoading(Boolean(!src && isPremiumContent));
+  }, [src, isPremiumContent, currentEpisode?.id, video?.id]);
+
+  const fetchMediaSource = useCallback(async () => {
+    if (!contentId) return '';
+    try {
+      const token = user?.getIdToken ? await user.getIdToken().catch(() => null) : null;
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch(
+        `/api/media/${encodeURIComponent(contentId)}?type=${encodeURIComponent(contentType)}`,
+        { cache: 'no-store', headers }
+      );
+      if (!res.ok) {
+        if (isPremiumContent && (res.status === 401 || res.status === 403)) {
+          setPremiumDenied(true);
+        }
+        return '';
+      }
+      const json = await res.json().catch(() => null);
+      const media = json?.media;
+      let nextUrl = '';
+      if (contentType === 'series') {
+        const list = Array.isArray(media?.episodes) ? media.episodes : [];
+        const matched = currentEpisode?.id
+          ? list.find((ep) => ep?.id === currentEpisode.id)
+          : list.find((ep) => ep?.streamUrl);
+        nextUrl = matched?.streamUrl || '';
+      } else {
+        nextUrl = media?.streamUrl || '';
+      }
+      if (nextUrl) {
+        setResolvedSrc(nextUrl);
+        setPremiumDenied(false);
+        return nextUrl;
+      }
+      if (isPremiumContent) {
+        setPremiumDenied(true);
+      }
+      return '';
+    } catch {
+      return '';
+    }
+  }, [contentId, contentType, currentEpisode?.id, isPremiumContent, user]);
+
+  useEffect(() => {
+    if (authLoading || src) return;
+    let active = true;
+    setMediaLoading(true);
+    fetchMediaSource().finally(() => {
+      if (active) setMediaLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [authLoading, src, user?.uid, fetchMediaSource]);
+
+  useEffect(() => {
     if (authLoading || guestLimitReason) return;
-    const sessionKey = `${contentType}:${contentId}:${currentEpisode?.id || 'main'}`;
+    const sessionKey =
+      contentType === 'series'
+        ? `${contentType}:${contentId}`
+        : `${contentType}:${contentId}:${currentEpisode?.id || 'main'}`;
     if (!contentId || viewTrackedKeyRef.current === sessionKey) return;
+    const storageKey = `kstream_view_session_${sessionKey}`;
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage?.getItem(storageKey)) {
+        viewTrackedKeyRef.current = sessionKey;
+        return;
+      }
+      if (typeof window !== 'undefined') {
+        window.sessionStorage?.setItem(storageKey, '1');
+      }
+    } catch {
+      // ignore sessionStorage errors
+    }
     viewTrackedKeyRef.current = sessionKey;
     sendAnalyticsPing({ isNewView: true, watchSeconds: 0 });
   }, [authLoading, guestLimitReason, contentId, contentType, currentEpisode?.id, sendAnalyticsPing]);
 
   useEffect(() => {
     return () => {
-      if (pendingWatchSecondsRef.current >= 5) {
+      if (pendingWatchSecondsRef.current >= 1) {
         sendAnalyticsPing({
           isNewView: false,
           watchSeconds: pendingWatchSecondsRef.current,
@@ -405,6 +484,11 @@ export default function WatchPlayer({
   }, [authLoading, user, contentId, contentKey, episodeKey, sendAnalyticsPing, recordGuestDailyWatch]);
 
   const handleEnded = useCallback(() => {
+    if (pendingWatchSecondsRef.current >= 1) {
+      const toSend = pendingWatchSecondsRef.current;
+      pendingWatchSecondsRef.current = 0;
+      sendAnalyticsPing({ isNewView: false, watchSeconds: toSend, beacon: true });
+    }
     const currentVideo = latestVideoRef.current;
     if (!user?.uid || !currentVideo?.id) return;
     const actualDuration = latestProgressRef.current.duration || currentVideo.duration || 0;
@@ -414,7 +498,7 @@ export default function WatchPlayer({
       position: 0,
       duration: actualDuration,
     }).catch(() => undefined);
-  }, [user?.uid]);
+  }, [user?.uid, sendAnalyticsPing]);
 
   const nextEpisode = useMemo(() => {
     if (!episodes?.length || !currentEpisode?.id) return null;
@@ -532,10 +616,62 @@ export default function WatchPlayer({
     );
   }
 
+  if (mediaLoading && !resolvedSrc) {
+    return (
+      <div className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black text-white">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-[#E50914]" />
+      </div>
+    );
+  }
+
+  if (premiumDenied && !resolvedSrc) {
+    return (
+      <div className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black px-4 text-white">
+        {poster && !posterError && (
+          <img
+            src={poster}
+            alt={title || 'Premium'}
+            onError={() => setPosterError(true)}
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 blur-xl scale-105"
+          />
+        )}
+        <div className="relative z-10 w-full max-w-md rounded-2xl border border-white/15 bg-black/75 p-7 text-center shadow-2xl backdrop-blur-2xl">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E50914]">
+            Konten Premium
+          </p>
+          <h2 className="mt-2 text-2xl font-bold text-white">
+            {user ? 'Akses Premium Diperlukan' : 'Masuk untuk Menonton'}
+          </h2>
+          <p className="mt-2.5 text-sm leading-relaxed text-white/70">
+            {user
+              ? 'Konten ini hanya tersedia untuk pelanggan paket Premium aktif.'
+              : 'Silakan masuk dengan akun Premium Anda untuk memutar konten ini.'}
+          </p>
+          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
+            {!user && (
+              <Link
+                href="/login"
+                className="rounded-xl bg-[#E50914] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#f40612]"
+              >
+                Masuk Sekarang
+              </Link>
+            )}
+            <Link
+              href={backHref || video?.href || '/'}
+              className="rounded-xl border border-white/25 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/20"
+            >
+              Kembali
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <VideoPlayer
       playbackId={playbackId}
-      src={src}
+      src={resolvedSrc}
       poster={poster}
       title={title}
       subtitles={subtitles}
@@ -553,6 +689,7 @@ export default function WatchPlayer({
       onPause={flushHistoryProgress}
       onProgress={handleProgress}
       onEnded={handleComplete}
+      onRefreshSource={fetchMediaSource}
     />
   );
 }

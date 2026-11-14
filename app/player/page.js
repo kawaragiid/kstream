@@ -220,20 +220,28 @@ export default async function PlayerPage(props) {
       subtitles: currentEpisode.subtitles?.length ? currentEpisode.subtitles : video.subtitles || [],
     };
 
+    const sanitizedEpisodes = video.isPremium
+      ? episodes.map(({ streamUrl: _streamUrl, ...epRest }) => epRest)
+      : episodes;
+    const sanitizedCurrentEpisode = video.isPremium && currentEpisode
+      ? (({ streamUrl: _streamUrl, ...epRest }) => epRest)(currentEpisode)
+      : currentEpisode;
+
     return (
       <PlayerChrome>
         <div className="w-full max-w-[120rem]">
           <WatchPlayer
             key={currentEpisode?.id || video.id}
-            video={trackerVideo}
+            video={{ ...trackerVideo, isPremium: Boolean(video.isPremium) }}
             backHref={seriesHref}
             playbackId={currentEpisode.playbackId || ""}
-            src={currentEpisode.streamUrl || ""}
+            src={video.isPremium ? "" : (currentEpisode.streamUrl || "")}
+            isPremium={Boolean(video.isPremium)}
             poster={currentEpisode.thumbnail || video.backdropUrl || video.posterUrl}
             title={fullTitle}
             subtitles={trackerVideo.subtitles}
-            episodes={episodes}
-            currentEpisode={currentEpisode}
+            episodes={sanitizedEpisodes}
+            currentEpisode={sanitizedCurrentEpisode}
             series={{ id: video.id, title: video.title, slug: slugOrId }}
             autoplay={autoplayEnabled}
           />
@@ -274,10 +282,11 @@ export default async function PlayerPage(props) {
       <div className="w-full max-w-[120rem]">
         <WatchPlayer
           key={video.id}
-          video={trackerMovie}
+          video={{ ...trackerMovie, isPremium: Boolean(video.isPremium) }}
           backHref={trackerMovie.href}
           playbackId={video.playbackId || ""}
-          src={video.streamUrl || ""}
+          src={video.isPremium ? "" : (video.streamUrl || "")}
+          isPremium={Boolean(video.isPremium)}
           poster={video.backdropUrl || video.posterUrl}
           title={video.title}
           subtitles={video.subtitles}

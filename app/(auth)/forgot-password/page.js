@@ -17,8 +17,6 @@ function mapResetError(err) {
   switch (code) {
     case "auth/invalid-email":
       return "Format email tidak valid.";
-    case "auth/user-not-found":
-      return "Email tidak terdaftar.";
     case "auth/too-many-requests":
       return "Terlalu banyak permintaan. Silakan coba beberapa saat lagi.";
     case "auth/network-request-failed":
@@ -59,10 +57,15 @@ function ForgotPasswordForm() {
     setLoading(true);
     try {
       await resetPassword(trimmedEmail);
-      setMessage("Tautan reset kata sandi telah dikirim. Silakan periksa kotak masuk atau folder spam email Anda.");
+      setMessage("Jika email terdaftar, tautan reset kata sandi telah dikirim. Silakan periksa kotak masuk atau folder spam email Anda.");
       setCooldown(60);
     } catch (err) {
-      setError(mapResetError(err));
+      if (err?.code === "auth/user-not-found") {
+        setMessage("Jika email terdaftar, tautan reset kata sandi telah dikirim. Silakan periksa kotak masuk atau folder spam email Anda.");
+        setCooldown(60);
+      } else {
+        setError(mapResetError(err));
+      }
     } finally {
       setLoading(false);
     }

@@ -37,7 +37,14 @@ export async function GET(request) {
   const q = searchParams.get('q')?.trim().slice(0, 100);
 
   if (!q) {
-    return NextResponse.json({ items: [] });
+    return NextResponse.json(
+      { items: [] },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=300',
+        },
+      }
+    );
   }
 
   try {

@@ -5,6 +5,8 @@ import EpisodeList from "../../../../components/EpisodeList";
 import FavoriteButton from "../../../../components/FavoriteButton";
 import SliderRow from "../../../../components/SliderRow";
 
+export const revalidate = 300;
+
 let dataModule = null;
 
 async function ensureDataModule() {

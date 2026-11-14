@@ -177,6 +177,7 @@ function sanitizeClientPatch(rawPatch) {
       } else {
         return { error: 'photoURL must be a string or null' };
       }
+      patch.photoUrl = patch.photoURL;
       continue;
     }
 
@@ -333,7 +334,10 @@ export async function GET(request) {
     const isStaff = ['super-admin', 'admin', 'editor'].includes(String(role).toLowerCase());
     const expiresMs = expiresAtIso ? Date.parse(expiresAtIso) : NaN;
     const isExpired = Number.isFinite(expiresMs) && expiresMs <= Date.now();
-    const isActive = row.is_active !== false && (isStaff || plan !== 'premium' || !isExpired);
+    const isActive =
+      row.is_active !== false &&
+      row.data?.status !== 'suspend' &&
+      (isStaff || plan !== 'premium' || !isExpired);
 
     const data = {
       ...(row.data || {}),
@@ -404,6 +408,12 @@ export async function POST(request) {
     await ensureNeonSchema();
     const sql = getSql();
     const derivedEmail = (authCheck.decoded?.email || '').replace(/\u0000/g, '');
+    const VALID_ROLES = new Set(['super-admin', 'admin', 'editor', 'pelanggan']);
+    const VALID_PLANS = new Set(['free', 'premium']);
+    const decodedRole = typeof authCheck.decoded?.role === 'string' ? authCheck.decoded.role.toLowerCase() : '';
+    const decodedPlan = typeof authCheck.decoded?.plan === 'string' ? authCheck.decoded.plan.toLowerCase() : '';
+    const initialRole = VALID_ROLES.has(decodedRole) ? decodedRole : 'pelanggan';
+    const initialPlan = VALID_PLANS.has(decodedPlan) ? decodedPlan : 'free';
     const patchWithTimestamp = { ...patch, updatedAt: new Date().toISOString() };
     const patchJson = JSON.stringify(patchWithTimestamp).replace(/\u0000/g, '');
     const hasDisplayName = patch.displayName !== undefined;
@@ -414,15 +424,15 @@ export async function POST(request) {
         ${uid},
         ${derivedEmail},
         ${nextDisplayName},
-        'pelanggan',
-        'free',
+        ${initialRole},
+        ${initialPlan},
         true,
         NULL,
         ${patchJson}::jsonb,
         NOW()
       )
       ON CONFLICT (uid) DO UPDATE SET
-        email = COALESCE(NULLIF(users.email, ''), EXCLUDED.email),
+        email = COALESCE(NULLIF(EXCLUDED.email, ''), users.email),
         display_name = CASE WHEN ${hasDisplayName} THEN EXCLUDED.display_name ELSE users.display_name END,
         data = COALESCE(users.data, '{}'::jsonb) || ${patchJson}::jsonb,
         updated_at = NOW()

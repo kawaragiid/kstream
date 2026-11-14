@@ -126,7 +126,16 @@ const parseMuxSubtitleTracks = (manifestText = "", manifestUrl = "") => {
 
     const absoluteUri = (() => {
       try {
-        return new URL(attrs.URI, manifestUrl).toString();
+        const resolved = new URL(attrs.URI, manifestUrl);
+        const manifestParsed = new URL(manifestUrl);
+        if (
+          !/^https?:\/\//i.test(attrs.URI) &&
+          !resolved.searchParams.has("token") &&
+          manifestParsed.searchParams.has("token")
+        ) {
+          resolved.searchParams.set("token", manifestParsed.searchParams.get("token"));
+        }
+        return resolved.toString();
       } catch (error) {
         return attrs.URI;
       }
@@ -260,6 +269,7 @@ export default function VideoPlayer({
   onPause,
   onProgress,
   onEnded,
+  onRefreshSource,
 }) {
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
@@ -504,16 +514,9 @@ export default function VideoPlayer({
   );
 
   const videoSrc = useMemo(() => {
-    if (src) return src;
-    if (playbackId) {
-      try {
-        return getSignedPlaybackUrl(playbackId, defaultSubtitleLang) || "";
-      } catch (error) {
-        console.error("Failed to generate playback URL", error);
-      }
-    }
-    return "";
-  }, [playbackId, src, defaultSubtitleLang]);
+    if (!src) return "";
+    return src;
+  }, [src]);
 
   // Auto fullscreen & landscape ketika video dimulai di mobile / iOS
   useEffect(() => {
@@ -745,7 +748,7 @@ export default function VideoPlayer({
                   normalizeSubtitleKey(t.lang) === target ||
                   normalizeSubtitleKey(t.name) === target
               );
-              hls.subtitleTrack = idx >= 0 ? idx : 0;
+              hls.subtitleTrack = idx >= 0 ? idx : -1;
             });
             hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, (_event, data) => {
               if (isCancelled() || videoRef.current !== media) return;
@@ -909,8 +912,11 @@ export default function VideoPlayer({
       setMuxSubtitles([]);
       return;
     }
-    const manifestUrl = videoSrc && /\.m3u8(\?|$)/i.test(videoSrc) ? videoSrc : playbackId ? `https://stream.mux.com/${playbackId}.m3u8` : "";
-    if (!manifestUrl) return;
+    const manifestUrl = videoSrc && /\.m3u8(\?|$)/i.test(videoSrc) ? videoSrc : "";
+    if (!manifestUrl) {
+      setMuxSubtitles([]);
+      return;
+    }
 
     let cancelled = false;
     const controller = new AbortController();
@@ -1007,6 +1013,20 @@ export default function VideoPlayer({
     };
   }, [videoSrc, showControlsTemporarily]);
 
+  const refreshPlaybackSource = useCallback(async () => {
+    if (typeof onRefreshSource === "function") {
+      try {
+        await onRefreshSource();
+      } catch {
+        // ignore refresh errors; sessionNonce still retries
+      }
+    } else {
+      router.refresh?.();
+      await new Promise((resolve) => window.setTimeout(resolve, 400));
+    }
+    setSessionNonce((n) => n + 1);
+  }, [onRefreshSource, router]);
+
   const togglePlay = useCallback(() => {
     const media = videoRef.current;
     if (!media) return;
@@ -1016,8 +1036,7 @@ export default function VideoPlayer({
       if (pausedDuration >= PAUSE_REFRESH_THRESHOLD_MS) {
         pendingResumeRef.current = { time: media.currentTime || 0, shouldPlay: true };
         pausedAtRef.current = null;
-        router.refresh?.();
-        setSessionNonce((n) => n + 1);
+        void refreshPlaybackSource();
         return;
       }
       pausedAtRef.current = null;
@@ -1028,7 +1047,7 @@ export default function VideoPlayer({
     } else {
       media.pause();
     }
-  }, [showControlsTemporarily]);
+  }, [showControlsTemporarily, refreshPlaybackSource]);
 
   const toggleMute = useCallback(() => {
     const media = videoRef.current;
@@ -1231,7 +1250,7 @@ export default function VideoPlayer({
         normalizeSubtitleKey(t.lang) === target ||
         normalizeSubtitleKey(t.name) === target
     );
-    hls.subtitleTrack = idx >= 0 ? idx : 0;
+    hls.subtitleTrack = idx >= 0 ? idx : -1;
   }, [activeSubtitle, muxSubtitles, videoSrc]);
 
   useEffect(() => {
@@ -1651,7 +1670,7 @@ export default function VideoPlayer({
         return;
       }
       if (currentTrack.mode === "disabled") {
-        currentTrack.mode = "hidden";
+        currentTrack.mode = isIOS ? "showing" : "hidden";
       }
       currentTrack.removeEventListener("cuechange", handleCueChange);
       currentTrack.addEventListener("cuechange", handleCueChange);
@@ -1846,7 +1865,7 @@ export default function VideoPlayer({
     showControlsTemporarily();
   };
 
-  const shouldShowBackdropGradient = !isFullscreen;
+  const shouldShowBackdropGradient = !isIOS && !isFullscreen;
   const shouldRenderSubtitles = !isIOS && activeSubtitle !== "off" && subtitleLines.length > 0;
   const remainingSeconds = Math.max(0, (duration || 0) - (currentTime || 0));
   const showNextEpisodeCountdown =
@@ -2014,7 +2033,8 @@ export default function VideoPlayer({
         // Native Safari iOS player
         <video
           ref={videoRef}
-          className="w-full h-full object-contain bg-black"
+          className="w-full aspect-video sm:aspect-auto sm:h-full object-contain bg-black"
+          src={videoSrc || undefined}
           poster={poster || undefined}
           title={title}
           crossOrigin="anonymous"
@@ -2027,7 +2047,8 @@ export default function VideoPlayer({
           x-webkit-airplay="allow"
           style={{
             width: "100%",
-            height: "100%",
+            height: isMobileViewport ? "auto" : "100%",
+            aspectRatio: isMobileViewport ? "16 / 9" : undefined,
             maxHeight: viewportWidth <= MOBILE_SCREEN_WIDTH ? "100dvh" : undefined,
           }}
         >
@@ -2149,7 +2170,7 @@ export default function VideoPlayer({
                 onClick={() => {
                   setPlaybackError(null);
                   hlsRetryCountRef.current = 0;
-                  setSessionNonce((n) => n + 1);
+                  void refreshPlaybackSource();
                 }}
                 className="rounded-lg bg-[#E50914] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#f40612]"
               >
@@ -2343,7 +2364,7 @@ export default function VideoPlayer({
                   className="inline-flex h-11 min-h-[44px] items-center gap-1.5 rounded-full border border-white/25 bg-black/50 px-3.5 text-xs font-semibold text-white backdrop-blur-xl transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
                   aria-label="Pengaturan bahasa audio dan subtitle"
                 >
-                  {icons.subtitle}
+                  {icons.subsOn}
                   <span>Bahasa</span>
                 </button>
                 {isIosLangOpen && (
@@ -2453,6 +2474,7 @@ export default function VideoPlayer({
         </div>
       ) : null}
 
+      {!isIOS && (
       <div className={`pointer-events-none absolute inset-0 flex flex-col justify-between ${overlayBackgroundClass} transition-opacity duration-300 ${showOverlay ? "opacity-100" : "opacity-0"}`}>
         {/* Top Bar */}
         <div className="flex items-center justify-between px-4 pt-4 sm:px-6 sm:pt-5 text-white drop-shadow">
@@ -2983,6 +3005,7 @@ export default function VideoPlayer({
       )}
 
       </div>
+      )}
     </div>
   );
 }

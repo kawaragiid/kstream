@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { logout, onAuthChange } from '../lib/auth';
 
 const AuthContext = createContext(null);
@@ -22,8 +22,13 @@ function parseExpiryMs(expiresAt) {
 function isAccountBlocked(userData) {
   if (!userData || typeof userData !== 'object') return false;
   if (userData.isActive === false || userData.status === 'suspend') return true;
-  const expiryMs = parseExpiryMs(userData.expiresAt);
-  if (expiryMs !== null && expiryMs <= Date.now()) return true;
+  const role = String(userData.role || 'pelanggan').toLowerCase();
+  const isStaff = ['super-admin', 'admin', 'editor'].includes(role);
+  const plan = String(userData.plan || 'free').toLowerCase();
+  if (!isStaff && plan === 'premium') {
+    const expiryMs = parseExpiryMs(userData.expiresAt);
+    if (expiryMs !== null && expiryMs <= Date.now()) return true;
+  }
   return false;
 }
 
@@ -31,6 +36,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const blockedErrorRef = useRef(null);
 
   useEffect(() => {
     let active = true;
@@ -42,31 +48,66 @@ export function AuthProvider({ children }) {
         if (!firebaseUser) {
           if (!active || seq !== checkSeq) return;
           setUser(null);
-          setError(null);
+          setError(blockedErrorRef.current || null);
           setLoading(false);
           return;
         }
 
         try {
           const token = await firebaseUser.getIdToken?.();
-          if (token) {
-            const res = await fetch(`/api/user?uid=${encodeURIComponent(firebaseUser.uid)}`, {
-              cache: 'no-store',
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-              const json = await res.json().catch(() => null);
-              const userData = json?.data;
-              if (isAccountBlocked(userData)) {
-                try {
-                  await logout();
-                } catch {}
-                if (!active || seq !== checkSeq) return;
-                setUser(null);
-                setError('Akun Anda dinonaktifkan atau masa aktif telah berakhir.');
-                setLoading(false);
-                return;
-              }
+          if (!token) {
+            const msg = 'Sesi autentikasi tidak valid. Silakan masuk kembali.';
+            blockedErrorRef.current = msg;
+            try {
+              await logout();
+            } catch {}
+            if (!active || seq !== checkSeq) return;
+            setUser(null);
+            setError(msg);
+            setLoading(false);
+            return;
+          }
+
+          const res = await fetch(`/api/user?uid=${encodeURIComponent(firebaseUser.uid)}`, {
+            cache: 'no-store',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (res.status === 401 || res.status === 403) {
+            const msg = 'Akun Anda dinonaktifkan atau sesi tidak valid.';
+            blockedErrorRef.current = msg;
+            try {
+              await logout();
+            } catch {}
+            if (!active || seq !== checkSeq) return;
+            setUser(null);
+            setError(msg);
+            setLoading(false);
+            return;
+          }
+
+          if (res.status === 503) {
+            if (!active || seq !== checkSeq) return;
+            setUser(null);
+            setError('Layanan autentikasi server sedang tidak tersedia.');
+            setLoading(false);
+            return;
+          }
+
+          if (res.ok) {
+            const json = await res.json().catch(() => null);
+            const userData = json?.data;
+            if (isAccountBlocked(userData)) {
+              const msg = 'Akun Anda dinonaktifkan atau masa aktif telah berakhir.';
+              blockedErrorRef.current = msg;
+              try {
+                await logout();
+              } catch {}
+              if (!active || seq !== checkSeq) return;
+              setUser(null);
+              setError(msg);
+              setLoading(false);
+              return;
             }
           }
         } catch (err) {
@@ -74,6 +115,7 @@ export function AuthProvider({ children }) {
         }
 
         if (!active || seq !== checkSeq) return;
+        blockedErrorRef.current = null;
         setUser(firebaseUser);
         setError(null);
         setLoading(false);
