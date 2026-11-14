@@ -240,6 +240,10 @@ export default function VideoPlayer({
   const [seekIndicator, setSeekIndicator] = useState(null);
   const lastTapRef = useRef({ time: 0, side: null });
   const seekIndicatorTimerRef = useRef(null);
+  const activeSubtitleRef = useRef(activeSubtitle);
+  useEffect(() => {
+    activeSubtitleRef.current = activeSubtitle;
+  }, [activeSubtitle]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -539,8 +543,26 @@ export default function VideoPlayer({
           if (Hls?.isSupported()) {
             detachHls();
             const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+            hls.subtitleDisplay = false;
             hls.loadSource(videoSrc);
             hls.attachMedia(media);
+            hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
+              if (isCancelled() || videoRef.current !== media) return;
+              const tracks = Array.isArray(hls.subtitleTracks) ? hls.subtitleTracks : [];
+              if (!tracks.length) return;
+              const currentKey = activeSubtitleRef.current;
+              if (!currentKey || currentKey === "off") {
+                hls.subtitleTrack = -1;
+                return;
+              }
+              const target = normalizeSubtitleKey(currentKey);
+              const idx = tracks.findIndex(
+                (t) =>
+                  normalizeSubtitleKey(t.lang) === target ||
+                  normalizeSubtitleKey(t.name) === target
+              );
+              hls.subtitleTrack = idx >= 0 ? idx : 0;
+            });
             hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
               if (isCancelled() || videoRef.current !== media) return;
               const levels = Array.isArray(data?.levels) ? data.levels : [];
@@ -969,6 +991,23 @@ export default function VideoPlayer({
 
     setSubtitleBottom(`calc(${mobileBase} + ${offset}px)`);
   }, [controlsVisible, isFullscreen]);
+
+  useEffect(() => {
+    const hls = hlsRef.current;
+    if (!hls || !Array.isArray(hls.subtitleTracks) || !hls.subtitleTracks.length) return;
+    hls.subtitleDisplay = false;
+    if (!activeSubtitle || activeSubtitle === "off") {
+      hls.subtitleTrack = -1;
+      return;
+    }
+    const target = normalizeSubtitleKey(activeSubtitle);
+    const idx = hls.subtitleTracks.findIndex(
+      (t) =>
+        normalizeSubtitleKey(t.lang) === target ||
+        normalizeSubtitleKey(t.name) === target
+    );
+    hls.subtitleTrack = idx >= 0 ? idx : 0;
+  }, [activeSubtitle, muxSubtitles, videoSrc]);
 
   useEffect(() => {
     const media = videoRef.current;
@@ -1431,7 +1470,7 @@ export default function VideoPlayer({
           }}
         >
           {subtitleTracks
-            .filter((track) => Boolean(track?.url))
+            .filter((track) => Boolean(track?.url) && !/\.m3u8(\?|$)/i.test(track.url))
             .map((track) => (
               <track
                 key={`${track.lang}-${track.url}`}
@@ -1460,7 +1499,7 @@ export default function VideoPlayer({
           controlsList="nodownload noplaybackrate"
         >
           {subtitleTracks
-            .filter((track) => Boolean(track?.url))
+            .filter((track) => Boolean(track?.url) && !/\.m3u8(\?|$)/i.test(track.url))
             .map((track) => (
               <track
                 key={`${track.lang}-${track.url}`}
