@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMediaOverlay } from "./MediaOverlayProvider";
+import { useAuth } from "../hooks/useAuth";
+import { isFavorite, toggleFavorite } from "../lib/firestore";
 
 const PLACEHOLDER_PORTRAIT =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450"><rect width="300" height="450" fill="%23141414"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23FFFFFF" font-size="24" font-family="Arial, sans-serif">Kstream</text></svg>';
@@ -49,6 +51,7 @@ function getPreviewSources(item = {}) {
 export default function CardPoster({ item = {}, orientation: forcedOrientation }) {
   const router = useRouter();
   const { openMedia } = useMediaOverlay();
+  const { user } = useAuth();
   const typePath = item?.type === "series" ? "series" : "movies";
   const playbackType = item?.type === "series" ? "series" : "movie";
   const slugOrId = encodeURIComponent(item?.slug || item?.id || "sample");
@@ -71,6 +74,8 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
   const [muted, setMuted] = useState(true);
   const [videoReady, setVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
+  const [favorite, setFavorite] = useState(false);
+  const [favLoading, setFavLoading] = useState(false);
 
   const previewTimer = useRef(null);
   const leaveTimer = useRef(null);
@@ -208,6 +213,45 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
       window.removeEventListener("resize", handleReposition);
     };
   }, [showPreview]);
+
+  useEffect(() => {
+    if (!user?.uid || !item?.id) {
+      setFavorite(false);
+      return;
+    }
+    if (!showPreview) return;
+    let active = true;
+    isFavorite(user.uid, item.id)
+      .then((state) => {
+        if (active) setFavorite(Boolean(state));
+      })
+      .catch(() => {
+        if (active) setFavorite(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [showPreview, user?.uid, item?.id]);
+
+  const handleToggleFavorite = async (event) => {
+    event.stopPropagation();
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    if (!item?.id || favLoading) return;
+    setFavLoading(true);
+    try {
+      const result = await toggleFavorite(user.uid, item);
+      if (typeof result?.isFavorite === "boolean") {
+        setFavorite(result.isFavorite);
+      }
+    } catch (err) {
+      console.warn("Gagal mengubah status favorit:", err);
+    } finally {
+      setFavLoading(false);
+    }
+  };
 
   const handleMouseEnter = (event) => {
     if (typeof window === "undefined") return;
@@ -418,20 +462,28 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
                       <path d="M8 5v14l11-7z" />
                     </svg>
                   </button>
-                  {/* Detail / Info Circle */}
+                  {/* Toggle Favorite / Daftar Saya */}
                   <button
                     type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      openMedia(item, { origin: "card" });
-                    }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-white/45 bg-white/5 text-white transition hover:border-white hover:bg-white/15 active:scale-95"
-                    aria-label={`Info ${title}`}
-                    title="Info Lengkap"
+                    onClick={handleToggleFavorite}
+                    disabled={favLoading}
+                    className={`flex h-8 w-8 items-center justify-center rounded-full border transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+                      favorite
+                        ? "border-white bg-white/15 text-white hover:bg-white/25"
+                        : "border-white/45 bg-white/5 text-white hover:border-white hover:bg-white/15"
+                    }`}
+                    aria-label={favorite ? `Hapus ${title} dari Daftar Saya` : `Tambah ${title} ke Daftar Saya`}
+                    title={favorite ? "Hapus dari Daftar Saya" : "Tambah ke Daftar Saya"}
                   >
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
-                    </svg>
+                    {favorite ? (
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+                      </svg>
+                    )}
                   </button>
                 </div>
 

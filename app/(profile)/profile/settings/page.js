@@ -152,7 +152,7 @@ export default function ProfileSettingsPage() {
 
       await updateUserProfileDoc(user.uid, {
         displayName: form.displayName || null,
-        photoUrl: nextPhotoUrl || null,
+        photoURL: nextPhotoUrl || null,
         tagline: form.tagline || "",
       });
 

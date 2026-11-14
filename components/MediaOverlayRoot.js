@@ -8,6 +8,16 @@ import { useAuth } from "../hooks/useAuth";
 import { getUserHistory, isFavorite, toggleFavorite } from "../lib/firestore";
 import { formatDuration } from "../lib/helpers";
 
+function formatHumanDuration(seconds) {
+  const total = Number(seconds || 0);
+  if (!total || Number.isNaN(total)) return "";
+  const mins = Math.round(total / 60);
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h}j ${m}m` : `${h}j`;
+}
+
 function toMillis(value) {
   if (typeof value === "number") return value;
   if (value?._seconds) return value._seconds * 1000;
@@ -404,7 +414,7 @@ export default function MediaOverlayRoot() {
   const maturityRating = useMemo(() => {
     const value = detail?.maturityRating || detail?.ageRating || detail?.rating;
     if (value) return String(value);
-    return detail?.isPremium ? "18+" : "13+";
+    return "13+";
   }, [detail]);
 
   const seasonCount = useMemo(() => {
@@ -610,14 +620,9 @@ export default function MediaOverlayRoot() {
                       </span>
                     ) : detail.duration ? (
                       <span className="text-white/80">
-                        {formatDuration(detail.duration)}
+                        {formatHumanDuration(detail.duration)}
                       </span>
                     ) : null}
-                    {detail.isPremium && (
-                      <span className="rounded-[2px] border border-white/30 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/80">
-                        Premium
-                      </span>
-                    )}
                   </div>
 
                   <p className="text-sm sm:text-[15px] leading-relaxed text-white/90">

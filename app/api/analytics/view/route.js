@@ -4,14 +4,13 @@ import { checkRateLimit } from "@/lib/rateLimit";
 
 function buildDefaultSummary() {
   return {
-    totals: { views: 0, watchTime: 0, subscribers: 0, revenue: 0 },
-    growth: { views: 0, watchTime: 0, subscribers: 0, revenue: 0 },
+    totals: { views: 0, watchTime: 0, totalUsers: 0 },
+    growth: { views: 0, watchTime: 0 },
     trend: [],
     trending: [],
     topContent: [],
     activeUsers: { daily: 0, weekly: 0, monthly: 0 },
     avgWatchDuration: { perUser: 0, perSession: 0 },
-    audienceSplit: { free: 0, premium: 0 },
   };
 }
 
@@ -81,12 +80,7 @@ export async function POST(request) {
       const [topMovies, topSeries, userStats] = await Promise.all([
         sql`SELECT id, title, views, duration FROM movies ORDER BY views DESC NULLS LAST LIMIT 10`,
         sql`SELECT id, title, views FROM series ORDER BY views DESC NULLS LAST LIMIT 10`,
-        sql`
-          SELECT
-            COUNT(*)::int AS total_users,
-            COUNT(*) FILTER (WHERE LOWER(COALESCE(plan, 'free')) = 'premium')::int AS premium_users
-          FROM users
-        `,
+        sql`SELECT COUNT(*)::int AS total_users FROM users`,
       ]);
 
       const combinedTop = [
@@ -111,8 +105,6 @@ export async function POST(request) {
         .slice(0, 10);
 
       const totalUsers = Number(userStats[0]?.total_users || 0);
-      const premiumUsers = Number(userStats[0]?.premium_users || 0);
-      const freeUsers = Math.max(0, totalUsers - premiumUsers);
 
       const prevTotals = prev.totals || base.totals;
       const nextViews = Number(prevTotals.views || 0) + (isNewView ? 1 : 0);
@@ -122,23 +114,19 @@ export async function POST(request) {
         ...base,
         ...prev,
         totals: {
-          ...prevTotals,
           views: nextViews,
           watchTime: nextWatchTime,
-          subscribers: premiumUsers,
+          totalUsers,
         },
         trend: trimmedTrend,
         topContent: combinedTop,
         trending: combinedTop.filter((c) => c.type === "series").slice(0, 10),
-        audienceSplit: {
-          free: freeUsers,
-          premium: premiumUsers,
-        },
         avgWatchDuration: {
           perUser: totalUsers > 0 ? Math.round((nextWatchTime / totalUsers) * 10) / 10 : 0,
           perSession: nextViews > 0 ? Math.round((nextWatchTime / nextViews) * 10) / 10 : 0,
         },
       };
+      delete updatedSummary.audienceSplit;
 
       await sql`
         INSERT INTO analytics_snapshots (id, data, updated_at)

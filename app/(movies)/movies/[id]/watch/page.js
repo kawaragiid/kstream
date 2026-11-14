@@ -14,10 +14,20 @@ async function ensureFirestore() {
   }
 }
 
+function safeDecode(value) {
+  if (typeof value !== "string") return value;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export default async function MovieWatchRedirect(props) {
   const params = await props.params;
   await ensureFirestore();
-  const video = await getVideoById(params.id);
+  const decodedId = safeDecode(params.id);
+  const video = await getVideoById(decodedId);
 
   if (!video) {
     notFound();

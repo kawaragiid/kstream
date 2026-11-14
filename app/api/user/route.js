@@ -5,6 +5,8 @@ import { getAdminAuth } from '@/lib/firebaseAdmin';
 const ALLOWED_CLIENT_PATCH_KEYS = new Set([
   'displayName',
   'photoURL',
+  'photoUrl',
+  'tagline',
   'favorites',
   'history',
   'preferences',
@@ -27,7 +29,7 @@ async function verifyRequestUid(request, targetUid) {
     return { ok: true, decoded };
   } catch (err) {
     if (String(err?.message || '').includes('Firebase admin belum dikonfigurasi')) {
-      return { ok: true, decoded: null };
+      return { ok: false, status: 503, error: 'Layanan autentikasi server belum siap.' };
     }
     return { ok: false, status: 401, error: 'Unauthorized: invalid token' };
   }
@@ -90,7 +92,12 @@ export async function POST(request) {
 
     const patch = {};
     for (const key of Object.keys(rawPatch)) {
-      if (ALLOWED_CLIENT_PATCH_KEYS.has(key)) {
+      if (!ALLOWED_CLIENT_PATCH_KEYS.has(key)) continue;
+      if (key === 'photoUrl') {
+        if (patch.photoURL === undefined) {
+          patch.photoURL = rawPatch[key];
+        }
+      } else {
         patch[key] = rawPatch[key];
       }
     }

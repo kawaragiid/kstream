@@ -15,16 +15,26 @@ async function ensureFirestore() {
   }
 }
 
+function safeDecode(value) {
+  if (typeof value !== "string") return value;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 export default async function SeriesWatchRedirect(props) {
   const params = await props.params;
   await ensureFirestore();
 
-  const series = await getVideoById(params.id);
+  const decodedId = safeDecode(params.id);
+  const series = await getVideoById(decodedId);
   if (!series || series.type !== "series") {
     notFound();
   }
 
-  const targetEpisodeId = params.ep;
+  const targetEpisodeId = safeDecode(params.ep);
   if (targetEpisodeId) {
     const episode = await getSeriesEpisode(series.id, targetEpisodeId);
     if (!episode) {
