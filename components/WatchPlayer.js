@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
-import { getUserHistory, saveHistoryProgress } from '../lib/firestore';
+import { getUserHistory, readUserDoc, saveHistoryProgress } from '../lib/firestore';
 import VideoPlayer from './VideoPlayer';
 
 const GUEST_DAILY_LIMIT = 1;
@@ -109,6 +109,8 @@ export default function WatchPlayer({
   const [guestLimitReason, setGuestLimitReason] = useState('');
   const [resumePosition, setResumePosition] = useState(0);
   const [guestResumePosition, setGuestResumePosition] = useState(0);
+  const [userDataSaver, setUserDataSaver] = useState(false);
+  const [userPreferredLang, setUserPreferredLang] = useState('');
 
   const contentId = series?.id || video?.seriesId || video?.id || '';
   const contentSlug = series?.slug || video?.slug || contentId;
@@ -243,6 +245,30 @@ export default function WatchPlayer({
   }, [video?.id]);
 
   useEffect(() => {
+    if (!user?.uid) {
+      setUserDataSaver(false);
+      setUserPreferredLang('');
+      return;
+    }
+    let active = true;
+    readUserDoc(user.uid)
+      .then(({ data = {} }) => {
+        if (!active) return;
+        const preferences = data?.preferences || {};
+        setUserDataSaver(Boolean(preferences.dataSaver));
+        setUserPreferredLang(
+          typeof preferences.preferredLanguage === 'string'
+            ? preferences.preferredLanguage.trim()
+            : ''
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [user?.uid]);
+
+  useEffect(() => {
     setResumePosition(0);
     if (!user?.uid || !video?.id) return;
     let active = true;
@@ -362,7 +388,10 @@ export default function WatchPlayer({
   }, [episodes, currentEpisode]);
 
   const defaultSubtitleLang = useMemo(() => {
-    const preferred = video?.preferredLanguage || video?.preferences?.preferredLanguage;
+    const preferred =
+      video?.preferredLanguage ||
+      video?.preferences?.preferredLanguage ||
+      userPreferredLang;
     if (typeof preferred === 'string' && preferred.trim()) {
       return preferred.trim();
     }
@@ -372,7 +401,7 @@ export default function WatchPlayer({
       return candidate?.lang || candidate?.label || 'en';
     }
     return 'en';
-  }, [video?.preferredLanguage, video?.preferences?.preferredLanguage, subtitles]);
+  }, [video?.preferredLanguage, video?.preferences?.preferredLanguage, userPreferredLang, subtitles]);
 
   const navigateToEpisode = useCallback(
     (episode, { autoPlay = true } = {}) => {
@@ -468,6 +497,8 @@ export default function WatchPlayer({
       initialTime={user ? resumePosition : guestResumePosition}
       backHref={backHref || video?.href || '/'}
       defaultSubtitleLang={defaultSubtitleLang}
+      isGuest={!authLoading && !user}
+      dataSaver={Boolean(user && userDataSaver)}
       onSelectEpisode={handleEpisodeSelect}
       onAutoAdvance={nextEpisode ? handleAutoAdvance : undefined}
       onProgress={handleProgress}

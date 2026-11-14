@@ -216,6 +216,32 @@ const SUBTITLE_CONTROL_GAP_PX = 24; // Increased gap for better spacing with con
 const SUBTITLE_FULLSCREEN_OFFSET_PERCENT = 10; // Specific offset for fullscreen mode
 const MOBILE_SCREEN_WIDTH = 768; // Breakpoint untuk layar mobile
 const PAUSE_REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // Refresh session after 5 minutes paused
+const PAUSE_STOP_LOAD_DELAY_MS = 10 * 1000; // Stop HLS background segment loading after 10s paused
+
+const applyHlsResolutionCap = (hls, { isGuest = false, dataSaver = false } = {}) => {
+  if (!hls || !Array.isArray(hls.levels) || !hls.levels.length) return;
+  const maxHeight = dataSaver ? 480 : isGuest ? 720 : 0;
+  if (!maxHeight) {
+    hls.autoLevelCapping = -1;
+    return;
+  }
+  let bestIdx = -1;
+  let bestHeight = -1;
+  let lowestIdx = 0;
+  let lowestHeight = Infinity;
+  hls.levels.forEach((lvl, idx) => {
+    const h = Number(lvl?.height) || 0;
+    if (h > 0 && h < lowestHeight) {
+      lowestHeight = h;
+      lowestIdx = idx;
+    }
+    if (h > 0 && h <= maxHeight && h >= bestHeight) {
+      bestHeight = h;
+      bestIdx = idx;
+    }
+  });
+  hls.autoLevelCapping = bestIdx >= 0 ? bestIdx : lowestIdx;
+};
 
 export default function VideoPlayer({
   playbackId = "",
@@ -229,6 +255,8 @@ export default function VideoPlayer({
   initialTime = 0,
   defaultSubtitleLang = "en",
   backHref = "/",
+  isGuest = false,
+  dataSaver = false,
   onSelectEpisode,
   onAutoAdvance,
   onProgress,
@@ -275,15 +303,20 @@ export default function VideoPlayer({
   const singleTapTimerRef = useRef(null);
   const seekIndicatorTimerRef = useRef(null);
   const pausedAtRef = useRef(null);
+  const pauseStopLoadTimerRef = useRef(null);
   const pendingResumeRef = useRef(null);
   const validatedSubtitleUrlsRef = useRef(new Set());
   const resumeAppliedRef = useRef("");
   const hasOpenPopoverRef = useRef(false);
   const [sessionNonce, setSessionNonce] = useState(0);
   const activeSubtitleRef = useRef(activeSubtitle);
+  const capSettingsRef = useRef({ isGuest, dataSaver });
   useEffect(() => {
     activeSubtitleRef.current = activeSubtitle;
   }, [activeSubtitle]);
+  useEffect(() => {
+    capSettingsRef.current = { isGuest, dataSaver };
+  }, [isGuest, dataSaver]);
   useEffect(() => {
     hasOpenPopoverRef.current = isSettingsOpen || isEpisodePanelOpen;
   }, [isSettingsOpen, isEpisodePanelOpen]);
@@ -628,6 +661,10 @@ export default function VideoPlayer({
   }, [episodeList, hasEpisodes, currentEpisode]);
 
   const detachHls = useCallback(() => {
+    if (pauseStopLoadTimerRef.current) {
+      clearTimeout(pauseStopLoadTimerRef.current);
+      pauseStopLoadTimerRef.current = null;
+    }
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
@@ -646,7 +683,16 @@ export default function VideoPlayer({
           if (isCancelled() || videoRef.current !== media) return;
           if (Hls?.isSupported()) {
             detachHls();
-            const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+            const isDataSaverActive = Boolean(capSettingsRef.current?.dataSaver);
+            const hls = new Hls({
+              enableWorker: true,
+              lowLatencyMode: false,
+              maxBufferLength: isDataSaverActive ? 12 : 20,
+              maxMaxBufferLength: isDataSaverActive ? 24 : 40,
+              backBufferLength: 30,
+              maxBufferSize: (isDataSaverActive ? 15 : 30) * 1000 * 1000,
+              capLevelToPlayerSize: true,
+            });
             if (isCancelled() || videoRef.current !== media) {
               hls.destroy();
               return;
@@ -711,6 +757,7 @@ export default function VideoPlayer({
             hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
               if (isCancelled() || videoRef.current !== media) return;
               const levels = Array.isArray(data?.levels) ? data.levels : [];
+              applyHlsResolutionCap(hls, capSettingsRef.current);
               const formatted = levels
                 .map((lvl, index) => ({
                   index,
@@ -1370,7 +1417,24 @@ export default function VideoPlayer({
     const media = videoRef.current;
     if (!media) return;
 
+    const clearPauseStopTimer = () => {
+      if (pauseStopLoadTimerRef.current) {
+        clearTimeout(pauseStopLoadTimerRef.current);
+        pauseStopLoadTimerRef.current = null;
+      }
+    };
+    const schedulePauseStopLoad = () => {
+      clearPauseStopTimer();
+      pauseStopLoadTimerRef.current = window.setTimeout(() => {
+        pauseStopLoadTimerRef.current = null;
+        if (videoRef.current?.paused && hlsRef.current && typeof hlsRef.current.stopLoad === "function") {
+          hlsRef.current.stopLoad();
+        }
+      }, PAUSE_STOP_LOAD_DELAY_MS);
+    };
+
     const handlePlay = () => {
+      clearPauseStopTimer();
       pausedAtRef.current = null;
       if (hlsRef.current && typeof hlsRef.current.startLoad === "function") {
         hlsRef.current.startLoad(-1);
@@ -1379,10 +1443,37 @@ export default function VideoPlayer({
     };
     const handlePause = () => {
       pausedAtRef.current = Date.now();
-      if (hlsRef.current && typeof hlsRef.current.stopLoad === "function") {
-        hlsRef.current.stopLoad();
-      }
       setIsPlaying(false);
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        clearPauseStopTimer();
+        if (hlsRef.current && typeof hlsRef.current.stopLoad === "function") {
+          hlsRef.current.stopLoad();
+        }
+        return;
+      }
+      schedulePauseStopLoad();
+    };
+    const handleSeeking = () => {
+      if (!media.paused) return;
+      if (hlsRef.current && typeof hlsRef.current.startLoad === "function") {
+        hlsRef.current.startLoad(Number.isFinite(media.currentTime) ? media.currentTime : -1);
+      }
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        clearPauseStopTimer();
+        if (hlsRef.current && typeof hlsRef.current.stopLoad === "function") {
+          hlsRef.current.stopLoad();
+        }
+        return;
+      }
+      schedulePauseStopLoad();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && media.paused) {
+        clearPauseStopTimer();
+        if (hlsRef.current && typeof hlsRef.current.stopLoad === "function") {
+          hlsRef.current.stopLoad();
+        }
+      }
     };
     const handleTimeUpdate = () => {
       if (!media.duration) return;
@@ -1412,28 +1503,34 @@ export default function VideoPlayer({
       setIsMuted(media.muted);
     };
     const handleEnded = () => {
+      clearPauseStopTimer();
       setIsPlaying(false);
       onEnded?.();
     };
 
     media.addEventListener("play", handlePlay);
     media.addEventListener("pause", handlePause);
+    media.addEventListener("seeking", handleSeeking);
     media.addEventListener("timeupdate", handleTimeUpdate);
     media.addEventListener("loadedmetadata", handleLoadedMetadata);
     media.addEventListener("durationchange", handleDurationChange);
     media.addEventListener("canplay", handleCanPlay);
     media.addEventListener("volumechange", handleVolumeUpdate);
     media.addEventListener("ended", handleEnded);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
+      clearPauseStopTimer();
       media.removeEventListener("play", handlePlay);
       media.removeEventListener("pause", handlePause);
+      media.removeEventListener("seeking", handleSeeking);
       media.removeEventListener("timeupdate", handleTimeUpdate);
       media.removeEventListener("loadedmetadata", handleLoadedMetadata);
       media.removeEventListener("durationchange", handleDurationChange);
       media.removeEventListener("canplay", handleCanPlay);
       media.removeEventListener("volumechange", handleVolumeUpdate);
       media.removeEventListener("ended", handleEnded);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [onEnded, onProgress, videoSrc, applyInitialResume]);
 
@@ -1690,8 +1787,34 @@ export default function VideoPlayer({
     media.playbackRate = playbackRate;
   }, [playbackRate, videoSrc]);
 
+  useEffect(() => {
+    const hls = hlsRef.current;
+    if (!hls) return;
+    if (hls.config) {
+      hls.config.maxBufferLength = dataSaver ? 12 : 20;
+      hls.config.maxMaxBufferLength = dataSaver ? 24 : 40;
+      hls.config.maxBufferSize = (dataSaver ? 15 : 30) * 1000 * 1000;
+    }
+    if (!Array.isArray(hls.levels) || !hls.levels.length) return;
+    applyHlsResolutionCap(hls, { isGuest, dataSaver });
+    if (isGuest && selectedQuality >= 0) {
+      const chosen = hls.levels[selectedQuality];
+      if ((Number(chosen?.height) || 0) > 720) {
+        setSelectedQuality(-1);
+        hls.currentLevel = -1;
+      }
+    }
+  }, [isGuest, dataSaver, qualityLevels, selectedQuality]);
+
   const handleQualityChange = (event) => {
     const levelIndex = Number(event.target.value);
+    if (isGuest && levelIndex >= 0) {
+      const targetLevel = qualityLevels.find((lvl) => lvl.index === levelIndex);
+      if ((Number(targetLevel?.height) || 0) > 720) {
+        showControlsTemporarily();
+        return;
+      }
+    }
     setSelectedQuality(levelIndex);
     if (hlsRef.current) {
       hlsRef.current.currentLevel = levelIndex;
@@ -2085,7 +2208,18 @@ export default function VideoPlayer({
 
               {qualityLevels.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[11px] font-semibold text-white/60">Kualitas Video</p>
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
+                    <p className="text-[11px] font-semibold text-white/60">Kualitas Video</p>
+                    {dataSaver ? (
+                      <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
+                        Hemat Data ≤480p
+                      </span>
+                    ) : isGuest ? (
+                      <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                        Tamu ≤720p
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
@@ -2098,20 +2232,27 @@ export default function VideoPlayer({
                     >
                       Auto
                     </button>
-                    {qualityLevels.map((lvl) => (
-                      <button
-                        key={lvl.index}
-                        type="button"
-                        onClick={() => handleQualityChange({ target: { value: lvl.index } })}
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-                          selectedQuality === lvl.index
-                            ? "bg-[#E50914] text-white shadow"
-                            : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
-                        }`}
-                      >
-                        {lvl.label}
-                      </button>
-                    ))}
+                    {qualityLevels.map((lvl) => {
+                      const isLockedForGuest = isGuest && lvl.height > 720;
+                      return (
+                        <button
+                          key={lvl.index}
+                          type="button"
+                          disabled={isLockedForGuest}
+                          title={isLockedForGuest ? "Login untuk menonton di atas 720p" : undefined}
+                          onClick={() => handleQualityChange({ target: { value: lvl.index } })}
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                            isLockedForGuest
+                              ? "cursor-not-allowed border border-white/10 bg-white/5 text-white/35"
+                              : selectedQuality === lvl.index
+                              ? "bg-[#E50914] text-white shadow"
+                              : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                          }`}
+                        >
+                          {isLockedForGuest ? `${lvl.label} 🔒` : lvl.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
