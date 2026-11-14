@@ -87,6 +87,12 @@ const icons = {
       <path d="M5 5l10 7-10 7V5zM17 5h2.5v14H17V5z" />
     </svg>
   ),
+  settings: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 sm:h-7 sm:w-7">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  ),
 };
 
 const attributeRegex = /([A-Z0-9-]+)=("[^"]*"|[^,]*)/gi;
@@ -232,7 +238,8 @@ export default function VideoPlayer({
   const [subtitleLines, setSubtitleLines] = useState([]);
   const [subtitleBottom, setSubtitleBottom] = useState(`${SUBTITLE_BASE_OFFSET_PERCENT}%`);
   const controlBarRef = useRef(null);
-  const controlsVisible = !isIOS && (showControls || isEpisodePanelOpen);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const controlsVisible = !isIOS && (showControls || isEpisodePanelOpen || isSettingsOpen);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [qualityLevels, setQualityLevels] = useState([]);
   const [selectedQuality, setSelectedQuality] = useState(-1);
@@ -1566,9 +1573,9 @@ export default function VideoPlayer({
             type="button"
             onClick={togglePlay}
             aria-label="Play"
-            className="pointer-events-auto flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full border border-white/25 bg-black/60 text-white shadow-2xl backdrop-blur-sm transition duration-200 hover:scale-110 hover:border-white/60 hover:bg-black/80 active:scale-95"
+            className="pointer-events-auto flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white shadow-[0_12px_40px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-2xl transition duration-200 hover:scale-110 hover:border-white/60 hover:bg-white/25 active:scale-95"
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" className="ml-1 h-8 w-8 sm:h-10 sm:w-10">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="ml-1 h-8 w-8 sm:h-10 sm:w-10 drop-shadow">
               <path d="M7 4.5v15l12.5-7.5L7 4.5z" />
             </svg>
           </button>
@@ -1577,11 +1584,11 @@ export default function VideoPlayer({
 
       {hasEpisodes && (
         <div
-          className={`pointer-events-auto absolute inset-y-0 right-0 z-30 flex w-full max-w-sm flex-col border-l border-white/10 bg-[#141414]/95 backdrop-blur-md transition duration-300 ${
+          className={`pointer-events-auto absolute inset-y-0 right-0 z-30 flex w-full max-w-sm flex-col border-l border-white/15 bg-black/65 backdrop-blur-2xl shadow-[-12px_0_40px_rgba(0,0,0,0.65)] transition duration-300 ${
             isEpisodePanelOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-full opacity-0"
           }`}
         >
-          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <div className="flex items-center justify-between border-b border-white/15 px-5 py-4">
             <div>
               <span className="text-sm font-bold tracking-wide text-white">Episodes</span>
               {title && <p className="text-xs text-white/60 truncate max-w-[220px]">{title}</p>}
@@ -1590,7 +1597,7 @@ export default function VideoPlayer({
               type="button"
               onClick={() => setEpisodePanelOpen(false)}
               aria-label="Close episodes"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
                 <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
@@ -1606,14 +1613,14 @@ export default function VideoPlayer({
                     key={episode.id}
                     type="button"
                     onClick={() => handleEpisodeSelection(episode)}
-                    className={`group flex w-full items-start gap-3 rounded-md border-l-4 px-3 py-3 text-left transition ${
+                    className={`group flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition ${
                       isActive
-                        ? "border-[#E50914] bg-white/15 text-white"
-                        : "border-transparent bg-white/[0.04] text-white/90 hover:bg-white/10"
+                        ? "border-[#E50914]/60 bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
+                        : "border-white/5 bg-white/[0.05] text-white/90 hover:border-white/15 hover:bg-white/10"
                     }`}
                   >
                     {episode.thumbnail ? (
-                      <div className="relative h-14 w-24 flex-shrink-0 overflow-hidden rounded bg-black/60">
+                      <div className="relative h-14 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-black/60">
                         <img src={episode.thumbnail} alt={episode.title || ""} className="h-full w-full object-cover" />
                         {isActive && (
                           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
@@ -1646,7 +1653,7 @@ export default function VideoPlayer({
         <button
           type="button"
           onClick={handleBack}
-          className="pointer-events-auto absolute left-3 top-3 z-20 inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/25 bg-black/60 text-white backdrop-blur-sm transition duration-200 hover:bg-black/80 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
+          className="pointer-events-auto absolute left-3 top-3 z-20 inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/25 bg-black/50 text-white backdrop-blur-xl transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
           aria-label="Kembali"
         >
           <BackIcon className="h-4 w-4" />
@@ -1654,23 +1661,24 @@ export default function VideoPlayer({
       ) : null}
 
       <div className={`pointer-events-none absolute inset-0 flex flex-col justify-between ${overlayBackgroundClass} transition-opacity duration-300 ${showOverlay ? "opacity-100" : "opacity-0"}`}>
-        <div className="flex items-center justify-between px-4 pt-4 sm:px-8 sm:pt-6 text-white drop-shadow">
+        {/* Top Bar */}
+        <div className="flex items-center justify-between px-4 pt-4 sm:px-6 sm:pt-5 text-white drop-shadow">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             {backHref ? (
               <button
                 type="button"
                 onClick={handleBack}
-                className={`pointer-events-auto inline-flex h-11 w-11 min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-full text-white transition duration-150 hover:scale-110 hover:bg-white/15 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50 ${
+                className={`pointer-events-auto inline-flex h-11 w-11 min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] transition duration-150 hover:scale-105 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50 ${
                   isIOS || showOverlay ? "opacity-100" : "opacity-0"
                 }`}
                 aria-label="Kembali"
                 title="Kembali"
               >
-                <BackIcon className="h-6 w-6" />
+                <BackIcon className="h-5 w-5" />
               </button>
             ) : null}
             <div className="min-w-0">
-              <h3 className="truncate text-base font-bold tracking-tight sm:text-xl md:text-2xl">{title}</h3>
+              <h3 className="truncate text-base font-bold tracking-tight sm:text-xl md:text-2xl drop-shadow">{title}</h3>
               {currentEpisode && (
                 <p className="truncate text-xs font-medium text-white/75 sm:text-sm">
                   {currentEpisode.number ? `E${currentEpisode.number}: ` : ""}
@@ -1681,146 +1689,240 @@ export default function VideoPlayer({
           </div>
         </div>
 
-        <div ref={controlBarRef} className="pointer-events-auto flex flex-col gap-2.5 px-4 pb-4 sm:px-8 sm:pb-6 text-xs md:text-sm">
-          {/* Netflix Red Scrubber Bar */}
-          <div className="flex items-center gap-3">
-            <span className="hidden sm:inline-block w-12 text-right tabular-nums text-xs font-medium text-white/80">
-              {formatTime(currentTime)}
-            </span>
-            <div className="group/scrubber relative flex h-5 flex-1 items-center">
-              <div className="relative h-1 w-full overflow-visible rounded-full bg-white/25 transition-all duration-150 group-hover/scrubber:h-1.5">
-                <div
-                  className="h-full rounded-full bg-[#E50914] transition-[width] duration-75"
-                  style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-                />
-                <div
-                  className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 scale-0 rounded-full bg-[#E50914] shadow-[0_0_8px_rgba(229,9,20,0.85)] transition-transform duration-150 group-hover/scrubber:scale-100"
-                  style={{ left: `${Math.min(100, Math.max(0, progress))}%` }}
-                />
+        {/* Liquid Glass Control Dock + Settings Popover */}
+        <div ref={controlBarRef} className="pointer-events-auto relative mx-3 mb-3 sm:mx-6 sm:mb-5">
+          {isSettingsOpen && (
+            <div className="absolute bottom-full right-0 mb-3 w-[min(92vw,340px)] rounded-2xl border border-white/20 bg-black/65 p-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                <span className="text-xs font-bold uppercase tracking-widest text-white/70">Pengaturan Pemutaran</span>
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="rounded-full p-1 text-white/60 transition hover:bg-white/10 hover:text-white"
+                  aria-label="Tutup pengaturan"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+                    <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+                  </svg>
+                </button>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={0.1}
-                value={progress}
-                onChange={handleProgressChange}
-                aria-label="Seek video"
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              />
-            </div>
-            <span className="tabular-nums text-xs font-medium text-white/85">
-              -{formatTime(remainingSeconds)}
-            </span>
-          </div>
 
-          {/* Netflix Control Row */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1 sm:gap-2.5">
-              <button
-                type="button"
-                onClick={togglePlay}
-                className={controlButtonClass}
-                aria-label={isPlaying ? "Pause" : "Play"}
-                title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-              >
-                {icons[isPlaying ? "pause" : "play"]}
-              </button>
-              <button
-                type="button"
-                onClick={() => seekBy(-10)}
-                className={controlButtonClass}
-                aria-label="Mundur 10 detik"
-                title="Mundur 10 detik"
-              >
-                {icons.back10}
-              </button>
-              <button
-                type="button"
-                onClick={() => seekBy(10)}
-                className={controlButtonClass}
-                aria-label="Maju 10 detik"
-                title="Maju 10 detik"
-              >
-                {icons.forward10}
-              </button>
-              <button
-                type="button"
-                onClick={toggleMute}
-                className={controlButtonClass}
-                aria-label={isMuted || volume === 0 ? "Unmute" : "Mute"}
-                title={isMuted || volume === 0 ? "Unmute (M)" : "Mute (M)"}
-              >
-                {icons[isMuted || volume === 0 ? "mute" : "sound"]}
-              </button>
-              <div className="hidden items-center gap-2 lg:flex">
+              {qualityLevels.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-semibold text-white/60">Kualitas Video</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleQualityChange({ target: { value: -1 } })}
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                        selectedQuality === -1
+                          ? "bg-[#E50914] text-white shadow"
+                          : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                      }`}
+                    >
+                      Auto
+                    </button>
+                    {qualityLevels.map((lvl) => (
+                      <button
+                        key={lvl.index}
+                        type="button"
+                        onClick={() => handleQualityChange({ target: { value: lvl.index } })}
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                          selectedQuality === lvl.index
+                            ? "bg-[#E50914] text-white shadow"
+                            : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                        }`}
+                      >
+                        {lvl.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold text-white/60">Kecepatan Putar</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                    <button
+                      key={rate}
+                      type="button"
+                      onClick={() => handlePlaybackRateChange({ target: { value: rate } })}
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                        playbackRate === rate
+                          ? "bg-white text-black shadow"
+                          : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                      }`}
+                    >
+                      {rate}x
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {subtitleTracks.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-semibold text-white/60">Subtitle</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveSubtitle("off");
+                        showControlsTemporarily();
+                      }}
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                        activeSubtitle === "off"
+                          ? "bg-white text-black shadow"
+                          : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                      }`}
+                    >
+                      Off
+                    </button>
+                    {subtitleTracks.map((track) => {
+                      const trackVal = track.lang || track.label;
+                      const active = activeSubtitle === trackVal;
+                      return (
+                        <button
+                          key={`${track.lang}-${track.url}`}
+                          type="button"
+                          onClick={() => {
+                            setActiveSubtitle(trackVal);
+                            showControlsTemporarily();
+                          }}
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                            active
+                              ? "bg-[#E50914] text-white shadow"
+                              : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                          }`}
+                        >
+                          {track.label || track.lang}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold text-white/60">Ukuran Teks Subtitle</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {subtitleSizeOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setSubtitleSize(option.value);
+                        showControlsTemporarily();
+                      }}
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                        subtitleSize === option.value
+                          ? "bg-white text-black shadow"
+                          : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2.5 rounded-2xl border border-white/15 bg-black/40 px-4 py-3 sm:px-5 sm:py-3.5 text-xs md:text-sm backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.18)]">
+            {/* Netflix Red Scrubber Bar */}
+            <div className="flex items-center gap-3">
+              <span className="hidden sm:inline-block w-12 text-right tabular-nums text-xs font-medium text-white/80">
+                {formatTime(currentTime)}
+              </span>
+              <div className="group/scrubber relative flex h-5 flex-1 items-center">
+                <div className="relative h-1 w-full overflow-visible rounded-full bg-white/25 transition-all duration-150 group-hover/scrubber:h-1.5">
+                  <div
+                    className="h-full rounded-full bg-[#E50914] transition-[width] duration-75"
+                    style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                  />
+                  <div
+                    className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 scale-0 rounded-full bg-[#E50914] shadow-[0_0_10px_rgba(229,9,20,0.9)] transition-transform duration-150 group-hover/scrubber:scale-100"
+                    style={{ left: `${Math.min(100, Math.max(0, progress))}%` }}
+                  />
+                </div>
                 <input
                   type="range"
                   min={0}
-                  max={1}
-                  step={0.05}
-                  value={volume}
-                  onChange={handleVolumeChange}
-                  aria-label="Volume"
-                  className="h-1 w-24 cursor-pointer accent-[#E50914]"
+                  max={100}
+                  step={0.1}
+                  value={progress}
+                  onChange={handleProgressChange}
+                  aria-label="Seek video"
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                 />
               </div>
-              {currentEpisode && (
-                <span className="ml-2 hidden truncate max-w-[260px] text-xs font-medium text-white/75 xl:inline">
-                  {title} · {currentEpisode.number ? `E${currentEpisode.number}` : ""} {currentEpisode.title}
-                </span>
-              )}
+              <span className="tabular-nums text-xs font-medium text-white/85">
+                -{formatTime(remainingSeconds)}
+              </span>
             </div>
 
-            <div className="flex items-center gap-1 sm:gap-2.5">
-              {!isMobileViewport && qualityLevels.length > 0 && (
-                <select
-                  aria-label="Kualitas video"
-                  className="cursor-pointer rounded-sm border border-white/20 bg-[#181818]/90 px-2 py-1.5 text-xs font-medium text-white/90 transition hover:border-white/50 focus:outline-none"
-                  value={selectedQuality}
-                  onChange={handleQualityChange}
+            {/* Clean Icon-Only Netflix Control Row */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
+                <button
+                  type="button"
+                  onClick={togglePlay}
+                  className={controlButtonClass}
+                  aria-label={isPlaying ? "Pause" : "Play"}
+                  title={isPlaying ? "Pause (Space)" : "Play (Space)"}
                 >
-                  <option value={-1} className="bg-[#181818] text-white">Auto</option>
-                  {qualityLevels.map((lvl) => (
-                    <option key={lvl.index} value={lvl.index} className="bg-[#181818] text-white">
-                      {lvl.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {!isMobileViewport && (
-                <select
-                  aria-label="Kecepatan putar"
-                  className="cursor-pointer rounded-sm border border-white/20 bg-[#181818]/90 px-2 py-1.5 text-xs font-medium text-white/90 transition hover:border-white/50 focus:outline-none"
-                  value={playbackRate}
-                  onChange={handlePlaybackRateChange}
+                  {icons[isPlaying ? "pause" : "play"]}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => seekBy(-10)}
+                  className={controlButtonClass}
+                  aria-label="Mundur 10 detik"
+                  title="Mundur 10 detik"
                 >
-                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
-                    <option key={rate} value={rate} className="bg-[#181818] text-white">
-                      {rate}x
-                    </option>
-                  ))}
-                </select>
-              )}
-              {!isMobileViewport && (
-                <select
-                  aria-label="Ukuran subtitle"
-                  className="cursor-pointer rounded-sm border border-white/20 bg-[#181818]/90 px-2.5 py-1.5 text-xs font-medium text-white/90 transition hover:border-white/50 focus:outline-none"
-                  value={subtitleSize}
-                  onChange={(event) => {
-                    setSubtitleSize(event.target.value);
-                    showControlsTemporarily();
-                  }}
+                  {icons.back10}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => seekBy(10)}
+                  className={controlButtonClass}
+                  aria-label="Maju 10 detik"
+                  title="Maju 10 detik"
                 >
-                  {subtitleSizeOptions.map((option) => (
-                    <option key={option.value} value={option.value} className="bg-[#181818] text-white">
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {subtitleTracks.length > 0 && (
-                <>
+                  {icons.forward10}
+                </button>
+                <div className="group/vol flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={toggleMute}
+                    className={controlButtonClass}
+                    aria-label={isMuted || volume === 0 ? "Unmute" : "Mute"}
+                    title={isMuted || volume === 0 ? "Unmute (M)" : "Mute (M)"}
+                  >
+                    {icons[isMuted || volume === 0 ? "mute" : "sound"]}
+                  </button>
+                  <div className="hidden lg:flex w-0 overflow-hidden opacity-0 transition-all duration-200 group-hover/vol:w-24 group-hover/vol:opacity-100 focus-within:w-24 focus-within:opacity-100 items-center">
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={volume}
+                      onChange={handleVolumeChange}
+                      aria-label="Volume"
+                      className="h-1 w-24 cursor-pointer accent-[#E50914]"
+                    />
+                  </div>
+                </div>
+                {currentEpisode && (
+                  <span className="ml-2 hidden truncate max-w-[240px] text-xs font-medium text-white/75 xl:inline">
+                    {title} · {currentEpisode.number ? `E${currentEpisode.number}` : ""} {currentEpisode.title}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1 sm:gap-2">
+                {subtitleTracks.length > 0 && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1838,57 +1940,54 @@ export default function VideoPlayer({
                   >
                     {icons[activeSubtitle === "off" ? "subsOff" : "subsOn"]}
                   </button>
-                  {!isMobileViewport && (
-                    <select
-                      aria-label="Pilih subtitle"
-                      className="cursor-pointer rounded-sm border border-white/20 bg-[#181818]/90 px-2.5 py-1.5 text-xs font-medium text-white/90 transition hover:border-white/50 focus:outline-none"
-                      value={activeSubtitle}
-                      onChange={(e) => {
-                        setActiveSubtitle(e.target.value);
-                        showControlsTemporarily();
-                      }}
-                    >
-                      <option value="off" className="bg-[#181818] text-white">Subtitles: Off</option>
-                      {subtitleTracks.map((track) => (
-                        <option key={`${track.lang}-${track.url}`} value={track.lang || track.label} className="bg-[#181818] text-white">
-                          {track.label || track.lang}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </>
-              )}
-              {hasEpisodes && (
+                )}
                 <button
                   type="button"
-                  onClick={handleEpisodePanelToggle}
-                  className={controlButtonClass}
-                  aria-label="Daftar episode"
-                  title="Episodes"
+                  onClick={() => {
+                    setIsSettingsOpen((prev) => !prev);
+                    showControlsTemporarily();
+                  }}
+                  className={`${controlButtonClass} ${isSettingsOpen ? "bg-white/20 text-white" : ""}`}
+                  aria-label="Pengaturan pemutaran"
+                  title="Kualitas, Kecepatan & Subtitle"
                 >
-                  {icons.episodes}
+                  {icons.settings}
                 </button>
-              )}
-              {nextEpisode && (
+                {hasEpisodes && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      handleEpisodePanelToggle();
+                    }}
+                    className={controlButtonClass}
+                    aria-label="Daftar episode"
+                    title="Episodes"
+                  >
+                    {icons.episodes}
+                  </button>
+                )}
+                {nextEpisode && (
+                  <button
+                    type="button"
+                    onClick={handleNextEpisode}
+                    className={controlButtonClass}
+                    aria-label="Episode berikutnya"
+                    title="Next Episode"
+                  >
+                    {icons.next}
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={handleNextEpisode}
+                  onClick={requestFullscreen}
                   className={controlButtonClass}
-                  aria-label="Episode berikutnya"
-                  title="Next Episode"
+                  aria-label={isFullscreen ? "Keluar layar penuh" : "Layar penuh"}
+                  title={isFullscreen ? "Exit Fullscreen (F)" : "Fullscreen (F)"}
                 >
-                  {icons.next}
+                  {icons[isFullscreen ? "exitFull" : "full"]}
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={requestFullscreen}
-                className={controlButtonClass}
-                aria-label={isFullscreen ? "Keluar layar penuh" : "Layar penuh"}
-                title={isFullscreen ? "Exit Fullscreen (F)" : "Fullscreen (F)"}
-              >
-                {icons[isFullscreen ? "exitFull" : "full"]}
-              </button>
+              </div>
             </div>
           </div>
         </div>
