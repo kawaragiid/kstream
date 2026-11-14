@@ -2022,7 +2022,9 @@ export default function VideoPlayer({
   return (
     <div
       ref={containerRef}
-      className="relative bg-black overflow-hidden w-full max-w-full touch-manipulation"
+      className={`relative bg-black w-full max-w-full touch-manipulation ${
+        isIOS ? "flex flex-col overflow-visible" : "overflow-hidden"
+      }`}
       onClick={handleContainerTap}
       onMouseMove={showControlsTemporarily}
       onMouseLeave={() => {
@@ -2031,20 +2033,156 @@ export default function VideoPlayer({
         }
       }}
       style={{
-        aspectRatio: isFullscreen ? "auto" : isMobileViewport ? "16 / 9" : undefined,
+        aspectRatio: isIOS ? undefined : isFullscreen ? "auto" : isMobileViewport ? "16 / 9" : undefined,
         position: isFullscreen ? "fixed" : "relative",
         inset: isFullscreen ? 0 : "unset",
         width: "100%",
-        height: isFullscreen ? "100vh" : isMobileViewport ? "auto" : "100dvh",
-        maxHeight: "100dvh",
+        height: isIOS ? "auto" : isFullscreen ? "100vh" : isMobileViewport ? "auto" : "100dvh",
+        maxHeight: isIOS ? undefined : "100dvh",
         zIndex: isFullscreen ? 50 : "auto",
       }}
     >
+      {isIOS && (backHref || hasEpisodes || subtitleTracks.length > 0 || audioTracks.length > 1) ? (
+        <div className="relative z-20 flex items-center justify-between gap-2 bg-black px-3 py-2.5">
+          {backHref ? (
+            <button
+              type="button"
+              onClick={handleBack}
+              className="inline-flex h-10 min-h-[40px] items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
+              aria-label="Kembali"
+            >
+              <BackIcon className="h-4 w-4" />
+              <span>Kembali</span>
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-2">
+            {(subtitleTracks.length > 0 || audioTracks.length > 1) && (
+              <div className="relative" ref={iosLangPopoverRef}>
+                <button
+                  type="button"
+                  data-ios-lang-trigger="true"
+                  onClick={() => setIsIosLangOpen((prev) => !prev)}
+                  aria-expanded={isIosLangOpen}
+                  className="inline-flex h-10 min-h-[40px] items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  aria-label="Pengaturan bahasa audio dan subtitle"
+                >
+                  {icons.subsOn}
+                  <span>Bahasa</span>
+                </button>
+                {isIosLangOpen && (
+                  <div
+                    role="dialog"
+                    aria-label="Bahasa Audio & Subtitle"
+                    className="absolute right-0 top-12 z-30 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-white/20 bg-neutral-950/95 p-3.5 text-white shadow-2xl backdrop-blur-xl space-y-3"
+                  >
+                    {audioTracks.length > 1 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] font-semibold text-white/60">Audio / Dubbing</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {audioTracks.map((track) => {
+                            const active = activeAudioTrack === track.index;
+                            return (
+                              <button
+                                key={`${track.index}-${track.lang || track.name}`}
+                                type="button"
+                                onClick={() => handleAudioTrackChange(track.index)}
+                                className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                                  active
+                                    ? "bg-[#E50914] text-white shadow"
+                                    : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                                }`}
+                              >
+                                {track.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {subtitleTracks.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] font-semibold text-white/60">Subtitle</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setActiveSubtitle("off")}
+                            className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                              activeSubtitle === "off"
+                                ? "bg-white text-black shadow"
+                                : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                            }`}
+                          >
+                            Nonaktif
+                          </button>
+                          {subtitleTracks.map((track) => {
+                            const trackVal = track.lang || track.label;
+                            const active =
+                              normalizeSubtitleKey(activeSubtitle) === normalizeSubtitleKey(trackVal);
+                            return (
+                              <button
+                                key={`${track.lang}-${track.url || track.label}`}
+                                type="button"
+                                onClick={() => setActiveSubtitle(trackVal)}
+                                className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                                  active
+                                    ? "bg-[#E50914] text-white shadow"
+                                    : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                                }`}
+                              >
+                                {track.label || track.lang}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-semibold text-white/60">Kecepatan Putar</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                          <button
+                            key={rate}
+                            type="button"
+                            onClick={() => handlePlaybackRateChange({ target: { value: rate } })}
+                            className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                              playbackRate === rate
+                                ? "bg-white text-black shadow"
+                                : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                            }`}
+                          >
+                            {rate}x
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {hasEpisodes && (
+              <button
+                type="button"
+                data-ios-episode-trigger="true"
+                onClick={handleEpisodePanelToggle}
+                aria-expanded={isEpisodePanelOpen}
+                className="inline-flex h-10 min-h-[40px] items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
+                aria-label="Daftar episode"
+              >
+                {icons.episodes}
+                <span>Episode</span>
+              </button>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       {isIOS ? (
-        // Native Safari / WebKit iOS player (langsung buka native fullscreen saat play)
+        // Native Safari / WebKit iOS player (normal, tanpa tombol overlay di atas video)
         <video
           ref={videoRef}
-          className="w-full aspect-video sm:aspect-auto sm:h-full object-contain bg-black"
+          className="w-full aspect-video bg-black object-contain"
           src={videoSrc || undefined}
           poster={poster || undefined}
           title={title}
@@ -2055,9 +2193,8 @@ export default function VideoPlayer({
           x-webkit-airplay="allow"
           style={{
             width: "100%",
-            height: isMobileViewport ? "auto" : "100%",
-            aspectRatio: isMobileViewport ? "16 / 9" : undefined,
-            maxHeight: viewportWidth <= MOBILE_SCREEN_WIDTH ? "100dvh" : undefined,
+            aspectRatio: "16 / 9",
+            maxHeight: "82dvh",
           }}
         >
           {subtitleTracks
@@ -2346,141 +2483,6 @@ export default function VideoPlayer({
           </div>
         </div>
       )}
-
-      {isIOS && (backHref || hasEpisodes || subtitleTracks.length > 0 || audioTracks.length > 1) ? (
-        <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between gap-2">
-          {backHref ? (
-            <button
-              type="button"
-              onClick={handleBack}
-              className="pointer-events-auto inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/25 bg-black/50 text-white backdrop-blur-xl transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
-              aria-label="Kembali"
-            >
-              <BackIcon className="h-4 w-4" />
-            </button>
-          ) : (
-            <span />
-          )}
-          <div className="flex items-center gap-2">
-            {(subtitleTracks.length > 0 || audioTracks.length > 1) && (
-              <div className="relative pointer-events-auto" ref={iosLangPopoverRef}>
-                <button
-                  type="button"
-                  data-ios-lang-trigger="true"
-                  onClick={() => setIsIosLangOpen((prev) => !prev)}
-                  aria-expanded={isIosLangOpen}
-                  className="inline-flex h-11 min-h-[44px] items-center gap-1.5 rounded-full border border-white/25 bg-black/50 px-3.5 text-xs font-semibold text-white backdrop-blur-xl transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
-                  aria-label="Pengaturan bahasa audio dan subtitle"
-                >
-                  {icons.subsOn}
-                  <span>Bahasa</span>
-                </button>
-                {isIosLangOpen && (
-                  <div
-                    role="dialog"
-                    aria-label="Bahasa Audio & Subtitle"
-                    className="absolute right-0 top-12 z-30 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-white/20 bg-neutral-950/95 p-3.5 text-white shadow-2xl backdrop-blur-xl space-y-3"
-                  >
-                    {audioTracks.length > 1 && (
-                      <div className="space-y-1.5">
-                        <p className="text-[11px] font-semibold text-white/60">Audio / Dubbing</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {audioTracks.map((track) => {
-                            const active = activeAudioTrack === track.index;
-                            return (
-                              <button
-                                key={`${track.index}-${track.lang || track.name}`}
-                                type="button"
-                                onClick={() => handleAudioTrackChange(track.index)}
-                                className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-                                  active
-                                    ? "bg-[#E50914] text-white shadow"
-                                    : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
-                                }`}
-                              >
-                                {track.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    {subtitleTracks.length > 0 && (
-                      <div className="space-y-1.5">
-                        <p className="text-[11px] font-semibold text-white/60">Subtitle</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setActiveSubtitle("off")}
-                            className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-                              activeSubtitle === "off"
-                                ? "bg-white text-black shadow"
-                                : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
-                            }`}
-                          >
-                            Nonaktif
-                          </button>
-                          {subtitleTracks.map((track) => {
-                            const trackVal = track.lang || track.label;
-                            const active =
-                              normalizeSubtitleKey(activeSubtitle) === normalizeSubtitleKey(trackVal);
-                            return (
-                              <button
-                                key={`${track.lang}-${track.url || track.label}`}
-                                type="button"
-                                onClick={() => setActiveSubtitle(trackVal)}
-                                className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-                                  active
-                                    ? "bg-[#E50914] text-white shadow"
-                                    : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
-                                }`}
-                              >
-                                {track.label || track.lang}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    <div className="space-y-1.5">
-                      <p className="text-[11px] font-semibold text-white/60">Kecepatan Putar</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
-                          <button
-                            key={rate}
-                            type="button"
-                            onClick={() => handlePlaybackRateChange({ target: { value: rate } })}
-                            className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
-                              playbackRate === rate
-                                ? "bg-white text-black shadow"
-                                : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
-                            }`}
-                          >
-                            {rate}x
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            {hasEpisodes && (
-              <button
-                type="button"
-                data-ios-episode-trigger="true"
-                onClick={handleEpisodePanelToggle}
-                aria-expanded={isEpisodePanelOpen}
-                className="pointer-events-auto inline-flex h-11 min-h-[44px] items-center gap-1.5 rounded-full border border-white/25 bg-black/50 px-3.5 text-xs font-semibold text-white backdrop-blur-xl transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
-                aria-label="Daftar episode"
-              >
-                {icons.episodes}
-                <span>Episode</span>
-              </button>
-            )}
-          </div>
-        </div>
-      ) : null}
 
       {!isIOS && (
       <div className={`pointer-events-none absolute inset-0 flex flex-col justify-between ${overlayBackgroundClass} transition-opacity duration-300 ${showOverlay ? "opacity-100" : "opacity-0"}`}>
