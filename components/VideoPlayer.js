@@ -159,10 +159,29 @@ const MUTE_LABEL = "Mute";
 const UNMUTE_LABEL = "Unmute";
 const FULLSCREEN_LABEL = "Fullscreen";
 const subtitleSizeOptions = [
-  { value: "small", label: "Subtitles: Small" },
-  { value: "medium", label: "Subtitles: Medium" },
-  { value: "large", label: "Subtitles: Large" },
-  { value: "xlarge", label: "Subtitles: Extra Large" },
+  { value: "small", label: "Kecil" },
+  { value: "medium", label: "Sedang" },
+  { value: "large", label: "Besar" },
+  { value: "xlarge", label: "Ekstra Besar" },
+];
+
+const subtitleColorOptions = [
+  { value: "#FFFFFF", label: "Putih" },
+  { value: "#FACC15", label: "Kuning" },
+  { value: "#22D3EE", label: "Cyan" },
+  { value: "#4ADE80", label: "Hijau" },
+];
+
+const subtitleBgOptions = [
+  { value: "none", label: "Tanpa" },
+  { value: "soft", label: "Tipis" },
+  { value: "solid", label: "Gelap" },
+];
+
+const subtitleEdgeOptions = [
+  { value: "shadow", label: "Bayangan" },
+  { value: "outline", label: "Outline" },
+  { value: "none", label: "Polos" },
 ];
 
 const BackIcon = (props) => (
@@ -230,6 +249,9 @@ export default function VideoPlayer({
   const [muxSubtitles, setMuxSubtitles] = useState([]);
   const [isEpisodePanelOpen, setEpisodePanelOpen] = useState(false);
   const [subtitleSize, setSubtitleSize] = useState("medium");
+  const [subtitleColor, setSubtitleColor] = useState("#FFFFFF");
+  const [subtitleBg, setSubtitleBg] = useState("soft");
+  const [subtitleEdge, setSubtitleEdge] = useState("shadow");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(1024);
@@ -251,6 +273,34 @@ export default function VideoPlayer({
   useEffect(() => {
     activeSubtitleRef.current = activeSubtitle;
   }, [activeSubtitle]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = window.localStorage.getItem("kstream_subtitle_prefs");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.size) setSubtitleSize(parsed.size);
+        if (parsed?.color) setSubtitleColor(parsed.color);
+        if (parsed?.bg) setSubtitleBg(parsed.bg);
+        if (parsed?.edge) setSubtitleEdge(parsed.edge);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        "kstream_subtitle_prefs",
+        JSON.stringify({ size: subtitleSize, color: subtitleColor, bg: subtitleBg, edge: subtitleEdge })
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [subtitleSize, subtitleColor, subtitleBg, subtitleEdge]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1533,36 +1583,51 @@ export default function VideoPlayer({
           }}
         >
           <div className="flex w-full max-w-4xl flex-col items-center gap-2 text-center">
-            {subtitleLines.map((line, index) => (
-              <span
-                key={`${index}-${line}`}
-                className={`text-white font-bold px-3 py-1 rounded-lg ${subtitleSizeClass || ""} ${isFullscreen ? "bg-black/40 backdrop-blur-sm" : ""}`}
-                style={{
-                  textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
-                  fontSize: (() => {
-                    const baseVw =
-                      viewportWidth < 500
-                        ? 4
-                        : viewportWidth < 900
-                        ? isFullscreen
-                          ? 3
-                          : 2.5
-                        : viewportWidth < 1600
-                        ? isFullscreen
-                          ? 2
-                          : 1.5
-                        : isFullscreen
-                        ? 1.5
-                        : 1;
-                    return `${+(baseVw * subtitleSizeScale).toFixed(2)}vw`;
-                  })(),
-                  maxWidth: "90%",
-                  wordBreak: "break-word",
-                }}
-              >
-                {line}
-              </span>
-            ))}
+            {subtitleLines.map((line, index) => {
+              const bgClass =
+                subtitleBg === "solid"
+                  ? "bg-black/80"
+                  : subtitleBg === "soft"
+                  ? "bg-black/45 backdrop-blur-sm"
+                  : "bg-transparent";
+              const edgeShadow =
+                subtitleEdge === "outline"
+                  ? "-1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000, 0 2px 6px rgba(0,0,0,0.9)"
+                  : subtitleEdge === "shadow"
+                  ? "2px 2px 5px rgba(0,0,0,0.92)"
+                  : "none";
+              return (
+                <span
+                  key={`${index}-${line}`}
+                  className={`font-bold px-3 py-1 rounded-lg ${subtitleSizeClass || ""} ${bgClass}`}
+                  style={{
+                    color: subtitleColor,
+                    textShadow: edgeShadow,
+                    fontSize: (() => {
+                      const baseVw =
+                        viewportWidth < 500
+                          ? 4
+                          : viewportWidth < 900
+                          ? isFullscreen
+                            ? 3
+                            : 2.5
+                          : viewportWidth < 1600
+                          ? isFullscreen
+                            ? 2
+                            : 1.5
+                          : isFullscreen
+                          ? 1.5
+                          : 1;
+                      return `${+(baseVw * subtitleSizeScale).toFixed(2)}vw`;
+                    })(),
+                    maxWidth: "90%",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {line}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
@@ -1692,7 +1757,7 @@ export default function VideoPlayer({
         {/* Liquid Glass Control Dock + Settings Popover */}
         <div ref={controlBarRef} className="pointer-events-auto relative mx-3 mb-3 sm:mx-6 sm:mb-5">
           {isSettingsOpen && (
-            <div className="absolute bottom-full right-0 mb-3 w-[min(92vw,340px)] rounded-2xl border border-white/20 bg-black/65 p-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-2xl space-y-4">
+            <div className="absolute bottom-full right-0 mb-3 max-h-[70vh] w-[min(92vw,360px)] overflow-y-auto rounded-2xl border border-white/20 bg-black/70 p-4 text-white shadow-[0_20px_60px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.2)] backdrop-blur-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                 <span className="text-xs font-bold uppercase tracking-widest text-white/70">Pengaturan Pemutaran</span>
                 <button
@@ -1824,6 +1889,104 @@ export default function VideoPlayer({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold text-white/60">Warna Teks Subtitle</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {subtitleColorOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setSubtitleColor(opt.value);
+                        showControlsTemporarily();
+                      }}
+                      aria-label={`Warna ${opt.label}`}
+                      title={opt.label}
+                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+                        subtitleColor === opt.value
+                          ? "border-white bg-white/15 text-white shadow"
+                          : "border-white/15 bg-white/5 text-white/75 hover:bg-white/10"
+                      }`}
+                    >
+                      <span
+                        className="h-3 w-3 rounded-full border border-white/30"
+                        style={{ backgroundColor: opt.value }}
+                      />
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold text-white/60">Latar Belakang Subtitle</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {subtitleBgOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setSubtitleBg(opt.value);
+                        showControlsTemporarily();
+                      }}
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                        subtitleBg === opt.value
+                          ? "bg-white text-black shadow"
+                          : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-semibold text-white/60">Gaya Pinggiran Teks</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {subtitleEdgeOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setSubtitleEdge(opt.value);
+                        showControlsTemporarily();
+                      }}
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                        subtitleEdge === opt.value
+                          ? "bg-white text-black shadow"
+                          : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-black/50 p-2.5 text-center">
+                <span
+                  className={`inline-block rounded-md px-2.5 py-0.5 text-xs font-bold ${
+                    subtitleBg === "solid"
+                      ? "bg-black/80"
+                      : subtitleBg === "soft"
+                      ? "bg-black/45"
+                      : "bg-transparent"
+                  }`}
+                  style={{
+                    color: subtitleColor,
+                    textShadow:
+                      subtitleEdge === "outline"
+                        ? "-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000"
+                        : subtitleEdge === "shadow"
+                        ? "1px 1px 4px rgba(0,0,0,0.9)"
+                        : "none",
+                  }}
+                >
+                  Contoh Tampilan Subtitle
+                </span>
               </div>
             </div>
           )}
