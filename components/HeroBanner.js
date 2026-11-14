@@ -24,7 +24,7 @@ export default function HeroBanner({
   }, [backdropUrl]);
 
   return (
-    <section className="relative aspect-[4/5] min-h-[380px] w-full overflow-hidden rounded-2xl bg-black text-white sm:min-h-0 sm:aspect-[21/9] sm:rounded-3xl md:aspect-[32/13]">
+    <section className="relative aspect-[4/5] min-h-[440px] w-full overflow-hidden bg-black text-white sm:min-h-[480px] sm:aspect-[21/9] md:aspect-[32/13]">
       <Image
         src={heroSrc}
         alt={title}

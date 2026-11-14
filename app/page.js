@@ -81,7 +81,7 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-8 sm:space-y-12 pb-8 sm:pb-12">
-      <div className="mx-auto w-full max-w-[120rem] px-4 pt-4 sm:pt-6">
+      <div className="w-full">
         <HeroBanner
           title={heroTitle}
           subtitle={heroSubtitle}
