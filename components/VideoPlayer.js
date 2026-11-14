@@ -296,6 +296,9 @@ export default function VideoPlayer({
   const [selectedQuality, setSelectedQuality] = useState(-1);
   const [audioTracks, setAudioTracks] = useState([]);
   const [activeAudioTrack, setActiveAudioTrack] = useState(-1);
+  const [nativeTextTracks, setNativeTextTracks] = useState([]);
+  const [isIosLangOpen, setIsIosLangOpen] = useState(false);
+  const iosLangPopoverRef = useRef(null);
   const [nextEpisodeDismissed, setNextEpisodeDismissed] = useState(false);
   const [seekIndicator, setSeekIndicator] = useState(null);
   const lastTapRef = useRef({ time: 0, side: null });
@@ -323,7 +326,7 @@ export default function VideoPlayer({
   }, [isGuest, dataSaver]);
   useEffect(() => {
     hasOpenPopoverRef.current = isSettingsOpen || isEpisodePanelOpen;
-  }, [isSettingsOpen, isEpisodePanelOpen]);
+  }, [isSettingsOpen, isEpisodePanelOpen, isIosLangOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -527,9 +530,10 @@ export default function VideoPlayer({
 
   const subtitleTracks = useMemo(() => {
     const unique = new Map();
-    [...(subtitles || []), ...(muxSubtitles || [])].forEach((track) => {
+    [...(subtitles || []), ...(muxSubtitles || []), ...(nativeTextTracks || [])].forEach((track) => {
       if (!track) return;
-      const key = `${track.lang || track.label || track.url}`.toLowerCase();
+      const key = `${track.lang || track.label || track.url || ""}`.toLowerCase();
+      if (!key) return;
       if (!unique.has(key)) {
         unique.set(key, {
           ...track,
@@ -539,7 +543,7 @@ export default function VideoPlayer({
       }
     });
     return Array.from(unique.values());
-  }, [subtitles, muxSubtitles]);
+  }, [subtitles, muxSubtitles, nativeTextTracks]);
 
   const activeSubtitleMeta = useMemo(() => {
     if (!subtitleTracks.length || !activeSubtitle || activeSubtitle === "off") return null;
@@ -1235,6 +1239,21 @@ export default function VideoPlayer({
     if (!media || !media.textTracks) return undefined;
     const syncTrackModes = () => {
       const tracks = Array.from(media.textTracks || []);
+      if (isIOS && tracks.length) {
+        const discovered = tracks
+          .filter((t) => !t.kind || t.kind === "subtitles" || t.kind === "captions")
+          .map((t, idx) => ({
+            lang: t.language || t.label || `track-${idx + 1}`,
+            label: t.label || (t.language ? t.language.toUpperCase() : `Subtitle ${idx + 1}`),
+            url: "",
+          }))
+          .filter((t) => t.lang);
+        setNativeTextTracks((prev) => {
+          const sig = discovered.map((d) => `${d.lang}:${d.label}`).join("|");
+          const prevSig = prev.map((d) => `${d.lang}:${d.label}`).join("|");
+          return sig === prevSig ? prev : discovered;
+        });
+      }
       if (!tracks.length) {
         setSubtitleLines([]);
         return;
@@ -1248,7 +1267,7 @@ export default function VideoPlayer({
       );
       tracks.forEach((track) => {
         if (track === activeTrack) {
-          track.mode = "hidden";
+          track.mode = isIOS ? "showing" : "hidden";
           return;
         }
         // Keep matching sibling tracks hidden (never showing) while activeTrack has 0 cues so <track> elements still load
@@ -1262,7 +1281,7 @@ export default function VideoPlayer({
               Array.from(targetKeys).some((tk) => tk && (k.startsWith(tk) || tk.startsWith(k)))
           );
           if (matchesTarget) {
-            track.mode = "hidden";
+            track.mode = isIOS ? "showing" : "hidden";
             return;
           }
         }
@@ -1714,7 +1733,47 @@ export default function VideoPlayer({
     setSelectedQuality(-1);
     setAudioTracks([]);
     setActiveAudioTrack(-1);
+    setNativeTextTracks([]);
+    setIsIosLangOpen(false);
   }, [videoSrc, currentEpisode?.id]);
+
+  // Sinkronisasi native media.audioTracks pada iOS/iPadOS Safari & WebKit
+  useEffect(() => {
+    if (!isIOS) return undefined;
+    const media = videoRef.current;
+    if (!media) return undefined;
+
+    const syncNativeAudioTracks = () => {
+      const list = media.audioTracks ? Array.from(media.audioTracks) : [];
+      if (!list.length) {
+        setAudioTracks([]);
+        setActiveAudioTrack(-1);
+        return;
+      }
+      const formatted = list.map((track, idx) => ({
+        index: idx,
+        lang: track.language || "",
+        name: track.label || "",
+        label: track.label || (track.language ? track.language.toUpperCase() : `Audio ${idx + 1}`),
+      }));
+      setAudioTracks(formatted);
+      const enabledIdx = list.findIndex((t) => t.enabled);
+      setActiveAudioTrack(enabledIdx >= 0 ? enabledIdx : 0);
+    };
+
+    syncNativeAudioTracks();
+    media.addEventListener("loadedmetadata", syncNativeAudioTracks);
+    const nativeAudio = media.audioTracks;
+    nativeAudio?.addEventListener?.("addtrack", syncNativeAudioTracks);
+    nativeAudio?.addEventListener?.("change", syncNativeAudioTracks);
+    nativeAudio?.addEventListener?.("removetrack", syncNativeAudioTracks);
+    return () => {
+      media.removeEventListener("loadedmetadata", syncNativeAudioTracks);
+      nativeAudio?.removeEventListener?.("addtrack", syncNativeAudioTracks);
+      nativeAudio?.removeEventListener?.("change", syncNativeAudioTracks);
+      nativeAudio?.removeEventListener?.("removetrack", syncNativeAudioTracks);
+    };
+  }, [isIOS, videoSrc]);
 
   useEffect(() => {
     const media = videoRef.current;
@@ -1765,6 +1824,15 @@ export default function VideoPlayer({
     setActiveAudioTrack(idx);
     if (hlsRef.current) {
       hlsRef.current.audioTrack = idx;
+    } else if (videoRef.current?.audioTracks?.length) {
+      const list = Array.from(videoRef.current.audioTracks);
+      list.forEach((track, i) => {
+        try {
+          track.enabled = i === idx;
+        } catch {
+          // ignore readonly audioTrack error
+        }
+      });
     }
     showControlsTemporarily();
   };
@@ -1812,9 +1880,9 @@ export default function VideoPlayer({
     }, 650);
   };
 
-  // Click-outside & focus trap for settings popover and episode drawer
+  // Click-outside & focus trap for settings popover, iOS language popover, and episode drawer
   useEffect(() => {
-    if (!isSettingsOpen && !isEpisodePanelOpen) return undefined;
+    if (!isSettingsOpen && !isEpisodePanelOpen && !isIosLangOpen) return undefined;
 
     const handlePointerDown = (event) => {
       const target = event.target;
@@ -1822,6 +1890,12 @@ export default function VideoPlayer({
         const insideControlBar = controlBarRef.current?.contains(target);
         if (!insideControlBar) {
           setIsSettingsOpen(false);
+        }
+      }
+      if (isIosLangOpen) {
+        const insideIosLang = iosLangPopoverRef.current?.contains(target);
+        if (!insideIosLang) {
+          setIsIosLangOpen(false);
         }
       }
       if (isEpisodePanelOpen) {
@@ -1835,8 +1909,16 @@ export default function VideoPlayer({
     };
 
     const handleFocusTrap = (event) => {
+      if (event.key === "Escape" && isIosLangOpen) {
+        setIsIosLangOpen(false);
+        return;
+      }
       if (event.key !== "Tab") return;
-      const container = isEpisodePanelOpen ? episodeDrawerRef.current : settingsPopoverRef.current;
+      const container = isEpisodePanelOpen
+        ? episodeDrawerRef.current
+        : isIosLangOpen
+        ? iosLangPopoverRef.current
+        : settingsPopoverRef.current;
       if (!container) return;
       const focusables = container.querySelectorAll(
         'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -1859,7 +1941,7 @@ export default function VideoPlayer({
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleFocusTrap);
     };
-  }, [isSettingsOpen, isEpisodePanelOpen]);
+  }, [isSettingsOpen, isEpisodePanelOpen, isIosLangOpen]);
 
   const handleContainerTap = (event) => {
     if (isIOS || isEpisodePanelOpen) return;
@@ -2236,8 +2318,8 @@ export default function VideoPlayer({
         </div>
       )}
 
-      {isIOS && (backHref || hasEpisodes) ? (
-        <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between">
+      {isIOS && (backHref || hasEpisodes || subtitleTracks.length > 0 || audioTracks.length > 1) ? (
+        <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between gap-2">
           {backHref ? (
             <button
               type="button"
@@ -2250,19 +2332,124 @@ export default function VideoPlayer({
           ) : (
             <span />
           )}
-          {hasEpisodes && (
-            <button
-              type="button"
-              data-ios-episode-trigger="true"
-              onClick={handleEpisodePanelToggle}
-              aria-expanded={isEpisodePanelOpen}
-              className="pointer-events-auto inline-flex h-11 min-h-[44px] items-center gap-1.5 rounded-full border border-white/25 bg-black/50 px-3.5 text-xs font-semibold text-white backdrop-blur-xl transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
-              aria-label="Daftar episode"
-            >
-              {icons.episodes}
-              <span>Episode</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {(subtitleTracks.length > 0 || audioTracks.length > 1) && (
+              <div className="relative pointer-events-auto" ref={iosLangPopoverRef}>
+                <button
+                  type="button"
+                  data-ios-lang-trigger="true"
+                  onClick={() => setIsIosLangOpen((prev) => !prev)}
+                  aria-expanded={isIosLangOpen}
+                  className="inline-flex h-11 min-h-[44px] items-center gap-1.5 rounded-full border border-white/25 bg-black/50 px-3.5 text-xs font-semibold text-white backdrop-blur-xl transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  aria-label="Pengaturan bahasa audio dan subtitle"
+                >
+                  {icons.subtitle}
+                  <span>Bahasa</span>
+                </button>
+                {isIosLangOpen && (
+                  <div
+                    role="dialog"
+                    aria-label="Bahasa Audio & Subtitle"
+                    className="absolute right-0 top-12 z-30 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-white/20 bg-neutral-950/95 p-3.5 text-white shadow-2xl backdrop-blur-xl space-y-3"
+                  >
+                    {audioTracks.length > 1 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] font-semibold text-white/60">Audio / Dubbing</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {audioTracks.map((track) => {
+                            const active = activeAudioTrack === track.index;
+                            return (
+                              <button
+                                key={`${track.index}-${track.lang || track.name}`}
+                                type="button"
+                                onClick={() => handleAudioTrackChange(track.index)}
+                                className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                                  active
+                                    ? "bg-[#E50914] text-white shadow"
+                                    : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                                }`}
+                              >
+                                {track.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    {subtitleTracks.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-[11px] font-semibold text-white/60">Subtitle</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setActiveSubtitle("off")}
+                            className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                              activeSubtitle === "off"
+                                ? "bg-white text-black shadow"
+                                : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                            }`}
+                          >
+                            Nonaktif
+                          </button>
+                          {subtitleTracks.map((track) => {
+                            const trackVal = track.lang || track.label;
+                            const active =
+                              normalizeSubtitleKey(activeSubtitle) === normalizeSubtitleKey(trackVal);
+                            return (
+                              <button
+                                key={`${track.lang}-${track.url || track.label}`}
+                                type="button"
+                                onClick={() => setActiveSubtitle(trackVal)}
+                                className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                                  active
+                                    ? "bg-[#E50914] text-white shadow"
+                                    : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                                }`}
+                              >
+                                {track.label || track.lang}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-semibold text-white/60">Kecepatan Putar</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                          <button
+                            key={rate}
+                            type="button"
+                            onClick={() => handlePlaybackRateChange({ target: { value: rate } })}
+                            className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                              playbackRate === rate
+                                ? "bg-white text-black shadow"
+                                : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
+                            }`}
+                          >
+                            {rate}x
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {hasEpisodes && (
+              <button
+                type="button"
+                data-ios-episode-trigger="true"
+                onClick={handleEpisodePanelToggle}
+                aria-expanded={isEpisodePanelOpen}
+                className="pointer-events-auto inline-flex h-11 min-h-[44px] items-center gap-1.5 rounded-full border border-white/25 bg-black/50 px-3.5 text-xs font-semibold text-white backdrop-blur-xl transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
+                aria-label="Daftar episode"
+              >
+                {icons.episodes}
+                <span>Episode</span>
+              </button>
+            )}
+          </div>
         </div>
       ) : null}
 
