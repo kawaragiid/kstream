@@ -2,7 +2,7 @@ export default function Loading() {
   return (
     <div className="min-h-screen bg-[#141414] pb-16">
       {/* Hero Skeleton */}
-      <div className="relative -mt-16 sm:-mt-20 h-[65vh] sm:h-[78vh] w-full animate-pulse bg-white/[0.06]">
+      <div className="relative h-[58vh] sm:h-[68vh] w-full animate-pulse bg-white/[0.06]">
         <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-black/40" />
         <div className="mx-auto flex h-full max-w-[120rem] flex-col justify-end gap-4 px-4 pb-12 sm:px-8 lg:px-12">
           <div className="h-10 w-64 sm:w-96 rounded bg-white/10" />

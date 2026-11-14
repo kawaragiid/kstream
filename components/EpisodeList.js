@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatDuration } from '../lib/helpers';
@@ -10,15 +10,19 @@ const FALLBACK_THUMB = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/20
 function EpisodeCard({ episode, href }) {
   const [thumbSrc, setThumbSrc] = useState(episode.thumbnail || FALLBACK_THUMB);
   const isAvailable = Boolean(episode.playbackId || episode.streamUrl);
+  const epNum = episode.number ?? episode.episodeNumber;
+  const hasEpNum = epNum !== undefined && epNum !== null && epNum !== '';
 
   useEffect(() => {
     setThumbSrc(episode.thumbnail || FALLBACK_THUMB);
   }, [episode.thumbnail]);
 
   const cardClassName = `group flex gap-3 sm:gap-4 rounded-2xl border border-white/10 bg-surface-100/60 p-3 sm:p-4 backdrop-blur transition-all duration-200 ${
-    isAvailable
+    isAvailable && href
       ? 'hover:border-brand hover:bg-white/5 active:scale-[0.99]'
-      : 'cursor-not-allowed opacity-65'
+      : !isAvailable
+      ? 'cursor-not-allowed opacity-65'
+      : ''
   }`;
 
   const content = (
@@ -26,7 +30,7 @@ function EpisodeCard({ episode, href }) {
       <div className="relative aspect-video w-28 sm:w-40 md:w-48 flex-shrink-0 overflow-hidden rounded-xl bg-black">
         <Image
           src={thumbSrc}
-          alt={episode.title || `Episode ${episode.number}`}
+          alt={episode.title || (hasEpNum ? `Episode ${epNum}` : 'Episode')}
           fill
           className={`object-cover transition-transform duration-300 ${isAvailable ? 'group-hover:scale-105' : ''}`}
           sizes="(max-width: 640px) 112px, (max-width: 1024px) 160px, 192px"
@@ -44,17 +48,14 @@ function EpisodeCard({ episode, href }) {
         <div className="flex items-start justify-between gap-2">
           <p className="line-clamp-2 text-xs sm:text-sm font-semibold text-text-primary md:text-base leading-snug">
             <span className="mr-1.5 inline-block text-xs font-bold uppercase tracking-wider text-brand">
-              S{String(episode.seasonNumber || 1).padStart(2, '0')}E{String(episode.number || 0).padStart(2, '0')}
+              S{String(episode.seasonNumber || 1).padStart(2, '0')}
+              {hasEpNum ? `E${String(epNum).padStart(2, '0')}` : ''}
             </span>
             {episode.title}
           </p>
           {isAvailable && episode.duration ? (
             <span className="flex-shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] sm:text-[11px] text-text-muted">
               {formatDuration(episode.duration)}
-            </span>
-          ) : !isAvailable ? (
-            <span className="flex-shrink-0 rounded-full border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
-              Belum Tersedia
             </span>
           ) : null}
         </div>
@@ -65,9 +66,9 @@ function EpisodeCard({ episode, href }) {
     </>
   );
 
-  if (!isAvailable) {
+  if (!isAvailable || !href) {
     return (
-      <div data-episode-card aria-disabled="true" className={cardClassName}>
+      <div data-episode-card aria-disabled={!isAvailable ? "true" : undefined} className={cardClassName}>
         {content}
       </div>
     );
@@ -81,6 +82,7 @@ function EpisodeCard({ episode, href }) {
 }
 
 export default function EpisodeList({ episodes = [], baseHref = '' }) {
+  const tabRefs = useRef(new Map());
   const seasons = useMemo(() => {
     return Array.from(
       new Set(episodes.map((ep) => Number(ep.seasonNumber || 1)))
@@ -92,10 +94,8 @@ export default function EpisodeList({ episodes = [], baseHref = '' }) {
   const [selectedSeason, setSelectedSeason] = useState(defaultSeason);
 
   useEffect(() => {
-    if (seasons.length > 0 && !seasons.includes(selectedSeason)) {
-      setSelectedSeason(seasons[0]);
-    }
-  }, [seasons, selectedSeason]);
+    setSelectedSeason(defaultSeason);
+  }, [baseHref, defaultSeason]);
 
   if (!episodes.length) {
     return (
@@ -105,9 +105,29 @@ export default function EpisodeList({ episodes = [], baseHref = '' }) {
     );
   }
 
+  const effectiveSeason = seasons.includes(selectedSeason) ? selectedSeason : seasons[0] ?? 1;
   const visibleEpisodes = seasons.length > 1
-    ? episodes.filter((ep) => Number(ep.seasonNumber || 1) === selectedSeason)
+    ? episodes.filter((ep) => Number(ep.seasonNumber || 1) === effectiveSeason)
     : episodes;
+
+  const handleTabKeyDown = (event, currentIndex) => {
+    if (!seasons.length) return;
+    let nextIndex = null;
+    if (event.key === 'ArrowRight') {
+      nextIndex = (currentIndex + 1) % seasons.length;
+    } else if (event.key === 'ArrowLeft') {
+      nextIndex = (currentIndex - 1 + seasons.length) % seasons.length;
+    } else if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = seasons.length - 1;
+    }
+    if (nextIndex === null) return;
+    event.preventDefault();
+    const nextSeason = seasons[nextIndex];
+    setSelectedSeason(nextSeason);
+    tabRefs.current.get(nextSeason)?.focus();
+  };
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -117,31 +137,48 @@ export default function EpisodeList({ episodes = [], baseHref = '' }) {
           aria-label="Pilih Season"
           className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth snap-x py-1 -mx-4 px-4 sm:mx-0 sm:px-0"
         >
-          {seasons.map((season) => (
-            <button
-              key={season}
-              type="button"
-              role="tab"
-              aria-selected={selectedSeason === season}
-              onClick={() => setSelectedSeason(season)}
-              className={`flex-shrink-0 snap-start inline-flex items-center justify-center rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition-all duration-200 min-h-[38px] active:scale-95 ${
-                selectedSeason === season
-                  ? 'bg-white text-black shadow-sm'
-                  : 'border border-white/15 bg-white/5 text-white/80 hover:border-white/30 hover:bg-white/10'
-              }`}
-            >
-              Season {season}
-            </button>
-          ))}
+          {seasons.map((season, index) => {
+            const isSelected = effectiveSeason === season;
+            return (
+              <button
+                key={season}
+                ref={(el) => {
+                  if (el) tabRefs.current.set(season, el);
+                  else tabRefs.current.delete(season);
+                }}
+                id={`season-tab-${season}`}
+                type="button"
+                role="tab"
+                aria-selected={isSelected}
+                aria-controls={`season-panel-${season}`}
+                tabIndex={isSelected ? 0 : -1}
+                onClick={() => setSelectedSeason(season)}
+                onKeyDown={(e) => handleTabKeyDown(e, index)}
+                className={`flex-shrink-0 snap-start inline-flex items-center justify-center rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition-all duration-200 min-h-[38px] active:scale-95 ${
+                  isSelected
+                    ? 'bg-white text-black shadow-sm'
+                    : 'border border-white/15 bg-white/5 text-white/80 hover:border-white/30 hover:bg-white/10'
+                }`}
+              >
+                Season {season}
+              </button>
+            );
+          })}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
+      <div
+        role={seasons.length > 1 ? 'tabpanel' : undefined}
+        id={seasons.length > 1 ? `season-panel-${effectiveSeason}` : undefined}
+        aria-labelledby={seasons.length > 1 ? `season-tab-${effectiveSeason}` : undefined}
+        className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2"
+      >
         {visibleEpisodes.map((ep, idx) => {
-          const rawEpId = ep.id || ep.episodeId || `ep-${ep.episodeNumber || idx + 1}`;
+          const epNum = ep.number ?? ep.episodeNumber;
+          const rawEpId = ep.id || ep.episodeId || `ep-${epNum ?? idx + 1}`;
           const encodedId = encodeURIComponent(rawEpId);
-          let href = "#";
+          let href = '';
           if (typeof baseHref === "function") {
-            href = baseHref(ep);
+            href = baseHref(ep) || '';
           } else if (typeof baseHref === "string" && baseHref.length) {
             const separator = baseHref.includes("?") ? "&" : "?";
             href = `${baseHref}${separator}ep=${encodedId}&autoplay=1`;

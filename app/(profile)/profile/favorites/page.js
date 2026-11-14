@@ -10,12 +10,20 @@ export default function FavoritesPage() {
   const { user, loading } = useAuth();
   const [items, setItems] = useState([]);
   const [fetching, setFetching] = useState(false);
+  const [error, setError] = useState('');
 
   const loadFavorites = async (uid) => {
     setFetching(true);
-    const data = await getUserFavorites(uid).catch(() => []);
-    setItems(data);
-    setFetching(false);
+    setError('');
+    try {
+      const data = await getUserFavorites(uid);
+      setItems(data || []);
+    } catch (err) {
+      setError(err?.message || 'Gagal memuat daftar favorit.');
+      setItems([]);
+    } finally {
+      setFetching(false);
+    }
   };
 
   useEffect(() => {
@@ -28,12 +36,13 @@ export default function FavoritesPage() {
 
   const handleRemove = async (video) => {
     if (!user) return;
+    setError('');
     try {
       await toggleFavorite(user.uid, video);
+      setItems((prev) => prev.filter((item) => item.id !== video.id));
     } catch (err) {
-      console.warn('Gagal menghapus favorit:', err);
+      setError(err?.message || 'Gagal menghapus dari Daftar Saya. Silakan coba lagi.');
     }
-    loadFavorites(user.uid);
   };
 
   if (loading) {
@@ -77,19 +86,29 @@ export default function FavoritesPage() {
           </Link>
         </div>
 
+        {error && (
+          <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+            {error}
+          </div>
+        )}
+
         {fetching ? (
           <p className="text-sm text-white/60">Mengambil data...</p>
         ) : items.length ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
             {items.map((item) => (
-              <div key={item.id} className="space-y-2">
+              <div key={item.id} className="group relative">
                 <CardPoster item={item} />
                 <button
                   type="button"
                   onClick={() => handleRemove(item)}
-                  className="w-full rounded-[4px] border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/75 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
+                  aria-label={`Hapus ${item.title || 'tayangan'} dari Daftar Saya`}
+                  title="Hapus dari Daftar"
+                  className="absolute right-2 top-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/75 text-white/85 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition hover:bg-[#E50914] hover:border-[#E50914] hover:text-white"
                 >
-                  Hapus dari Daftar
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                    <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
             ))}

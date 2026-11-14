@@ -6,7 +6,35 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMediaOverlay } from "./MediaOverlayProvider";
 import { useAuth } from "../hooks/useAuth";
-import { isFavorite, toggleFavorite } from "../lib/firestore";
+import { readUserDoc, toggleFavorite } from "../lib/firestore";
+
+const FAVORITES_CACHE_TTL_MS = 30000;
+const favoritesCache = new Map();
+
+async function getCachedFavoriteIds(uid) {
+  if (!uid) return new Set();
+  const now = Date.now();
+  const entry = favoritesCache.get(uid);
+  if (entry?.ids && now - entry.fetchedAt < FAVORITES_CACHE_TTL_MS) {
+    return entry.ids;
+  }
+  if (entry?.promise) {
+    return entry.promise;
+  }
+  const promise = readUserDoc(uid)
+    .then(({ data = {} }) => {
+      const list = Array.isArray(data.favorites) ? data.favorites : [];
+      const ids = new Set(list.map((fav) => fav?.id).filter(Boolean));
+      favoritesCache.set(uid, { ids, fetchedAt: Date.now(), promise: null });
+      return ids;
+    })
+    .catch(() => {
+      favoritesCache.delete(uid);
+      return new Set();
+    });
+  favoritesCache.set(uid, { ids: entry?.ids || null, fetchedAt: entry?.fetchedAt || 0, promise });
+  return promise;
+}
 
 const PLACEHOLDER_PORTRAIT =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450"><rect width="300" height="450" fill="%23141414"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23FFFFFF" font-size="24" font-family="Arial, sans-serif">Kstream</text></svg>';
@@ -31,12 +59,7 @@ function getPreviewSources(item = {}) {
   const isGif = lowerTrailer.includes(".gif");
   const isHls = lowerTrailer.includes(".m3u8");
   const isVideo = lowerTrailer.includes(".mp4") || lowerTrailer.includes(".webm");
-  // Hemat biaya Mux: hanya putar HLS jika trailerUrl secara eksplisit berformat .m3u8;
-  // jika tidak, gunakan animated.gif ringan agar tidak memboroskan delivery minutes.
-  const muxGif = playbackId
-    ? `https://image.mux.com/${playbackId}/animated.gif?width=320&height=180&start=2&end=7&fps=10`
-    : "";
-  const fallbackGif = previewAnimation || (isGif ? rawTrailer : "") || (!isVideo ? muxGif : "");
+  const fallbackGif = previewAnimation || (isGif ? rawTrailer : "");
   const previewVideo = rawTrailer && isVideo ? rawTrailer : "";
   const hlsUrl = rawTrailer && isHls ? rawTrailer : "";
   const poster = item?.backdropUrl || item?.posterUrl || item?.thumbnailUrl || PLACEHOLDER_LANDSCAPE;
@@ -75,12 +98,17 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
   const [muted, setMuted] = useState(true);
   const [videoReady, setVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
+  const [gifFailed, setGifFailed] = useState(false);
+  const [popoverPosterSrc, setPopoverPosterSrc] = useState(safePoster);
   const [favorite, setFavorite] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
+  const [favError, setFavError] = useState("");
 
   const previewTimer = useRef(null);
   const leaveTimer = useRef(null);
+  const favErrorTimer = useRef(null);
   const cardRef = useRef(null);
+  const popoverRef = useRef(null);
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
 
@@ -89,9 +117,15 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
   }, [item?.posterUrl, item?.backdropUrl, safePoster, isPortrait]);
 
   useEffect(() => {
+    setPopoverPosterSrc(safePoster);
+    setGifFailed(false);
+  }, [safePoster, previewGif]);
+
+  useEffect(() => {
     return () => {
       if (previewTimer.current) clearTimeout(previewTimer.current);
       if (leaveTimer.current) clearTimeout(leaveTimer.current);
+      if (favErrorTimer.current) clearTimeout(favErrorTimer.current);
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
@@ -227,9 +261,9 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
     }
     if (!showPreview) return;
     let active = true;
-    isFavorite(user.uid, item.id)
-      .then((state) => {
-        if (active) setFavorite(Boolean(state));
+    getCachedFavoriteIds(user.uid)
+      .then((ids) => {
+        if (active) setFavorite(ids.has(item.id));
       })
       .catch(() => {
         if (active) setFavorite(false);
@@ -242,18 +276,28 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
   const handleToggleFavorite = async (event) => {
     event.stopPropagation();
     if (!user) {
-      router.push("/login");
+      router.push(`/login?redirect=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/")}`);
       return;
     }
     if (!item?.id || favLoading) return;
     setFavLoading(true);
+    setFavError("");
     try {
       const result = await toggleFavorite(user.uid, item);
       if (typeof result?.isFavorite === "boolean") {
         setFavorite(result.isFavorite);
+        const cached = favoritesCache.get(user.uid);
+        if (cached?.ids) {
+          if (result.isFavorite) cached.ids.add(item.id);
+          else cached.ids.delete(item.id);
+          cached.fetchedAt = Date.now();
+        }
       }
     } catch (err) {
       console.warn("Gagal mengubah status favorit:", err);
+      setFavError("Gagal menyimpan favorit");
+      if (favErrorTimer.current) clearTimeout(favErrorTimer.current);
+      favErrorTimer.current = setTimeout(() => setFavError(""), 3000);
     } finally {
       setFavLoading(false);
     }
@@ -261,6 +305,7 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
 
   const handleMouseEnter = (event) => {
     if (typeof window === "undefined") return;
+    if (window.innerWidth < 768) return;
     if (!window.matchMedia("(hover: hover)").matches) return;
     if (event?.nativeEvent?.pointerType === "touch") return;
     if (leaveTimer.current) {
@@ -300,6 +345,14 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
     }, 120);
   };
 
+  const handleBlur = (event) => {
+    const nextFocused = event?.relatedTarget;
+    if (nextFocused && (cardRef.current?.contains(nextFocused) || popoverRef.current?.contains(nextFocused))) {
+      return;
+    }
+    handleMouseLeave();
+  };
+
   const genres = Array.isArray(item?.genres) && item.genres.length
     ? item.genres.slice(0, 3)
     : item?.category
@@ -312,6 +365,11 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
       : formatDuration(item?.duration);
 
   const hasVideoStream = Boolean((previewVideo || hlsUrl) && !videoFailed);
+  const hasPlayableSeriesEpisode =
+    playbackType !== "series" ||
+    !Array.isArray(item?.episodes) ||
+    item.episodes.length === 0 ||
+    item.episodes.some((ep) => Boolean(ep?.playbackId || ep?.streamUrl));
 
   return (
     <div
@@ -322,7 +380,7 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onFocus={handleMouseEnter}
-      onBlur={handleMouseLeave}
+      onBlur={handleBlur}
       role="button"
       tabIndex={0}
       aria-label={`Tonton ${title}`}
@@ -349,10 +407,6 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
             sizes="(max-width: 640px) 62vw, (max-width: 768px) 40vw, (max-width: 1024px) 27vw, 19vw"
             onError={() => setPosterSrc(defaultPoster)}
           />
-          {/* Subtle Netflix K Badge */}
-          <span className="absolute left-2 top-2 inline-flex h-4 w-4 items-center justify-center rounded-[2px] bg-[#E50914] text-[10px] font-black text-white shadow">
-            K
-          </span>
           {/* Bottom title gradient on base card */}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent px-2.5 pb-2 pt-6">
             <p className="line-clamp-1 text-xs sm:text-[13px] font-semibold text-white drop-shadow">{title}</p>
@@ -371,9 +425,13 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
         typeof document !== "undefined" &&
         createPortal(
           <div
+            ref={popoverRef}
             data-popover="true"
             onMouseEnter={handlePopoverMouseEnter}
             onMouseLeave={handleMouseLeave}
+            onFocus={handlePopoverMouseEnter}
+            onBlur={handleBlur}
+            onKeyDown={(event) => event.stopPropagation()}
             style={{
               position: "fixed",
               left: `${popoverPos.left}px`,
@@ -388,17 +446,19 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
               {/* 16:9 Live Video Preview */}
               <div className="relative aspect-video w-full overflow-hidden bg-black" style={{ aspectRatio: "16 / 9" }}>
               <Image
-                src={safePoster}
+                src={popoverPosterSrc}
                 alt={`${title} poster`}
                 fill
+                onError={() => setPopoverPosterSrc(PLACEHOLDER_LANDSCAPE)}
                 className={`object-cover transition-opacity duration-300 ${videoReady ? "opacity-0" : "opacity-100"}`}
                 sizes="420px"
               />
-              {!hasVideoStream && previewGif && (
+              {!hasVideoStream && previewGif && !gifFailed && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={previewGif}
                   alt={`${title} preview`}
+                  onError={() => setGifFailed(true)}
                   className="absolute inset-0 h-full w-full object-cover"
                 />
               )}
@@ -459,6 +519,10 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
+                      if (!hasPlayableSeriesEpisode) {
+                        openMedia(item, { origin: "card" });
+                        return;
+                      }
                       router.push(watchHref);
                     }}
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black transition hover:bg-white/85 active:scale-95"
@@ -510,17 +574,17 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
                 </button>
               </div>
 
-              {/* Match / Year / Maturity / Duration */}
+              {favError && (
+                <p className="text-[11px] font-medium text-[#e87c03]">{favError}</p>
+              )}
+
+              {/* Year / Maturity / Duration */}
               <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
-                <span className="text-[#46d369]">Gratis</span>
                 {item?.releaseYear && <span className="text-white/80">{item.releaseYear}</span>}
                 <span className="rounded-[2px] border border-white/40 px-1 py-[1px] text-[10px] leading-none text-white/80">
                   {item?.maturityRating || "13+"}
                 </span>
                 {durationText && <span className="text-white/75">{durationText}</span>}
-                <span className="rounded-[2px] border border-white/35 px-1 py-[1px] text-[9px] leading-none text-white/70">
-                  HD
-                </span>
               </div>
 
               {/* Dot-separated Genres */}

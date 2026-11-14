@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -16,7 +16,10 @@ export default function Footer() {
   const pathname = usePathname();
   const hideFooter = pathname?.startsWith("/player");
 
-  const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const [currentYear, setCurrentYear] = useState(2026);
+  useEffect(() => {
+    setCurrentYear(new Date().getFullYear());
+  }, []);
 
   if (hideFooter) {
     return null;
@@ -30,8 +33,14 @@ export default function Footer() {
       }}
     >
       <div className="mx-auto w-full max-w-5xl px-6 py-10 text-xs text-white/50">
-        <p className="mb-6 text-sm text-white/60">Ada pertanyaan? Hubungi tim Kstream melalui halaman Bantuan.</p>
-        <nav className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+        <p className="mb-6 text-sm text-white/60">
+          Ada pertanyaan? Hubungi tim Kstream melalui{' '}
+          <Link href="/help" className="text-white/80 underline underline-offset-4 hover:text-white">
+            halaman Bantuan
+          </Link>
+          .
+        </p>
+        <nav className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
           {links.map((link) => (
             <Link
               key={link.label}
@@ -44,7 +53,7 @@ export default function Footer() {
         </nav>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-t border-white/10 pt-6">
           <span className="text-xs font-semibold tracking-wider text-[#E50914]">KSTREAM</span>
-          <p className="text-xs text-white/45">&copy; {currentYear} Kstream by Keigo</p>
+          <p className="text-xs text-white/45">&copy; {currentYear} Kstream by Kawaragi</p>
         </div>
       </div>
     </footer>

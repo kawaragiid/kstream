@@ -7,9 +7,9 @@ export const metadata = {
 
 export default function UpgradePage() {
   return (
-    <div className="relative flex min-h-[85vh] items-center justify-center overflow-hidden bg-[#141414] px-4 py-20 text-white">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_rgba(229,9,20,0.22),_transparent_60%)]" />
-      <div className="w-full max-w-lg rounded-2xl border border-white/15 bg-black/75 p-8 sm:p-10 text-center shadow-2xl backdrop-blur-xl">
+    <div className="relative flex min-h-[85vh] items-center justify-center overflow-hidden bg-[#141414] px-4 pt-24 sm:pt-28 pb-16 text-white">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_rgba(229,9,20,0.18),_transparent_60%)]" />
+      <div className="w-full max-w-lg rounded-md border border-white/10 bg-[#181818] p-8 sm:p-10 text-center shadow-2xl">
         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#E50914]">
           Dukung Kreator
         </p>

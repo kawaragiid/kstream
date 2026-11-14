@@ -14,10 +14,10 @@ module.exports = {
           muted: '#B91C1C',
         },
         surface: {
-          50: '#111827',
-          100: '#0B0F19',
-          200: '#161e2e',
-          300: '#1f2937',
+          50: '#181818',
+          100: '#141414',
+          200: '#1f1f1f',
+          300: '#2a2a2a',
         },
         text: {
           primary: '#f9fafb',
@@ -26,7 +26,7 @@ module.exports = {
         },
       },
       backgroundImage: {
-        'hero-overlay': 'linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, rgba(3, 7, 18, 0.95) 60%, rgba(3, 7, 18, 1) 100%)',
+        'hero-overlay': 'linear-gradient(180deg, rgba(0, 0, 0, 0.7) 0%, rgba(20, 20, 20, 0.95) 60%, rgba(20, 20, 20, 1) 100%)',
       },
       boxShadow: {
         'poster': '0 12px 20px rgba(0, 0, 0, 0.35)',

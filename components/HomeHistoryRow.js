@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import HistoryRow from "./HistoryRow";
 import { useAuth } from "../hooks/useAuth";
 import { getUserHistory } from "../lib/firestore";
@@ -12,29 +12,59 @@ export default function HomeHistoryRow() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!user?.uid) {
-      setItems([]);
-      return;
-    }
-    let active = true;
-    setLoading(true);
-    getUserHistory(user.uid, HISTORY_LIMIT)
-      .then((result) => {
-        if (active) setItems(result || []);
-      })
-      .catch(() => {
-        if (active) setItems([]);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [user?.uid]);
+  const fetchHistory = useCallback(
+    async (uid, signal) => {
+      if (!uid) {
+        setItems([]);
+        return;
+      }
+      setLoading(true);
+      try {
+        const result = await getUserHistory(uid, HISTORY_LIMIT);
+        if (!signal?.aborted) {
+          setItems(result || []);
+        }
+      } catch {
+        if (!signal?.aborted) {
+          setItems([]);
+        }
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    []
+  );
 
-  if (!user || (!loading && items.length === 0)) {
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchHistory(user?.uid, controller.signal);
+
+    const handleRefresh = () => {
+      if (user?.uid) {
+        fetchHistory(user.uid, controller.signal);
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && user?.uid) {
+        fetchHistory(user.uid, controller.signal);
+      }
+    };
+
+    window.addEventListener("focus", handleRefresh);
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("kstream:history-updated", handleRefresh);
+
+    return () => {
+      controller.abort();
+      window.removeEventListener("focus", handleRefresh);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("kstream:history-updated", handleRefresh);
+    };
+  }, [user?.uid, fetchHistory]);
+
+  if (!user || items.length === 0) {
     return null;
   }
 

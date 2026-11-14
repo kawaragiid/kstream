@@ -11,7 +11,7 @@ export default function HelpPage() {
         <p className="text-white/70">Panduan penggunaan, pemecahan masalah pemutar video, dan dukungan Kstream.</p>
       </header>
 
-      <section className="space-y-4 rounded-3xl border border-white/10 bg-surface-100/60 p-6 md:p-8 backdrop-blur">
+      <section className="space-y-4 rounded-md border border-white/10 bg-[#181818] p-6 md:p-8">
         <h2 className="text-xl font-semibold text-white">Pertanyaan Umum</h2>
         <div className="space-y-5">
           <div>
@@ -37,8 +37,15 @@ export default function HelpPage() {
         </div>
       </section>
 
-      <section className="space-y-2 rounded-3xl border border-white/10 bg-surface-100/60 p-6 md:p-8 backdrop-blur">
-        <h2 className="text-xl font-semibold text-white">Dukungan &amp; Donasi</h2>
+      <section className="space-y-3 rounded-md border border-white/10 bg-[#181818] p-6 md:p-8">
+        <h2 className="text-xl font-semibold text-white">Hubungi Kami &amp; Donasi</h2>
+        <p className="text-white/80 leading-relaxed">
+          Menemukan kendala teknis, tautan rusak, atau pertanyaan seputar akun? Kirim email ke{' '}
+          <a href="mailto:support@kstream.my.id" className="font-semibold text-white underline underline-offset-4 hover:text-[#E50914]">
+            support@kstream.my.id
+          </a>
+          .
+        </p>
         <p className="text-white/80 leading-relaxed">
           Ingin mendukung keberlangsungan Kstream? Kunjungi{' '}
           <a href="https://lynk.id/kawaragi" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#E50914] hover:underline">

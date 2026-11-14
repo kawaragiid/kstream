@@ -1,6 +1,6 @@
 import CardPoster from "../../../../components/CardPoster";
 
-export const revalidate = 60;
+export const revalidate = 300;
 export const metadata = { title: "Trending" };
 
 let getTrending;
@@ -25,7 +25,7 @@ export default async function TrendingPage() {
       <div className="mx-auto max-w-[1600px] space-y-8">
         <div className="space-y-1.5 border-b border-white/10 pb-4">
           <h1 className="text-2xl sm:text-3xl font-semibold text-white">Sedang Trending</h1>
-          <p className="text-sm text-white/60">Konten paling populer di Kstream minggu ini.</p>
+          <p className="text-sm text-white/60">Film dan serial paling populer di Kstream minggu ini.</p>
         </div>
         {trending.length ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">

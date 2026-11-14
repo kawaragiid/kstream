@@ -42,28 +42,33 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: 'cover',
-  themeColor: '#000000',
+  themeColor: '#141414',
 };
 
+import { cache } from 'react';
 import '../styles/globals.css';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import Providers from './providers';
 import { getPlatformSettings } from '../lib/firestoreServer';
 
+const getCachedSettings = cache(async () =>
+  getPlatformSettings().catch(() => ({ categories: [] }))
+);
+
 export default async function RootLayout({ children }) {
-  const settings = await getPlatformSettings().catch(() => ({ categories: [] }));
+  const settings = await getCachedSettings();
   const categories = settings?.categories || [];
 
   return (
-    <html lang="id" className="dark bg-black">
+    <html lang="id" className="dark bg-[#141414]">
       <body
         suppressHydrationWarning
-        className="min-h-screen bg-black text-text-primary antialiased overflow-x-hidden selection:bg-brand selection:text-white"
+        className="min-h-screen bg-[#141414] text-text-primary antialiased selection:bg-brand selection:text-white"
       >
         <Providers>
           <Navbar categories={categories} />
-          <main className="min-h-screen bg-gradient-to-b from-black via-surface-100 to-black/90 text-text-primary">
+          <main className="min-h-screen bg-[#141414] text-text-primary">
             {children}
           </main>
           <Footer />

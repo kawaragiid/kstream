@@ -2,15 +2,17 @@ import { notFound, redirect } from "next/navigation";
 
 let getVideoById;
 let getSeriesEpisode;
+let getSeriesEpisodes;
 
 async function ensureFirestore() {
-  if (!getVideoById || !getSeriesEpisode) {
+  if (!getVideoById || !getSeriesEpisode || !getSeriesEpisodes) {
     try {
-      ({ getVideoById, getSeriesEpisode } = await import("@/lib/firestoreServer"));
+      ({ getVideoById, getSeriesEpisode, getSeriesEpisodes } = await import("@/lib/firestoreServer"));
     } catch (error) {
       console.warn("Firestore admin belum siap:", error.message);
       getVideoById = async () => null;
       getSeriesEpisode = async () => null;
+      getSeriesEpisodes = async () => [];
     }
   }
 }
@@ -29,23 +31,34 @@ export default async function SeriesWatchRedirect(props) {
   await ensureFirestore();
 
   const decodedId = safeDecode(params.id);
-  const series = await getVideoById(decodedId);
+  const series = await getVideoById(decodedId, "series");
   if (!series || series.type !== "series") {
     notFound();
   }
 
   const targetEpisodeId = safeDecode(params.ep);
+  let resolvedEpisodeId = targetEpisodeId;
   if (targetEpisodeId) {
-    const episode = await getSeriesEpisode(series.id, targetEpisodeId);
+    let episode = await getSeriesEpisode(series.id, targetEpisodeId);
+    if (!episode) {
+      const episodes = await getSeriesEpisodes(series.id).catch(() => []);
+      episode = episodes.find(
+        (ep) =>
+          ep.id === targetEpisodeId ||
+          ep.slug === targetEpisodeId ||
+          String(ep.episodeNumber || ep.number) === String(targetEpisodeId)
+      );
+    }
     if (!episode) {
       notFound();
     }
+    resolvedEpisodeId = episode.id || targetEpisodeId;
   }
 
   const slugOrId = series.slug || series.id;
   const searchParams = new URLSearchParams({ id: slugOrId, type: "series" });
-  if (targetEpisodeId) {
-    searchParams.set("ep", targetEpisodeId);
+  if (resolvedEpisodeId) {
+    searchParams.set("ep", resolvedEpisodeId);
   }
 
   redirect(`/player?${searchParams.toString()}`);

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
-import { getUserHistory, readUserDoc, saveHistoryProgress } from '../lib/firestore';
+import { readUserDoc, saveHistoryProgress } from '../lib/firestore';
 import VideoPlayer from './VideoPlayer';
 
 const GUEST_DAILY_LIMIT = 1;
@@ -106,11 +106,14 @@ export default function WatchPlayer({
   const guestPreviewSecondsRef = useRef(0);
   const lastSavedPreviewSecRef = useRef(-1);
   const latestVideoRef = useRef(video);
+  const latestProgressRef = useRef({ currentTime: 0, duration: 0 });
+  const hasRecordedDailyWatchRef = useRef(false);
   const [guestLimitReason, setGuestLimitReason] = useState('');
   const [resumePosition, setResumePosition] = useState(0);
   const [guestResumePosition, setGuestResumePosition] = useState(0);
   const [userDataSaver, setUserDataSaver] = useState(false);
   const [userPreferredLang, setUserPreferredLang] = useState('');
+  const [posterError, setPosterError] = useState(false);
 
   const contentId = series?.id || video?.seriesId || video?.id || '';
   const contentSlug = series?.slug || video?.slug || contentId;
@@ -132,8 +135,8 @@ export default function WatchPlayer({
       });
       if (beacon && typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
         const blob = new Blob([payload], { type: 'application/json' });
-        navigator.sendBeacon('/api/analytics/view', blob);
-        return;
+        const sent = navigator.sendBeacon('/api/analytics/view', blob);
+        if (sent) return;
       }
       fetch('/api/analytics/view', {
         method: 'POST',
@@ -150,11 +153,34 @@ export default function WatchPlayer({
   }, [video]);
 
   useEffect(() => {
+    setPosterError(false);
+  }, [poster]);
+
+  useEffect(() => {
     lastUpdateRef.current = 0;
     lastTrackedTimeRef.current = 0;
     pendingWatchSecondsRef.current = 0;
     lastSavedPreviewSecRef.current = -1;
+    latestProgressRef.current = { currentTime: 0, duration: 0 };
+    hasRecordedDailyWatchRef.current = false;
   }, [video?.id, currentEpisode?.id]);
+
+  const recordGuestDailyWatch = useCallback(() => {
+    if (hasRecordedDailyWatchRef.current || typeof window === 'undefined' || !contentKey) return;
+    hasRecordedDailyWatchRef.current = true;
+    const todayKey = `kstream_guest_watches_${getLocalDateKey()}`;
+    try {
+      const raw = window.localStorage.getItem(todayKey);
+      const list = raw ? JSON.parse(raw) : [];
+      const arr = Array.isArray(list) ? list : [];
+      if (!arr.includes(contentKey)) {
+        arr.push(contentKey);
+        window.localStorage.setItem(todayKey, JSON.stringify(arr));
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [contentKey]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -176,9 +202,8 @@ export default function WatchPlayer({
         setGuestResumePosition(0);
         return;
       }
-      if (!isTrackedToday) {
-        arr.push(contentKey);
-        window.localStorage.setItem(todayKey, JSON.stringify(arr));
+      if (isTrackedToday) {
+        hasRecordedDailyWatchRef.current = true;
       }
 
       const { seconds, episodePosition } = readGuestPreviewState(todayKey, contentKey, episodeKey);
@@ -244,7 +269,9 @@ export default function WatchPlayer({
     };
   }, [video?.id]);
 
+  // Single readUserDoc call for both preferences and resume history (avoids 3 parallel GET /api/user calls)
   useEffect(() => {
+    setResumePosition(0);
     if (!user?.uid) {
       setUserDataSaver(false);
       setUserPreferredLang('');
@@ -261,23 +288,11 @@ export default function WatchPlayer({
             ? preferences.preferredLanguage.trim()
             : ''
         );
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, [user?.uid]);
-
-  useEffect(() => {
-    setResumePosition(0);
-    if (!user?.uid || !video?.id) return;
-    let active = true;
-    getUserHistory(user.uid, 50)
-      .then((items) => {
-        if (!active || !Array.isArray(items)) return;
-        const found = items.find((item) => item.id === video.id);
-        if (found && Number(found.position) > 5 && Number(found.progress || 0) < 0.95) {
-          setResumePosition(Number(found.position));
+        if (video?.id && Array.isArray(data?.history)) {
+          const found = data.history.find((item) => item?.id === video.id);
+          if (found && Number(found.position) > 5 && Number(found.progress || 0) < 0.95) {
+            setResumePosition(Number(found.position));
+          }
         }
       })
       .catch(() => undefined);
@@ -286,16 +301,28 @@ export default function WatchPlayer({
     };
   }, [user?.uid, video?.id]);
 
-  useEffect(() => {
+  const flushHistoryProgress = useCallback(() => {
     const currentVideo = latestVideoRef.current;
-    if (!user?.uid || !video?.id || !currentVideo?.id) return;
-    saveHistoryProgress(
-      user.uid,
-      currentVideo,
-      { progress: 0, position: 0, duration: currentVideo.duration || 0 },
-      { preserveExisting: true }
-    ).catch(() => undefined);
-  }, [user?.uid, video?.id, currentEpisode?.id]);
+    const { currentTime, duration } = latestProgressRef.current;
+    if (!user?.uid || !currentVideo?.id || !duration || currentTime <= 0) return;
+    const progressRatio = Math.min(currentTime / duration, 1);
+    lastUpdateRef.current = Date.now();
+    saveHistoryProgress(user.uid, currentVideo, {
+      progress: progressRatio,
+      position: currentTime,
+      duration,
+    }).catch(() => undefined);
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const onPageHide = () => flushHistoryProgress();
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      flushHistoryProgress();
+    };
+  }, [user?.uid, flushHistoryProgress]);
 
   const handleProgress = useCallback(({ currentTime, duration }) => {
     const currentVideo = latestVideoRef.current;
@@ -303,11 +330,15 @@ export default function WatchPlayer({
     const hasValidTime = typeof currentTime === 'number' && Number.isFinite(currentTime) && currentTime >= 0;
 
     if (hasValidTime) {
+      if (duration > 0) {
+        latestProgressRef.current = { currentTime, duration };
+      }
       const delta = currentTime - lastTrackedTimeRef.current;
       if (delta > 0 && delta <= 2.5) {
         pendingWatchSecondsRef.current += delta;
         if (isGuest) {
           guestPreviewSecondsRef.current += delta;
+          recordGuestDailyWatch();
         }
       }
       lastTrackedTimeRef.current = currentTime;
@@ -321,9 +352,7 @@ export default function WatchPlayer({
 
     if (isGuest) {
       const todayKey = `kstream_guest_watches_${getLocalDateKey()}`;
-      const reachedCap =
-        (hasValidTime && currentTime >= GUEST_PREVIEW_MAX_SECONDS) ||
-        guestPreviewSecondsRef.current >= GUEST_PREVIEW_MAX_SECONDS;
+      const reachedCap = guestPreviewSecondsRef.current >= GUEST_PREVIEW_MAX_SECONDS;
 
       if (reachedCap) {
         guestPreviewSecondsRef.current = Math.max(
@@ -365,26 +394,39 @@ export default function WatchPlayer({
     if (!user?.uid || !currentVideo?.id || !duration || !hasValidTime) return;
     const now = Date.now();
     const progressRatio = Math.min(currentTime / duration, 1);
-    if (progressRatio < 0.05 && lastUpdateRef.current !== 0) return;
-    if (now - lastUpdateRef.current < 15000 && progressRatio < 0.95) return;
+    if (currentTime < 1 && lastUpdateRef.current === 0) return;
+    if (now - lastUpdateRef.current < 15000) return;
     lastUpdateRef.current = now;
     saveHistoryProgress(user.uid, currentVideo, {
       progress: progressRatio,
       position: currentTime,
       duration,
     }).catch(() => undefined);
-  }, [authLoading, user, contentId, contentKey, episodeKey, sendAnalyticsPing]);
+  }, [authLoading, user, contentId, contentKey, episodeKey, sendAnalyticsPing, recordGuestDailyWatch]);
 
   const handleEnded = useCallback(() => {
-    if (!user || !video?.id) return;
-    saveHistoryProgress(user.uid, video, { progress: 1, position: 0, duration: video.duration || 0 }).catch(() => undefined);
-  }, [user, video]);
+    const currentVideo = latestVideoRef.current;
+    if (!user?.uid || !currentVideo?.id) return;
+    const actualDuration = latestProgressRef.current.duration || currentVideo.duration || 0;
+    lastUpdateRef.current = Date.now();
+    saveHistoryProgress(user.uid, currentVideo, {
+      progress: 1,
+      position: 0,
+      duration: actualDuration,
+    }).catch(() => undefined);
+  }, [user?.uid]);
 
   const nextEpisode = useMemo(() => {
     if (!episodes?.length || !currentEpisode?.id) return null;
     const currentIndex = episodes.findIndex((episode) => episode.id === currentEpisode.id);
     if (currentIndex === -1) return null;
-    return episodes[currentIndex + 1] || null;
+    for (let i = currentIndex + 1; i < episodes.length; i += 1) {
+      const candidate = episodes[i];
+      if (candidate?.playbackId || candidate?.streamUrl) {
+        return candidate;
+      }
+    }
+    return null;
   }, [episodes, currentEpisode]);
 
   const defaultSubtitleLang = useMemo(() => {
@@ -398,23 +440,27 @@ export default function WatchPlayer({
     if (Array.isArray(subtitles) && subtitles.length) {
       const defaultTrack = subtitles.find((track) => track?.default);
       const candidate = defaultTrack || subtitles[0];
-      return candidate?.lang || candidate?.label || 'en';
+      return candidate?.lang || candidate?.label || '';
     }
-    return 'en';
+    return '';
   }, [video?.preferredLanguage, video?.preferences?.preferredLanguage, userPreferredLang, subtitles]);
+
+  const cancelAutoAdvance = useCallback(() => {
+    if (autoAdvanceRef.current) {
+      window.clearTimeout(autoAdvanceRef.current);
+      autoAdvanceRef.current = null;
+    }
+  }, []);
 
   const navigateToEpisode = useCallback(
     (episode, { autoPlay = true } = {}) => {
       if (!episode || !series) return;
-      if (autoAdvanceRef.current) {
-        window.clearTimeout(autoAdvanceRef.current);
-        autoAdvanceRef.current = null;
-      }
+      cancelAutoAdvance();
       const slug = encodeURIComponent(series.slug || series.id);
       const href = `/player?id=${slug}&type=series&ep=${encodeURIComponent(episode.id)}${autoPlay ? '&autoplay=1' : ''}`;
       router.replace(href);
     },
-    [router, series]
+    [router, series, cancelAutoAdvance]
   );
 
   const handleEpisodeSelect = useCallback(
@@ -433,17 +479,19 @@ export default function WatchPlayer({
   const handleComplete = useCallback(() => {
     handleEnded();
     if (nextEpisode && autoplay) {
+      cancelAutoAdvance();
       autoAdvanceRef.current = window.setTimeout(handleAutoAdvance, 2500);
     }
-  }, [handleEnded, handleAutoAdvance, nextEpisode, autoplay]);
+  }, [handleEnded, handleAutoAdvance, nextEpisode, autoplay, cancelAutoAdvance]);
 
   if (!authLoading && !user && guestLimitReason) {
     return (
       <div className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black px-4 text-white">
-        {poster && (
+        {poster && !posterError && (
           <img
             src={poster}
             alt={title || 'Preview'}
+            onError={() => setPosterError(true)}
             className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 blur-xl scale-105"
           />
         )}
@@ -500,7 +548,9 @@ export default function WatchPlayer({
       isGuest={!authLoading && !user}
       dataSaver={Boolean(user && userDataSaver)}
       onSelectEpisode={handleEpisodeSelect}
-      onAutoAdvance={nextEpisode ? handleAutoAdvance : undefined}
+      onAutoAdvance={nextEpisode && autoplay ? handleAutoAdvance : undefined}
+      onCancelAutoAdvance={cancelAutoAdvance}
+      onPause={flushHistoryProgress}
       onProgress={handleProgress}
       onEnded={handleComplete}
     />

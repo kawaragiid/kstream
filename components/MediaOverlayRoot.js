@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMediaOverlay } from "./MediaOverlayProvider";
 import { useAuth } from "../hooks/useAuth";
-import { getUserHistory, isFavorite, toggleFavorite } from "../lib/firestore";
+import { readUserDoc, toggleFavorite } from "../lib/firestore";
 import { formatDuration } from "../lib/helpers";
 
 function formatHumanDuration(seconds) {
@@ -35,33 +35,19 @@ function formatMetaList(value) {
   return null;
 }
 
-function ModalFavoriteButton({ video }) {
+function ModalFavoriteButton({ video, initialFavorite = false, redirectPath = "/" }) {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [favorite, setFavorite] = useState(false);
+  const [favorite, setFavorite] = useState(initialFavorite);
 
   useEffect(() => {
-    let active = true;
-    if (!user || !video?.id) {
-      setFavorite(false);
-      return;
-    }
-    isFavorite(user.uid, video.id)
-      .then((state) => {
-        if (active) setFavorite(state);
-      })
-      .catch(() => {
-        if (active) setFavorite(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [user, video?.id]);
+    setFavorite(Boolean(initialFavorite));
+  }, [initialFavorite, video?.id]);
 
   const handleToggle = async () => {
     if (!user) {
-      router.push("/login");
+      router.push(`/login?redirect=${encodeURIComponent(redirectPath)}`);
       return;
     }
     setLoading(true);
@@ -113,6 +99,7 @@ function EpisodeListSection({ seriesId, episodes = [], onPlay, resumeEpisodeId }
 
   const firstSeason = seasons[0] ?? 1;
   const [selectedSeason, setSelectedSeason] = useState(firstSeason);
+  const [brokenThumbs, setBrokenThumbs] = useState(() => new Set());
 
   useEffect(() => {
     setSelectedSeason(firstSeason);
@@ -175,11 +162,18 @@ function EpisodeListSection({ seriesId, episodes = [], onPlay, resumeEpisodeId }
               </span>
 
               <div className="relative aspect-video w-28 sm:w-36 flex-shrink-0 overflow-hidden rounded-[4px] bg-black/70">
-                {episode.thumbnail ? (
+                {episode.thumbnail && !brokenThumbs.has(episode.id) ? (
                   <Image
                     src={episode.thumbnail}
                     alt={episode.title || `Episode ${epNumber}`}
                     fill
+                    onError={() =>
+                      setBrokenThumbs((prev) => {
+                        const next = new Set(prev);
+                        next.add(episode.id);
+                        return next;
+                      })
+                    }
                     className="object-cover transition-transform duration-300 group-hover:scale-105"
                     sizes="(max-width: 640px) 112px, 144px"
                   />
@@ -255,31 +249,25 @@ export default function MediaOverlayRoot() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [historyEntry, setHistoryEntry] = useState(null);
+  const [isDetailFavorite, setIsDetailFavorite] = useState(false);
   const [ready, setReady] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const [heroImgError, setHeroImgError] = useState(false);
   const lastPathnameRef = useRef(pathname);
-  const closeTimerRef = useRef(null);
   const dialogRef = useRef(null);
 
   const resolvedId = useMemo(() => media?.slug || media?.id || null, [media]);
 
   useEffect(() => {
-    return () => {
-      if (closeTimerRef.current) {
-        clearTimeout(closeTimerRef.current);
-      }
-    };
-  }, []);
+    setHeroImgError(false);
+  }, [resolvedId, detail?.id]);
 
   useEffect(() => {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-
     if (!isOpen) {
       setDetail(null);
       setError(null);
       setHistoryEntry(null);
+      setIsDetailFavorite(false);
       setReady(false);
       return;
     }
@@ -314,29 +302,41 @@ export default function MediaOverlayRoot() {
       });
 
     return () => controller.abort();
-  }, [isOpen, resolvedId]);
+  }, [isOpen, resolvedId, retryNonce]);
 
   useEffect(() => {
     if (!isOpen || !user?.uid || !detail?.id) {
       setHistoryEntry(null);
+      setIsDetailFavorite(false);
       return;
     }
 
     let mounted = true;
-    getUserHistory(user.uid, 50)
-      .then((historyItems) => {
+    readUserDoc(user.uid)
+      .then(({ data = {} }) => {
         if (!mounted) return;
-        if (!Array.isArray(historyItems) || !historyItems.length) {
+        const favs = Array.isArray(data.favorites) ? data.favorites : [];
+        setIsDetailFavorite(favs.some((fav) => fav?.id === detail.id));
+
+        const historyItems = Array.isArray(data.history) ? data.history : [];
+        if (!historyItems.length) {
           setHistoryEntry(null);
           return;
         }
         if (detail.type === "series") {
           const prefix = `${detail.id}-`;
           const seriesEntries = historyItems
-            .filter((item) => typeof item.id === "string" && item.id.startsWith(prefix))
+            .filter((item) => {
+              if (item?.seriesId) return item.seriesId === detail.id;
+              return typeof item?.id === "string" && item.id.startsWith(prefix);
+            })
             .map((item) => ({
               ...item,
-              episodeId: item.id.slice(prefix.length),
+              episodeId:
+                item.episodeId ||
+                (typeof item.id === "string" && item.id.startsWith(prefix)
+                  ? item.id.slice(prefix.length)
+                  : item.id),
               updatedAtValue: toMillis(item.updatedAt),
             }))
             .sort((a, b) => (b.updatedAtValue || 0) - (a.updatedAtValue || 0));
@@ -350,7 +350,10 @@ export default function MediaOverlayRoot() {
       })
       .catch((err) => {
         console.warn("Gagal mengambil riwayat pengguna:", err);
-        setHistoryEntry(null);
+        if (mounted) {
+          setHistoryEntry(null);
+          setIsDetailFavorite(false);
+        }
       });
 
     return () => {
@@ -380,16 +383,6 @@ export default function MediaOverlayRoot() {
 
   const handleClose = useCallback(() => {
     closeMedia();
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-    }
-    closeTimerRef.current = setTimeout(() => {
-      setDetail(null);
-      setHistoryEntry(null);
-      setError(null);
-      setReady(false);
-      closeTimerRef.current = null;
-    }, 250);
   }, [closeMedia]);
 
   // Escape key & focus trap accessibility handler
@@ -403,6 +396,11 @@ export default function MediaOverlayRoot() {
 
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
+        const activeTag = document.activeElement?.tagName?.toLowerCase?.();
+        if (activeTag === "select") {
+          document.activeElement.blur?.();
+          return;
+        }
         handleClose();
         return;
       }
@@ -458,12 +456,19 @@ export default function MediaOverlayRoot() {
     const raw = detail?.releaseDate || detail?.year || media?.releaseDate || media?.year;
     if (!raw) return null;
     if (typeof raw === "number") return raw;
+    if (typeof raw === "object") {
+      const secs = raw._seconds ?? raw.seconds;
+      if (typeof secs === "number") {
+        return new Date(secs * 1000).getFullYear();
+      }
+      return null;
+    }
     const parsed = new Date(raw).getFullYear();
     return Number.isNaN(parsed) ? null : parsed;
   }, [detail, media]);
 
   const maturityRating = useMemo(() => {
-    const value = detail?.maturityRating || detail?.ageRating || detail?.rating;
+    const value = detail?.maturityRating || detail?.ageRating;
     if (value) return String(value);
     return "13+";
   }, [detail]);
@@ -473,7 +478,10 @@ export default function MediaOverlayRoot() {
     if (detail?.episodes?.length) {
       return new Set(detail.episodes.map((ep) => Number(ep.seasonNumber || 1))).size;
     }
-    return Number(detail?.seasonCount || detail?.seasons || 1);
+    if (Array.isArray(detail?.seasons)) {
+      return detail.seasons.length || 1;
+    }
+    return Number(detail?.seasonCount || detail?.seasons || 1) || 1;
   }, [detail]);
 
   const heroImageUrl =
@@ -579,11 +587,12 @@ export default function MediaOverlayRoot() {
 
         {/* Top 16:9 Hero Section */}
         <div className="relative aspect-video w-full overflow-hidden bg-black">
-          {heroImageUrl ? (
+          {heroImageUrl && !heroImgError ? (
             <Image
               src={heroImageUrl}
               alt={detail?.title || media?.title || "Detail Backdrop"}
               fill
+              onError={() => setHeroImgError(true)}
               className="object-cover"
               sizes="(max-width: 896px) 100vw, 896px"
               priority
@@ -615,10 +624,22 @@ export default function MediaOverlayRoot() {
                 <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
                   <polygon points="5 3 19 12 5 21 5 3" />
                 </svg>
-                <span>Putar</span>
+                <span>
+                  {detail?.type === "series" && resumeEpisode
+                    ? `Lanjutkan Ep ${resumeEpisode.number ?? resumeEpisode.order ?? ""}`.trim()
+                    : historyEntry?.progress > 0.05 && detail?.type !== "series"
+                    ? "Lanjutkan"
+                    : "Putar"}
+                </span>
               </button>
 
-              {detail && <ModalFavoriteButton video={detail} />}
+              {detail && (
+                <ModalFavoriteButton
+                  video={detail}
+                  initialFavorite={isDetailFavorite}
+                  redirectPath={pathname || "/"}
+                />
+              )}
 
               {historyEntry?.progress > 0.05 && detail?.type !== "series" && (
                 <span className="rounded-[4px] border border-white/20 bg-black/50 px-2.5 py-1 text-xs font-medium text-white/80">
@@ -649,8 +670,15 @@ export default function MediaOverlayRoot() {
           )}
 
           {error && (
-            <div className="rounded-md border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-200">
-              {error}
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-200">
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => setRetryNonce((n) => n + 1)}
+                className="rounded-[4px] border border-red-400/40 bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-500/35"
+              >
+                Coba Lagi
+              </button>
             </div>
           )}
 

@@ -3,23 +3,82 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { loginWithGoogle, register, updateProfile } from "../../../lib/auth";
-import { readUserDoc, updateUserProfileDoc } from "../../../lib/firestore";
+import { loginWithGoogle, logout, register, updateProfile } from "../../../lib/auth";
+import { updateUserProfileDoc } from "../../../lib/firestore";
+
+function getSafeRedirect(raw) {
+  if (!raw || typeof raw !== "string") return "/";
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("/") || /^\/[\\/]/.test(trimmed)) return "/";
+  return trimmed;
+}
+
+function parseExpiryMs(expiresAt) {
+  if (!expiresAt) return null;
+  if (typeof expiresAt === "number") return Number.isFinite(expiresAt) ? expiresAt : null;
+  if (typeof expiresAt === "string") {
+    const ms = Date.parse(expiresAt);
+    return Number.isNaN(ms) ? null : ms;
+  }
+  if (typeof expiresAt === "object") {
+    if (typeof expiresAt._seconds === "number") return expiresAt._seconds * 1000;
+    if (typeof expiresAt.seconds === "number") return expiresAt.seconds * 1000;
+  }
+  return null;
+}
+
+function isAccountBlocked(userData) {
+  if (!userData || typeof userData !== "object") return false;
+  if (userData.isActive === false || userData.status === "suspend") return true;
+  const expiryMs = parseExpiryMs(userData.expiresAt);
+  if (expiryMs !== null && expiryMs <= Date.now()) return true;
+  return false;
+}
+
+function mapAuthError(err, fallback = "Gagal mendaftar. Silakan coba lagi.") {
+  if (err?.isCustomSyncError) return err.message;
+  const code = err?.code || "";
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "Email sudah terdaftar. Silakan masuk.";
+    case "auth/invalid-email":
+      return "Format email tidak valid.";
+    case "auth/weak-password":
+      return "Password terlalu lemah. Gunakan minimal 6 karakter.";
+    case "auth/too-many-requests":
+      return "Terlalu banyak percobaan. Silakan coba beberapa saat lagi.";
+    case "auth/network-request-failed":
+      return "Koneksi jaringan bermasalah. Periksa internet Anda.";
+    case "auth/popup-closed-by-user":
+    case "auth/cancelled-popup-request":
+      return "Pendaftaran dengan Google dibatalkan.";
+    case "auth/popup-blocked":
+      return "Popup diblokir browser. Izinkan popup dan coba lagi.";
+    case "auth/user-disabled":
+      return "Akun Anda telah dinonaktifkan.";
+    default:
+      return fallback;
+  }
+}
 
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawRedirect = searchParams.get("redirect") || "";
-  const redirectTo = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/";
+  const redirectTo = getSafeRedirect(rawRedirect);
+  const redirectQuery = redirectTo !== "/" ? `?redirect=${encodeURIComponent(redirectTo)}` : "";
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const isSubmitting = loading || googleLoading;
 
   const onSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setError("");
     if (password.length < 6) {
       setError("Password minimal 6 karakter.");
@@ -27,45 +86,84 @@ function RegisterForm() {
     }
     setLoading(true);
     try {
-      const credential = await register(email, password);
+      const credential = await register(email.trim(), password);
+      if (displayName.trim()) {
+        await updateProfile(credential.user, { displayName: displayName.trim() });
+      }
       try {
         await updateUserProfileDoc(credential.user.uid, {
           email: credential.user.email || email.trim(),
           role: "pelanggan",
           displayName: displayName.trim() || null,
         });
-      } catch {}
-      if (displayName.trim()) {
-        await updateProfile(credential.user, { displayName: displayName.trim() });
+      } catch {
+        await credential.user.delete?.().catch(() => {});
+        const syncErr = new Error("Gagal menyimpan profil akun ke server. Silakan coba lagi.");
+        syncErr.isCustomSyncError = true;
+        throw syncErr;
       }
       router.push(redirectTo);
     } catch (err) {
-      setError(err.message || "Gagal mendaftar.");
+      setError(mapAuthError(err, "Gagal mendaftar. Silakan coba lagi."));
     } finally {
       setLoading(false);
     }
   };
 
   const onGoogleRegister = async () => {
+    if (isSubmitting) return;
     setError("");
     setGoogleLoading(true);
     try {
       const credential = await loginWithGoogle();
+      const firebaseUser = credential.user;
+      let existingData = null;
+      let fetchOk = false;
+
       try {
-        const { data: existingData } = await readUserDoc(credential.user.uid);
+        const token = await firebaseUser.getIdToken?.();
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await fetch(`/api/user?uid=${encodeURIComponent(firebaseUser.uid)}`, {
+          cache: "no-store",
+          headers,
+        });
+        if (res.ok) {
+          fetchOk = true;
+          const json = await res.json().catch(() => null);
+          existingData = json?.data || {};
+        } else if (res.status === 403) {
+          try {
+            await logout();
+          } catch {}
+          setError("Akun Anda sedang dinonaktifkan oleh admin.");
+          return;
+        }
+      } catch {
+        // Non-blocking network check
+      }
+
+      if (fetchOk && isAccountBlocked(existingData)) {
+        try {
+          await logout();
+        } catch {}
+        setError("Akun Anda sedang dinonaktifkan atau masa aktif telah berakhir.");
+        return;
+      }
+
+      if (fetchOk) {
         const profilePayload = {
-          email: credential.user.email || existingData?.email || "",
-          displayName: existingData?.displayName || credential.user.displayName || null,
-          photoURL: credential.user.photoURL || existingData?.photoURL || null,
+          email: firebaseUser.email || existingData?.email || "",
+          displayName: existingData?.displayName || firebaseUser.displayName || null,
+          photoURL: firebaseUser.photoURL || existingData?.photoURL || null,
         };
         if (!existingData?.role) {
           profilePayload.role = "pelanggan";
         }
-        await updateUserProfileDoc(credential.user.uid, profilePayload);
-      } catch {}
+        await updateUserProfileDoc(firebaseUser.uid, profilePayload);
+      }
       router.push(redirectTo);
     } catch (err) {
-      setError(err.message || "Gagal mendaftar dengan Google.");
+      setError(mapAuthError(err, "Gagal mendaftar dengan Google."));
     } finally {
       setGoogleLoading(false);
     }
@@ -84,6 +182,7 @@ function RegisterForm() {
           <div>
             <input
               aria-label="Nama Tampilan"
+              autoComplete="name"
               className="w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-3.5 text-sm text-white placeholder:text-white/50 focus:border-white/50 focus:bg-[#454545] focus:outline-none"
               placeholder="Nama tampilan (opsional)"
               value={displayName}
@@ -93,6 +192,7 @@ function RegisterForm() {
           <div>
             <input
               aria-label="Email"
+              autoComplete="email"
               className="w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-3.5 text-sm text-white placeholder:text-white/50 focus:border-white/50 focus:bg-[#454545] focus:outline-none"
               placeholder="Email"
               type="email"
@@ -101,23 +201,41 @@ function RegisterForm() {
               required
             />
           </div>
-          <div>
+          <div className="relative">
             <input
               aria-label="Password"
-              className="w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-3.5 text-sm text-white placeholder:text-white/50 focus:border-white/50 focus:bg-[#454545] focus:outline-none"
+              autoComplete="new-password"
+              className="w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-3.5 pr-11 text-sm text-white placeholder:text-white/50 focus:border-white/50 focus:bg-[#454545] focus:outline-none"
               placeholder="Password (minimal 6 karakter)"
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 transition hover:text-white"
+            >
+              {showPassword ? (
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+              ) : (
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              )}
+            </button>
           </div>
 
           {error && <p className="rounded-[4px] bg-[#e87c03]/15 px-3 py-2 text-xs text-[#e87c03]">{error}</p>}
 
           <button
             className="w-full rounded-[4px] bg-[#E50914] py-3.5 text-sm font-bold text-white transition hover:bg-[#f40612] disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={loading}
+            disabled={isSubmitting}
           >
             {loading ? "Memproses..." : "Daftar Sekarang"}
           </button>
@@ -131,8 +249,8 @@ function RegisterForm() {
         <button
           type="button"
           onClick={onGoogleRegister}
-          disabled={googleLoading}
-          className="flex w-full items-center justify-center gap-3 rounded-[4px] border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed"
+          disabled={isSubmitting}
+          className="flex w-full items-center justify-center gap-3 rounded-[4px] border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
             <path
@@ -145,7 +263,7 @@ function RegisterForm() {
 
         <p className="text-center text-xs text-white/60">
           Sudah punya akun?{" "}
-          <Link href="/login" className="font-semibold text-white hover:underline">
+          <Link href={`/login${redirectQuery}`} className="font-semibold text-white hover:underline">
             Masuk di sini
           </Link>
         </p>

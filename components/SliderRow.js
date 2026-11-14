@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import CardPoster from "./CardPoster";
 
@@ -15,6 +15,8 @@ export default function SliderRow({
   loading = false,
 }) {
   const scrollRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   const validItems = useMemo(
     () => (Array.isArray(items) ? items.filter(Boolean) : []),
@@ -22,6 +24,30 @@ export default function SliderRow({
   );
   const skeletonOrientationClass = orientation === "portrait" ? "aspect-[2/3]" : "aspect-video";
   const hasItems = validItems.length > 0;
+
+  const updateScrollBounds = useCallback(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const { scrollLeft, scrollWidth, clientWidth } = container;
+    setCanScrollLeft(scrollLeft > 4);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    updateScrollBounds();
+    container.addEventListener("scroll", updateScrollBounds, { passive: true });
+    let observer;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(updateScrollBounds);
+      observer.observe(container);
+    }
+    return () => {
+      container.removeEventListener("scroll", updateScrollBounds);
+      observer?.disconnect();
+    };
+  }, [updateScrollBounds, validItems.length]);
 
   const handleScroll = useCallback((direction) => {
     const container = scrollRef.current;
@@ -39,25 +65,29 @@ export default function SliderRow({
     if (!hasItems) return null;
     return (
       <>
-        <button
-          type="button"
-          aria-label="Gulir ke kiri"
-          onClick={() => handleScroll("prev")}
-          className="absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-white/15 bg-black/70 p-2.5 text-white shadow-lg transition hover:bg-black md:flex"
-        >
-          &larr;
-        </button>
-        <button
-          type="button"
-          aria-label="Gulir ke kanan"
-          onClick={() => handleScroll("next")}
-          className="absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-white/15 bg-black/70 p-2.5 text-white shadow-lg transition hover:bg-black md:flex"
-        >
-          &rarr;
-        </button>
+        {canScrollLeft && (
+          <button
+            type="button"
+            aria-label="Gulir ke kiri"
+            onClick={() => handleScroll("prev")}
+            className="absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-white/15 bg-black/75 p-2.5 text-white shadow-lg transition hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white md:flex"
+          >
+            &larr;
+          </button>
+        )}
+        {canScrollRight && (
+          <button
+            type="button"
+            aria-label="Gulir ke kanan"
+            onClick={() => handleScroll("next")}
+            className="absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-white/15 bg-black/75 p-2.5 text-white shadow-lg transition hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white md:flex"
+          >
+            &rarr;
+          </button>
+        )}
       </>
     );
-  }, [handleScroll, hasItems]);
+  }, [handleScroll, hasItems, canScrollLeft, canScrollRight]);
 
   if (!hasItems && !loading) {
     return null;
@@ -80,7 +110,7 @@ export default function SliderRow({
         {arrowButtons}
         <div
           ref={scrollRef}
-          className="-mx-4 -my-20 flex gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar scroll-smooth px-4 py-20 snap-x snap-mandatory scroll-pl-4 [-webkit-overflow-scrolling:touch]"
+          className="-mx-4 flex gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar scroll-smooth px-4 py-1 snap-x snap-mandatory scroll-pl-4 [-webkit-overflow-scrolling:touch]"
         >
           {hasItems
             ? validItems.map((item, idx) => (

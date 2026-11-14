@@ -12,12 +12,20 @@ export default function NotFound() {
       <p className="mt-3 max-w-md text-sm leading-relaxed text-white/65">
         Halaman atau tayangan yang kamu cari tidak tersedia, telah dihapus, atau URL salah.
       </p>
-      <Link
-        href="/"
-        className="mt-7 inline-flex items-center rounded-md bg-[#E50914] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#f40612] active:scale-95"
-      >
-        Kembali ke Beranda
-      </Link>
+      <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+        <Link
+          href="/"
+          className="inline-flex min-h-[44px] items-center rounded-md bg-[#E50914] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#f40612] active:scale-95"
+        >
+          Kembali ke Beranda
+        </Link>
+        <Link
+          href="/search"
+          className="inline-flex min-h-[44px] items-center rounded-md border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/15"
+        >
+          Cari Tayangan
+        </Link>
+      </div>
     </div>
   );
 }

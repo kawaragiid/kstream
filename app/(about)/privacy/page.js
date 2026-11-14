@@ -9,7 +9,7 @@ export default function PrivacyPage() {
         <p className="text-white/70">Transparansi mengenai pengelolaan data akun Anda di Kstream.</p>
       </header>
 
-      <div className="space-y-6 rounded-3xl border border-white/10 bg-surface-100/60 p-6 md:p-8 backdrop-blur">
+      <div className="space-y-6 rounded-md border border-white/10 bg-[#181818] p-6 md:p-8">
         <section className="space-y-2">
           <h2 className="text-xl font-semibold text-white">1. Data yang Kami Simpan</h2>
           <ul className="list-disc pl-6 text-white/80 leading-relaxed space-y-1">

@@ -1,11 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useMediaOverlay } from "./MediaOverlayProvider";
 
 const HERO_PLACEHOLDER =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"><rect width="1280" height="720" fill="%230f172a"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23FFFFFF" font-size="48" font-family="Arial, sans-serif">Kstream</text></svg>';
+
+function parseDetailTarget(detailHref) {
+  if (!detailHref || typeof detailHref !== "string") return null;
+  const match = detailHref.match(/^\/(movies|series)\/([^/?#]+)/i);
+  if (!match) return null;
+  return {
+    type: match[1].toLowerCase() === "series" ? "series" : "movie",
+    slug: decodeURIComponent(match[2]),
+  };
+}
 
 export default function HeroBanner({
   title = "Kstream",
@@ -15,26 +26,55 @@ export default function HeroBanner({
   ctaHref = "/",
   detailHref = "",
   backdropUrl = "",
+  posterUrl = "",
+  media = null,
   badge = "Sedang Populer",
 }) {
-  const [heroSrc, setHeroSrc] = useState(backdropUrl || HERO_PLACEHOLDER);
+  const { openMedia } = useMediaOverlay();
+  const [desktopSrc, setDesktopSrc] = useState(backdropUrl || posterUrl || HERO_PLACEHOLDER);
+  const [mobileSrc, setMobileSrc] = useState(posterUrl || backdropUrl || HERO_PLACEHOLDER);
 
   useEffect(() => {
-    setHeroSrc(backdropUrl || HERO_PLACEHOLDER);
-  }, [backdropUrl]);
+    setDesktopSrc(backdropUrl || posterUrl || HERO_PLACEHOLDER);
+    setMobileSrc(posterUrl || backdropUrl || HERO_PLACEHOLDER);
+  }, [backdropUrl, posterUrl]);
+
+  const overlayMedia = useMemo(() => {
+    if (media && (media.id || media.slug)) return media;
+    const parsed = parseDetailTarget(detailHref);
+    if (!parsed) return null;
+    return {
+      id: parsed.slug,
+      slug: parsed.slug,
+      type: parsed.type,
+      title,
+      backdropUrl,
+      posterUrl,
+      overview: description,
+    };
+  }, [media, detailHref, title, backdropUrl, posterUrl, description]);
 
   return (
-    <section className="relative aspect-[4/5] min-h-[440px] w-full overflow-hidden bg-black text-white sm:min-h-[480px] sm:aspect-[21/9] md:aspect-[32/13]">
+    <section className="relative aspect-[4/5] min-h-[440px] w-full overflow-hidden bg-[#141414] text-white sm:min-h-[480px] sm:aspect-[21/9] md:aspect-[32/13]">
       <Image
-        src={heroSrc}
+        src={mobileSrc}
         alt={title}
         fill
-        className="object-cover"
+        className="object-cover sm:hidden"
         priority
         sizes="100vw"
-        onError={() => setHeroSrc(HERO_PLACEHOLDER)}
+        onError={() => setMobileSrc(HERO_PLACEHOLDER)}
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent sm:bg-hero-overlay" />
+      <Image
+        src={desktopSrc}
+        alt={title}
+        fill
+        className="hidden object-cover sm:block"
+        priority
+        sizes="100vw"
+        onError={() => setDesktopSrc(HERO_PLACEHOLDER)}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-[#141414]/45 to-transparent sm:bg-[linear-gradient(90deg,rgba(20,20,20,0.85)_0%,rgba(20,20,20,0.35)_45%,transparent_80%),linear-gradient(180deg,transparent_50%,#141414_100%)]" />
       <div className="absolute inset-0 flex flex-col justify-end gap-3 px-4 pb-8 sm:gap-4 sm:px-6 sm:pb-12 md:px-12 md:pb-16 lg:max-w-2xl">
         {badge && (
           <span className="w-fit rounded-full bg-white/10 px-3 py-1 text-[11px] sm:text-xs font-semibold uppercase tracking-widest text-white/80">
@@ -49,16 +89,27 @@ export default function HeroBanner({
             href={ctaHref}
             className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-0 font-semibold text-black shadow-lg shadow-black/30 hover:bg-white/90 active:scale-95 transition text-xs sm:text-sm"
           >
-            ▶ {ctaLabel}
+            <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+              <polygon points="6 4 20 12 6 20 6 4" />
+            </svg>
+            <span>{ctaLabel}</span>
           </Link>
-          {detailHref && (
+          {overlayMedia ? (
+            <button
+              type="button"
+              onClick={() => openMedia(overlayMedia, { origin: "hero" })}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-0 font-semibold text-white hover:bg-white/20 active:scale-95 transition text-xs sm:text-sm"
+            >
+              Detail Konten
+            </button>
+          ) : detailHref ? (
             <Link
               href={detailHref}
               className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-0 font-semibold text-white hover:bg-white/20 active:scale-95 transition text-xs sm:text-sm"
             >
               Detail Konten
             </Link>
-          )}
+          ) : null}
         </div>
       </div>
     </section>

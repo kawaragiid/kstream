@@ -29,7 +29,7 @@ export default async function MovieWatchRedirect(props) {
   const params = await props.params;
   await ensureFirestore();
   const decodedId = safeDecode(params.id);
-  const video = await getVideoById(decodedId);
+  const video = await getVideoById(decodedId, "movie");
 
   if (!video) {
     notFound();

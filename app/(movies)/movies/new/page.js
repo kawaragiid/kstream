@@ -1,6 +1,6 @@
 import CardPoster from "../../../../components/CardPoster";
 
-export const revalidate = 60;
+export const revalidate = 300;
 export const metadata = { title: "Baru Rilis" };
 
 let getNewReleases;
@@ -25,7 +25,7 @@ export default async function NewMoviesPage() {
       <div className="mx-auto max-w-[1600px] space-y-8">
         <div className="space-y-1.5 border-b border-white/10 pb-4">
           <h1 className="text-2xl sm:text-3xl font-semibold text-white">Baru Rilis</h1>
-          <p className="text-sm text-white/60">Konten terbaru yang baru saja tayang di Kstream.</p>
+          <p className="text-sm text-white/60">Film dan serial terbaru yang baru saja tayang di Kstream.</p>
         </div>
         {releases.length ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">

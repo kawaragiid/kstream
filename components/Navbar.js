@@ -17,14 +17,19 @@ export default function Navbar({ categories = [] }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [scrolled, setScrolled] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
 
   const menuRef = useRef(null);
   const genreRef = useRef(null);
+  const genreButtonRef = useRef(null);
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
+  const hamburgerButtonRef = useRef(null);
+  const drawerRef = useRef(null);
+  const prevMobileNavOpenRef = useRef(false);
 
   const isHome = pathname === "/";
-  const hideChrome = pathname?.startsWith("/profile/settings") || pathname?.startsWith("/player");
+  const hideChrome = pathname?.startsWith("/player");
 
   // Track window scroll for Netflix transparent-to-solid header transition
   useEffect(() => {
@@ -61,7 +66,7 @@ export default function Navbar({ categories = [] }) {
       if (genreRef.current && !genreRef.current.contains(event.target)) {
         setGenreMenuOpen(false);
       }
-      if (searchRef.current && !searchRef.current.contains(event.target) && !searchQuery.trim()) {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
         setSearchOpen(false);
       }
     };
@@ -71,16 +76,47 @@ export default function Navbar({ categories = [] }) {
       document.removeEventListener("mousedown", handleClickAway);
       document.removeEventListener("touchstart", handleClickAway, { passive: true });
     };
-  }, [searchQuery]);
+  }, []);
 
-  // Body scroll lock when mobile drawer is open
+  // Body scroll lock, focus trap & focus restore for mobile drawer
   useEffect(() => {
     if (mobileNavOpen) {
+      prevMobileNavOpenRef.current = true;
       const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = "hidden";
+
+      const drawerEl = drawerRef.current;
+      const focusableSelector =
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      const focusTimer = setTimeout(() => {
+        const firstFocusable = drawerEl?.querySelector(focusableSelector);
+        firstFocusable?.focus();
+      }, 20);
+
+      const handleTrap = (event) => {
+        if (event.key !== "Tab" || !drawerEl) return;
+        const focusables = Array.from(drawerEl.querySelectorAll(focusableSelector));
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      };
+
+      document.addEventListener("keydown", handleTrap);
       return () => {
+        clearTimeout(focusTimer);
+        document.removeEventListener("keydown", handleTrap);
         document.body.style.overflow = originalOverflow;
       };
+    } else if (prevMobileNavOpenRef.current) {
+      prevMobileNavOpenRef.current = false;
+      hamburgerButtonRef.current?.focus();
     }
   }, [mobileNavOpen]);
 
@@ -88,10 +124,14 @@ export default function Navbar({ categories = [] }) {
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
+        const wasGenreOpen = genreMenuOpen;
         setMobileNavOpen(false);
         setMenuOpen(false);
         setGenreMenuOpen(false);
         setSearchOpen(false);
+        if (wasGenreOpen) {
+          genreButtonRef.current?.focus();
+        }
       }
     };
     if (mobileNavOpen || menuOpen || genreMenuOpen || searchOpen) {
@@ -167,6 +207,44 @@ export default function Navbar({ categories = [] }) {
 
   const avatarSrc = user?.photoURL || user?.photoUrl;
 
+  useEffect(() => {
+    setAvatarError(false);
+  }, [avatarSrc]);
+
+  const handleGenreKeyDown = (event) => {
+    if (!genreMenuOpen) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        setGenreMenuOpen(true);
+        setTimeout(() => {
+          const items = genreRef.current?.querySelectorAll('[role="menuitem"]');
+          if (!items?.length) return;
+          if (event.key === "ArrowUp") items[items.length - 1].focus();
+          else items[0].focus();
+        }, 20);
+      }
+      return;
+    }
+
+    const items = Array.from(genreRef.current?.querySelectorAll('[role="menuitem"]') || []);
+    if (!items.length) return;
+    const currentIndex = items.indexOf(document.activeElement);
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      items[(currentIndex + 1) % items.length].focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      items[(currentIndex - 1 + items.length) % items.length].focus();
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      items[0].focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      items[items.length - 1].focus();
+    }
+  };
+
   if (hideChrome) {
     return null;
   }
@@ -183,9 +261,10 @@ export default function Navbar({ categories = [] }) {
         <div className="mx-auto flex h-14 sm:h-16 max-w-[1600px] items-center gap-3 sm:gap-5 px-3.5 sm:px-6 lg:px-10 text-white/85">
           {/* Mobile Hamburger */}
           <button
+            ref={hamburgerButtonRef}
             type="button"
             onClick={handleToggleMobileNav}
-            className="inline-flex h-10 w-10 min-h-[44px] min-w-[44px] -ml-1.5 items-center justify-center rounded-md text-white/90 transition hover:bg-white/10 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#E50914]/60 lg:hidden"
+            className="inline-flex h-10 w-10 min-h-[44px] min-w-[44px] -ml-1.5 items-center justify-center rounded-md text-white/90 transition hover:bg-white/10 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914]/70 lg:hidden"
             aria-label="Menu navigasi"
             aria-expanded={mobileNavOpen}
             aria-controls="mobile-nav-drawer"
@@ -207,6 +286,8 @@ export default function Navbar({ categories = [] }) {
             <img
               src="/logo.png"
               alt="Kstream logo"
+              width={32}
+              height={32}
               className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.75)]"
             />
             <span className="text-[#E50914] text-xl sm:text-2xl lg:text-[26px] font-black uppercase tracking-[-0.04em] leading-none drop-shadow-[0_2px_8px_rgba(0,0,0,0.75)]">
@@ -250,6 +331,14 @@ export default function Navbar({ categories = [] }) {
                 Daftar Saya
               </Link>
             )}
+            <Link
+              href="/search"
+              className={`transition-colors duration-150 hover:text-white/75 ${
+                pathname === "/search" ? "text-white font-semibold" : "text-[#e5e5e5]"
+              }`}
+            >
+              Cari
+            </Link>
 
             <Link
               href="/premium/upgrade"
@@ -262,13 +351,15 @@ export default function Navbar({ categories = [] }) {
 
             {/* Netflix-style Genre / Kategori Dropdown */}
             {categories.length > 0 && (
-              <div className="relative" ref={genreRef}>
+              <div className="relative" ref={genreRef} onKeyDown={handleGenreKeyDown}>
                 <button
+                  ref={genreButtonRef}
                   type="button"
                   onClick={() => setGenreMenuOpen((prev) => !prev)}
-                  className="inline-flex items-center gap-1 text-[#e5e5e5] transition-colors duration-150 hover:text-white/75 focus:outline-none"
+                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[#e5e5e5] transition-colors duration-150 hover:text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                   aria-expanded={genreMenuOpen}
                   aria-haspopup="menu"
+                  aria-controls="desktop-genre-menu"
                 >
                   <span>Kategori</span>
                   <svg
@@ -285,8 +376,9 @@ export default function Navbar({ categories = [] }) {
                 </button>
                 {genreMenuOpen && (
                   <div
+                    id="desktop-genre-menu"
                     role="menu"
-                    className="absolute left-0 top-[calc(100%+12px)] w-64 rounded-sm border border-white/15 bg-black/95 p-3 shadow-2xl backdrop-blur-xl"
+                    className="absolute left-0 top-[calc(100%+12px)] max-h-[70vh] w-64 overflow-y-auto rounded-md border border-white/15 bg-black/95 p-3 shadow-2xl backdrop-blur-xl"
                   >
                     <div className="grid grid-cols-2 gap-1.5 text-[13px]">
                       {categories.map((genre) => {
@@ -331,11 +423,11 @@ export default function Navbar({ categories = [] }) {
               {searchOpen ? (
                 <form
                   onSubmit={handleSearchSubmit}
-                  className="flex items-center border border-white/85 bg-black/85 px-2.5 py-1 transition-all duration-200 w-56 md:w-64"
+                  className="flex items-center rounded-md border border-white/85 bg-black/85 px-2.5 py-1 transition-all duration-200 w-56 md:w-64"
                 >
                   <button
                     type="submit"
-                    className="mr-2 text-white/90 hover:text-white focus:outline-none"
+                    className="mr-2 rounded text-white/90 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                     aria-label="Jalankan pencarian"
                   >
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -372,7 +464,7 @@ export default function Navbar({ categories = [] }) {
                 <button
                   type="button"
                   onClick={() => setSearchOpen(true)}
-                  className="inline-flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-white transition hover:text-white/75 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/30"
+                  className="inline-flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-white transition hover:text-white/75 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                   aria-label="Cari film atau series"
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -391,15 +483,23 @@ export default function Navbar({ categories = [] }) {
                 <button
                   type="button"
                   onClick={handleToggleProfileMenu}
-                  className="inline-flex min-h-[44px] items-center gap-1.5 px-1 text-white transition hover:opacity-90 active:scale-95 focus:outline-none"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-1 text-white transition hover:opacity-90 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
+                  aria-controls="desktop-profile-menu"
                   aria-label="Menu profil pengguna"
                 >
                   <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-[4px] bg-gradient-to-br from-[#E50914] to-[#991b1b] text-xs font-bold text-white ring-1 ring-white/15">
-                    {avatarSrc ? (
+                    {avatarSrc && !avatarError ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={avatarSrc} alt="Avatar" className="h-full w-full object-cover" />
+                      <img
+                        src={avatarSrc}
+                        alt="Avatar"
+                        width={32}
+                        height={32}
+                        onError={() => setAvatarError(true)}
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       avatarInitial
                     )}
@@ -419,10 +519,10 @@ export default function Navbar({ categories = [] }) {
                   </svg>
                 </button>
 
+                {menuOpen && (
                 <div
-                  className={`absolute right-0 top-[calc(100%+8px)] w-52 rounded-sm border border-white/15 bg-black/95 py-2 shadow-2xl backdrop-blur-xl transition-all duration-150 ${
-                    menuOpen ? "pointer-events-auto opacity-100 translate-y-0" : "pointer-events-none opacity-0 -translate-y-1.5"
-                  }`}
+                  id="desktop-profile-menu"
+                  className="absolute right-0 top-[calc(100%+8px)] w-52 rounded-md border border-white/15 bg-black/95 py-2 shadow-2xl backdrop-blur-xl"
                   role="menu"
                 >
                   <div className="truncate border-b border-white/15 px-4 pb-2.5 pt-1 text-xs font-semibold text-white/75">
@@ -462,6 +562,7 @@ export default function Navbar({ categories = [] }) {
                     </button>
                   </nav>
                 </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold">
@@ -500,6 +601,7 @@ export default function Navbar({ categories = [] }) {
           />
 
           <aside
+            ref={drawerRef}
             className="relative z-10 flex h-full w-[82vw] max-w-xs flex-col justify-between overflow-y-auto overscroll-contain border-r border-white/10 bg-[#141414]/98 p-5 text-white/85 shadow-2xl backdrop-blur-xl sm:p-6"
             style={{
               paddingTop: "max(1.25rem, env(safe-area-inset-top, 0px))",
@@ -572,6 +674,19 @@ export default function Navbar({ categories = [] }) {
                 >
                   Cari
                 </Link>
+                {user && (
+                  <Link
+                    href="/profile/favorites"
+                    onClick={() => setMobileNavOpen(false)}
+                    className={`flex min-h-[44px] items-center rounded-md px-3.5 py-2.5 transition ${
+                      pathname === "/profile/favorites"
+                        ? "border-l-[3px] border-[#E50914] bg-white/10 font-semibold text-white pl-3"
+                        : "text-white/80 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    Daftar Saya
+                  </Link>
+                )}
                 <Link
                   href="/premium/upgrade"
                   onClick={() => setMobileNavOpen(false)}

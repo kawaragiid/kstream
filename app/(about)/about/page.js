@@ -9,7 +9,7 @@ export default function AboutPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#E50914]">Kstream by Kawaragi</p>
         <h1 className="text-3xl font-bold text-white">Tentang Kstream</h1>
       </div>
-      <div className="space-y-4 rounded-3xl border border-white/10 bg-surface-100/60 p-6 md:p-8 backdrop-blur">
+      <div className="space-y-4 rounded-md border border-white/10 bg-[#181818] p-6 md:p-8">
         <p className="text-white/80 leading-relaxed">
           Kstream adalah platform streaming independen yang menghadirkan film, serial, dan anime pilihan dengan pemutar video modern bergaya Liquid Glass, dukungan kualitas adaptif hingga 1080p, serta subtitle multi-bahasa (Indonesia, English, dan 日本語) yang dapat dikustomisasi sepenuhnya.
         </p>

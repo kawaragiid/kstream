@@ -94,14 +94,27 @@ export default async function MovieDetailPage({ params }) {
   const genrePills = Array.isArray(video.genres) && video.genres.length > 0
     ? video.genres
     : [video.category].filter(Boolean);
-  const metadataPills = Array.from(
-    new Set([releaseYear, video.maturityRating, durationLabel, ...genrePills].filter(Boolean))
-  );
+  const seenPills = new Set();
+  const metadataPills = [
+    releaseYear ? { label: String(releaseYear), isRating: false } : null,
+    video.maturityRating ? { label: String(video.maturityRating), isRating: true } : null,
+    durationLabel ? { label: durationLabel, isRating: false } : null,
+    ...genrePills.map((g) => ({ label: String(g), isRating: false })),
+  ].filter((pill) => {
+    if (!pill || !pill.label || seenPills.has(pill.label)) return false;
+    seenPills.add(pill.label);
+    return true;
+  });
+
+  const hasPlayableTrailer =
+    Boolean(video.trailerUrl) &&
+    !/animated\.gif/i.test(video.trailerUrl) &&
+    !/\.gif($|\?)/i.test(video.trailerUrl);
 
   return (
     <div className="space-y-10 sm:space-y-14 pb-12 sm:pb-16">
       <div className="w-full">
-        <section className="relative -mt-16 sm:-mt-20 w-full min-h-[70vh] sm:min-h-[78vh] overflow-hidden bg-black text-white">
+        <section className="relative -mt-14 sm:-mt-16 w-full min-h-[70vh] sm:min-h-[78vh] overflow-hidden bg-[#141414] text-white">
           {(video.backdropUrl || video.posterUrl) && (
             <Image
               src={video.backdropUrl || video.posterUrl}
@@ -121,14 +134,14 @@ export default async function MovieDetailPage({ params }) {
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-semibold tracking-wider text-white/85">
                   {metadataPills.map((pill) => (
                     <span
-                      key={pill}
+                      key={`${pill.isRating ? 'rating' : 'meta'}-${pill.label}`}
                       className={
-                        pill === video.maturityRating
+                        pill.isRating
                           ? "rounded-sm border border-white/40 bg-white/10 px-2 py-0.5 text-[11px] uppercase text-white"
                           : "text-white/80"
                       }
                     >
-                      {pill}
+                      {pill.label}
                     </span>
                   ))}
                 </div>
@@ -150,7 +163,7 @@ export default async function MovieDetailPage({ params }) {
                 video={{ ...video, href: baseHref, watchHref }}
                 className="w-full sm:w-auto min-h-[44px] justify-center rounded-[4px] bg-white/15 hover:bg-white/25 border-white/25"
               />
-              {video.trailerUrl && (
+              {hasPlayableTrailer && (
                 <a
                   href={video.trailerUrl}
                   className="inline-flex w-full sm:w-auto min-h-[44px] items-center justify-center gap-2 rounded-[4px] border border-white/25 bg-[#6d6d6e]/60 px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#6d6d6e]/85 active:scale-95 transition"

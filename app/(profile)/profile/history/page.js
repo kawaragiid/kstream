@@ -11,14 +11,19 @@ export default function HistoryPage() {
   const [items, setItems] = useState([]);
   const [fetching, setFetching] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [error, setError] = useState('');
 
   const handleClearHistory = async () => {
     if (!user?.uid || clearing) return;
     if (typeof window !== "undefined" && !window.confirm("Hapus seluruh riwayat tontonan?")) return;
     setClearing(true);
+    setError('');
     try {
       await clearUserHistory(user.uid);
       setItems([]);
+      window.dispatchEvent(new Event("kstream:history-updated"));
+    } catch (err) {
+      setError(err?.message || 'Gagal membersihkan riwayat tontonan.');
     } finally {
       setClearing(false);
     }
@@ -26,11 +31,13 @@ export default function HistoryPage() {
 
   const handleRemoveItem = async (itemId) => {
     if (!user?.uid || !itemId) return;
+    setError('');
     try {
       await removeHistoryItem(user.uid, itemId);
       setItems((prev) => prev.filter((item) => item.id !== itemId));
+      window.dispatchEvent(new Event("kstream:history-updated"));
     } catch (err) {
-      console.warn('Gagal menghapus riwayat:', err);
+      setError(err?.message || 'Gagal menghapus item riwayat.');
     }
   };
 
@@ -111,19 +118,29 @@ export default function HistoryPage() {
           </div>
         </div>
 
+        {error && (
+          <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+            {error}
+          </div>
+        )}
+
         {fetching ? (
           <p className="text-sm text-white/60">Mengambil riwayat...</p>
         ) : items.length ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
             {items.map((item) => (
-              <div key={item.id} className="space-y-2">
+              <div key={item.id} className="group relative">
                 <CardPoster item={item} />
                 <button
                   type="button"
                   onClick={() => handleRemoveItem(item.id)}
-                  className="w-full rounded-[4px] border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/75 transition hover:border-white/40 hover:bg-white/10 hover:text-white"
+                  aria-label={`Hapus ${item.title || 'tayangan'} dari riwayat`}
+                  title="Hapus dari Riwayat"
+                  className="absolute right-2 top-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-black/75 text-white/85 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition hover:bg-[#E50914] hover:border-[#E50914] hover:text-white"
                 >
-                  Hapus
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                    <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
             ))}

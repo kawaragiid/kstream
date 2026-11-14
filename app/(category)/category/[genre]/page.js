@@ -1,17 +1,24 @@
+import { notFound } from "next/navigation";
 import CardPoster from "../../../../components/CardPoster";
 
+export const revalidate = 300;
+
 let getVideosByGenre;
+let getPlatformSettings;
 
 async function ensureFirestore() {
-  if (!getVideosByGenre) {
+  if (!getVideosByGenre || !getPlatformSettings) {
     try {
-      ({ getVideosByGenre } = await import("../../../../lib/firestoreServer"));
+      ({ getVideosByGenre, getPlatformSettings } = await import("../../../../lib/firestoreServer"));
     } catch (error) {
       console.warn("Firestore admin belum siap:", error.message);
-      return async () => [];
+      return {
+        getVideosByGenre: async () => [],
+        getPlatformSettings: async () => ({ categories: [] }),
+      };
     }
   }
-  return getVideosByGenre;
+  return { getVideosByGenre, getPlatformSettings };
 }
 
 export async function generateMetadata({ params }) {
@@ -28,7 +35,7 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function GenrePage({ params }) {
-  const fetchByGenre = await ensureFirestore();
+  const { getVideosByGenre: fetchByGenre, getPlatformSettings: fetchSettings } = await ensureFirestore();
   const { genre: rawGenre } = await params;
   let genre = rawGenre || "";
   try {
@@ -36,7 +43,22 @@ export default async function GenrePage({ params }) {
   } catch {
     genre = rawGenre || "";
   }
-  const items = await fetchByGenre(genre, 48).catch(() => []);
+  const normalizedGenre = genre.trim();
+  if (!normalizedGenre) {
+    notFound();
+  }
+
+  const [items, settings] = await Promise.all([
+    fetchByGenre(normalizedGenre, 48).catch(() => []),
+    fetchSettings().catch(() => ({ categories: [] })),
+  ]);
+
+  const knownCategories = (settings?.categories || []).map((c) => String(c).toLowerCase());
+  const isKnownCategory = knownCategories.includes(normalizedGenre.toLowerCase());
+
+  if (items.length === 0 && !isKnownCategory) {
+    notFound();
+  }
 
   return (
     <div className="min-h-[75vh] bg-[#141414] px-4 sm:px-8 lg:px-12 pt-24 sm:pt-28 pb-14">

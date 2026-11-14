@@ -76,12 +76,15 @@ export default async function SeriesDetailPage({ params }) {
     : [];
   const slugId = encodeURIComponent(series.slug || series.id);
   const baseHref = `/series/${slugId}`;
-  const releaseYear = series.releaseYear || (series.releaseDate ? new Date(series.releaseDate).getFullYear() : null);
+  const parsedYear = series.releaseDate ? new Date(series.releaseDate).getFullYear() : null;
+  const releaseYear = series.releaseYear || (parsedYear && !Number.isNaN(parsedYear) ? parsedYear : null);
   const seasonCount = Math.max(
     Number(series.totalSeasons || 1),
     ...(episodes.length ? episodes.map((ep) => Number(ep.seasonNumber || 1)) : [1])
   );
-  const primaryEpisode = episodes.find((ep) => ep.playbackId || ep.streamUrl) || episodes?.[0];
+  const playableEpisode = episodes.find((ep) => ep.playbackId || ep.streamUrl);
+  const primaryEpisode = playableEpisode || episodes?.[0];
+  const hasPlayableEpisode = Boolean(playableEpisode);
   const watchHref = primaryEpisode?.id
     ? `/player?id=${slugId}&type=series&ep=${encodeURIComponent(primaryEpisode.id)}&autoplay=1`
     : series.watchHref || `/player?id=${slugId}&type=series`;
@@ -94,7 +97,7 @@ export default async function SeriesDetailPage({ params }) {
   return (
     <div className="space-y-10 sm:space-y-14 pb-12 sm:pb-16">
       <div className="w-full">
-        <section className="relative -mt-16 sm:-mt-20 w-full min-h-[70vh] sm:min-h-[78vh] overflow-hidden bg-black text-white">
+        <section className="relative -mt-14 sm:-mt-16 w-full min-h-[70vh] sm:min-h-[78vh] overflow-hidden bg-[#141414] text-white">
           {(series.backdropUrl || series.posterUrl) && (
             <Image
               src={series.backdropUrl || series.posterUrl}
@@ -155,7 +158,7 @@ export default async function SeriesDetailPage({ params }) {
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-3.5">
-              {episodes.length > 0 && (
+              {hasPlayableEpisode && (
                 <Link
                   href={watchHref}
                   className="inline-flex w-full sm:w-auto min-h-[44px] items-center justify-center gap-2 rounded-[4px] bg-white px-7 py-2.5 font-bold text-black shadow-lg hover:bg-white/85 active:scale-95 transition text-sm sm:text-base"

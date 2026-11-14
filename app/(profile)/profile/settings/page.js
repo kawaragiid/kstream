@@ -16,37 +16,27 @@ const languageOptions = [
   { value: "jp", label: "Bahasa Jepang" },
 ];
 
-function SettingsTopBar() {
+function ProfileSubNav() {
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#141414]/95 backdrop-blur-md">
-      <div className="mx-auto flex h-14 sm:h-16 max-w-4xl items-center justify-between gap-4 px-4 sm:px-6">
-        <div className="flex items-center gap-3 sm:gap-5">
-          <Link href="/" className="flex items-center shrink-0" aria-label="Beranda">
-            <img
-              src="/logo.png"
-              alt="Logo"
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-lg object-contain"
-            />
-          </Link>
-          <Link
-            href="/"
-            className="text-xs sm:text-sm font-medium text-white/80 transition hover:text-white"
-          >
-            ← Kembali ke Beranda
-          </Link>
-        </div>
-        <nav className="flex items-center gap-3 sm:gap-5 text-xs sm:text-sm font-medium text-white/75">
-          <Link href="/profile/favorites" className="transition hover:text-white">
-            Daftar Saya
-          </Link>
-          <Link href="/profile/history" className="transition hover:text-white">
-            Riwayat
-          </Link>
-        </nav>
-      </div>
-    </header>
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+      <nav aria-label="Navigasi Profil" className="flex items-center gap-2 text-xs sm:text-sm font-medium">
+        <span className="rounded-md bg-white/10 px-3 py-1.5 font-semibold text-white">
+          Pengaturan
+        </span>
+        <Link
+          href="/profile/favorites"
+          className="rounded-md px-3 py-1.5 text-white/70 transition hover:bg-white/5 hover:text-white"
+        >
+          Daftar Saya
+        </Link>
+        <Link
+          href="/profile/history"
+          className="rounded-md px-3 py-1.5 text-white/70 transition hover:bg-white/5 hover:text-white"
+        >
+          Riwayat
+        </Link>
+      </nav>
+    </div>
   );
 }
 
@@ -70,10 +60,13 @@ export default function ProfileSettingsPage() {
 
   const [photoUrl, setPhotoUrl] = useState("");
   const [photoUrlInput, setPhotoUrlInput] = useState("");
+  const [photoError, setPhotoError] = useState(false);
 
   const [profileMessage, setProfileMessage] = useState("");
   const [profileError, setProfileError] = useState("");
   const [status, setStatus] = useState({ type: null, message: "" });
+  const [securityStatus, setSecurityStatus] = useState({ type: null, message: "" });
+  const [dangerStatus, setDangerStatus] = useState({ type: null, message: "" });
 
   useEffect(() => {
     if (!user) {
@@ -123,6 +116,10 @@ export default function ProfileSettingsPage() {
     return PLACEHOLDER_AVATAR;
   }, [photoUrl, photoUrlInput]);
 
+  useEffect(() => {
+    setPhotoError(false);
+  }, [previewPhoto]);
+
   const avatarInitial = useMemo(() => {
     const source = form.displayName || user?.email || "K";
     return source.charAt(0)?.toUpperCase?.() || "K";
@@ -158,6 +155,14 @@ export default function ProfileSettingsPage() {
         if (!/^https:\/\//i.test(typedUrl)) {
           throw new Error("URL foto profil harus diawali https://");
         }
+        try {
+          const parsed = new URL(typedUrl);
+          if (parsed.protocol !== "https:") {
+            throw new Error("URL foto profil harus menggunakan https://");
+          }
+        } catch {
+          throw new Error("Format URL foto profil tidak valid.");
+        }
         nextPhotoUrl = typedUrl;
       }
 
@@ -171,6 +176,11 @@ export default function ProfileSettingsPage() {
         photoURL: nextPhotoUrl || null,
         tagline: form.tagline || "",
       });
+
+      if (typeof user.reload === "function") {
+        await user.reload().catch(() => undefined);
+      }
+      router.refresh();
 
       setPhotoUrl(nextPhotoUrl || "");
       setPhotoUrlInput("");
@@ -210,12 +220,12 @@ export default function ProfileSettingsPage() {
   const handlePasswordReset = async () => {
     if (!user?.email) return;
     setSecurityLoading(true);
-    setStatus({ type: null, message: "" });
+    setSecurityStatus({ type: null, message: "" });
     try {
       await resetPassword(user.email);
-      setStatus({ type: "success", message: "Email reset kata sandi telah dikirim." });
+      setSecurityStatus({ type: "success", message: "Email reset kata sandi telah dikirim." });
     } catch (error) {
-      setStatus({
+      setSecurityStatus({
         type: "error",
         message: error?.message || "Gagal mengirim email reset kata sandi.",
       });
@@ -231,12 +241,13 @@ export default function ProfileSettingsPage() {
       if (!confirmed) return;
     }
     setDangerLoading(true);
-    setStatus({ type: null, message: "" });
+    setDangerStatus({ type: null, message: "" });
     try {
       await updateUserProfileDoc(user.uid, { history: [] });
-      setStatus({ type: "success", message: "Riwayat tontonan berhasil dihapus." });
+      window.dispatchEvent(new Event("kstream:history-updated"));
+      setDangerStatus({ type: "success", message: "Riwayat tontonan berhasil dihapus." });
     } catch (error) {
-      setStatus({
+      setDangerStatus({
         type: "error",
         message: error?.message || "Gagal menghapus riwayat tontonan.",
       });
@@ -250,48 +261,44 @@ export default function ProfileSettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#141414] text-white">
-        <SettingsTopBar />
-        <main className="mx-auto max-w-4xl px-4 sm:px-6 pt-10 sm:pt-12 pb-16">
+      <div className="min-h-[75vh] bg-[#141414] px-4 sm:px-6 pt-24 sm:pt-28 pb-16 text-white">
+        <div className="mx-auto max-w-4xl">
           <p className="mt-10 text-center text-white/60">Memuat profil...</p>
-        </main>
+        </div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#141414] text-white">
-        <SettingsTopBar />
-        <main className="mx-auto max-w-lg px-4 pt-12 sm:pt-16 pb-16">
-          <div className="rounded-md border border-white/10 bg-[#181818] p-8 sm:p-10 text-center shadow-2xl">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">Masuk untuk Mengelola Profil</h1>
-            <p className="mt-3 text-sm text-white/65">Halaman ini hanya tersedia untuk akun yang sudah masuk.</p>
-            <div className="mt-6 flex justify-center gap-3">
-              <Link
-                href="/login"
-                className="rounded-[4px] bg-[#E50914] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#f6121d]"
-              >
-                Masuk Sekarang
-              </Link>
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="rounded-[4px] border border-white/25 px-5 py-2.5 text-sm font-semibold text-white/80 hover:border-white hover:text-white"
-              >
-                Batal
-              </button>
-            </div>
+      <div className="min-h-[75vh] bg-[#141414] px-4 pt-24 sm:pt-28 pb-16 text-white">
+        <div className="mx-auto max-w-lg rounded-md border border-white/10 bg-[#181818] p-8 sm:p-10 text-center shadow-2xl">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Masuk untuk Mengelola Profil</h1>
+          <p className="mt-3 text-sm text-white/65">Halaman ini hanya tersedia untuk akun yang sudah masuk.</p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link
+              href="/login?redirect=/profile/settings"
+              className="rounded-[4px] bg-[#E50914] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#f6121d]"
+            >
+              Masuk Sekarang
+            </Link>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="rounded-[4px] border border-white/25 px-5 py-2.5 text-sm font-semibold text-white/80 hover:border-white hover:text-white"
+            >
+              Batal
+            </button>
           </div>
-        </main>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#141414] text-white">
-      <SettingsTopBar />
-      <main className="mx-auto w-full max-w-4xl px-4 sm:px-6 pt-10 sm:pt-12 pb-16 space-y-10">
+      <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 pt-24 sm:pt-28 pb-16 space-y-10">
+        <ProfileSubNav />
         {/* Netflix Edit Profile Header */}
         <div className="border-b border-[#2b2b2b] pb-5">
           <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">Edit Profil</h1>
@@ -305,8 +312,13 @@ export default function ProfileSettingsPage() {
         >
           <div className="flex flex-col items-center sm:items-start gap-3">
             <div className="relative h-32 w-32 sm:h-36 sm:w-36 overflow-hidden rounded-[6px] bg-gradient-to-br from-[#E50914] to-[#7f1d1d] ring-1 ring-white/20 shadow-lg">
-              {previewPhoto && previewPhoto !== PLACEHOLDER_AVATAR ? (
-                <img src={previewPhoto} alt="Foto profil" className="h-full w-full object-cover" />
+              {previewPhoto && previewPhoto !== PLACEHOLDER_AVATAR && !photoError ? (
+                <img
+                  src={previewPhoto}
+                  alt="Foto profil"
+                  onError={() => setPhotoError(true)}
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-5xl font-black text-white">
                   {avatarInitial}
@@ -328,10 +340,11 @@ export default function ProfileSettingsPage() {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-white/60">
+              <label htmlFor="profile-display-name" className="block text-xs font-semibold uppercase tracking-wider text-white/60">
                 Nama Profil
               </label>
               <input
+                id="profile-display-name"
                 name="displayName"
                 value={form.displayName}
                 onChange={handleInputChange}
@@ -340,10 +353,11 @@ export default function ProfileSettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-white/60">
+              <label htmlFor="profile-tagline" className="block text-xs font-semibold uppercase tracking-wider text-white/60">
                 Bio / Tagline
               </label>
               <textarea
+                id="profile-tagline"
                 name="tagline"
                 value={form.tagline}
                 onChange={handleInputChange}
@@ -353,10 +367,11 @@ export default function ProfileSettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-white/60">
+              <label htmlFor="profile-photo-url" className="block text-xs font-semibold uppercase tracking-wider text-white/60">
                 URL Foto Profil
               </label>
               <input
+                id="profile-photo-url"
                 value={photoUrlInput}
                 onChange={(event) => setPhotoUrlInput(event.target.value)}
                 placeholder="https://"
@@ -407,6 +422,7 @@ export default function ProfileSettingsPage() {
                 type="button"
                 onClick={() => handleToggle("autoplay")}
                 aria-pressed={form.autoplay}
+                aria-label="Putar otomatis episode berikutnya"
                 className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
                   form.autoplay ? "border-[#E50914] bg-[#E50914]" : "border-white/25 bg-[#333333]"
                 }`}
@@ -428,6 +444,7 @@ export default function ProfileSettingsPage() {
                 type="button"
                 onClick={() => handleToggle("dataSaver")}
                 aria-pressed={form.dataSaver}
+                aria-label="Mode hemat data"
                 className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
                   form.dataSaver ? "border-[#E50914] bg-[#E50914]" : "border-white/25 bg-[#333333]"
                 }`}
@@ -490,6 +507,11 @@ export default function ProfileSettingsPage() {
             >
               {securityLoading ? "Mengirim..." : "Kirim Email Reset Kata Sandi"}
             </button>
+            {securityStatus.message && (
+              <p className={`mt-3 text-xs font-medium ${securityStatus.type === "error" ? "text-rose-300" : "text-emerald-300"}`}>
+                {securityStatus.message}
+              </p>
+            )}
           </div>
 
           <div className="rounded-[4px] border border-[#E50914]/40 bg-[#181818] p-5">
@@ -505,9 +527,14 @@ export default function ProfileSettingsPage() {
             >
               {dangerLoading ? "Menghapus..." : "Hapus Riwayat Tontonan"}
             </button>
+            {dangerStatus.message && (
+              <p className={`mt-3 text-xs font-medium ${dangerStatus.type === "error" ? "text-rose-300" : "text-emerald-300"}`}>
+                {dangerStatus.message}
+              </p>
+            )}
           </div>
         </section>
-      </main>
+      </div>
     </div>
   );
 }
