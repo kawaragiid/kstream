@@ -3,11 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
 import { useAuth } from "../../../../hooks/useAuth";
 import { resetPassword, updateProfile } from "../../../../lib/auth";
-import { updateUserProfileDoc } from "../../../../lib/firestore";
-import { getDb } from "../../../../lib/firebase";
+import { readUserDoc, updateUserProfileDoc } from "../../../../lib/firestore";
 
 const PLACEHOLDER_AVATAR =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="160" height="160" fill="%23111827"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23FFFFFF" font-size="24" font-family="Arial, sans-serif">Avatar</text></svg>';
@@ -75,11 +73,9 @@ export default function ProfileSettingsPage() {
     if (!user) return;
     let active = true;
     setLoadingPreferences(true);
-    const db = getDb();
-    getDoc(doc(db, "users", user.uid))
-      .then((snapshot) => {
+    readUserDoc(user.uid)
+      .then(({ data = {} }) => {
         if (!active) return;
-        const data = snapshot.data() || {};
         const preferences = data.preferences || {};
         setForm((prev) => ({
           ...prev,
