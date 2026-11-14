@@ -145,15 +145,19 @@ function EpisodeListSection({ episodes = [], onPlay, resumeEpisodeId }) {
         {visibleEpisodes.map((episode, index) => {
           const epNumber = episode.number ?? episode.order ?? index + 1;
           const isResume = resumeEpisodeId === episode.id;
+          const isAvailable = Boolean(episode.playbackId || episode.streamUrl);
 
           return (
             <button
               key={episode.id}
               type="button"
-              onClick={() => onPlay(episode)}
-              className={`group flex w-full items-center gap-3 sm:gap-5 rounded-md px-2 sm:px-4 py-4 text-left transition hover:bg-white/[0.08] active:bg-white/[0.12] ${
-                isResume ? "bg-white/[0.04]" : ""
-              }`}
+              disabled={!isAvailable}
+              onClick={() => isAvailable && onPlay(episode)}
+              className={`group flex w-full items-center gap-3 sm:gap-5 rounded-md px-2 sm:px-4 py-4 text-left transition ${
+                isAvailable
+                  ? "hover:bg-white/[0.08] active:bg-white/[0.12]"
+                  : "cursor-not-allowed opacity-65"
+              } ${isResume ? "bg-white/[0.04]" : ""}`}
             >
               <span className="w-6 sm:w-8 flex-shrink-0 text-center text-base sm:text-xl font-medium text-white/60">
                 {epNumber}
@@ -169,18 +173,27 @@ function EpisodeListSection({ episodes = [], onPlay, resumeEpisodeId }) {
                     sizes="(max-width: 640px) 112px, 144px"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-white/5 text-[10px] uppercase tracking-widest text-white/40">
-                    Ep {epNumber}
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-white/5 px-1 text-center">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-white/50">
+                      Ep {epNumber}
+                    </span>
+                    {!isAvailable && (
+                      <span className="text-[9px] font-medium text-amber-300/90">
+                        Belum Tersedia
+                      </span>
+                    )}
                   </div>
                 )}
 
-                <div className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-black/60 text-white">
-                    <svg className="ml-0.5 h-4 w-4 fill-current" viewBox="0 0 24 24">
-                      <polygon points="5 3 19 12 5 21 5 3" />
-                    </svg>
-                  </span>
-                </div>
+                {isAvailable && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-black/60 text-white">
+                      <svg className="ml-0.5 h-4 w-4 fill-current" viewBox="0 0 24 24">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                      </svg>
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="min-w-0 flex-1 space-y-1.5">
@@ -189,7 +202,12 @@ function EpisodeListSection({ episodes = [], onPlay, resumeEpisodeId }) {
                     <span className="truncate text-sm sm:text-[15px] font-semibold text-white">
                       {episode.title || `Episode ${epNumber}`}
                     </span>
-                    {isResume && (
+                    {!isAvailable && (
+                      <span className="flex-shrink-0 rounded-[3px] border border-amber-400/30 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-300">
+                        Belum Tersedia
+                      </span>
+                    )}
+                    {isResume && isAvailable && (
                       <span className="flex-shrink-0 rounded-[3px] bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
                         Lanjutkan
                       </span>
@@ -415,7 +433,7 @@ export default function MediaOverlayRoot() {
 
   const firstEpisode = useMemo(() => {
     if (detail?.type !== "series") return null;
-    return detail.episodes?.[0] || null;
+    return detail.episodes?.find((ep) => ep.playbackId || ep.streamUrl) || detail.episodes?.[0] || null;
   }, [detail]);
 
   const navigateToPlayer = useCallback(
