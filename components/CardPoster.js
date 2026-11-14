@@ -276,15 +276,15 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
               : "left-1/2 -translate-x-1/2 origin-center"
           }`}
         >
-          <div className="w-[320px] overflow-hidden rounded-md bg-[#181818] text-white shadow-[0_14px_40px_rgba(0,0,0,0.9)] ring-1 ring-white/15 animate-in fade-in zoom-in-95 duration-150">
+          <div className="w-[380px] lg:w-[420px] overflow-hidden rounded-md bg-[#181818] text-white shadow-[0_18px_48px_rgba(0,0,0,0.92)] ring-1 ring-white/20 animate-in fade-in zoom-in-95 duration-150">
             {/* 16:9 Live Video Preview */}
-            <div className="relative aspect-video w-full bg-black overflow-hidden">
+            <div className="relative aspect-video w-full bg-black overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
               <Image
                 src={safePoster}
                 alt={`${title} poster`}
                 fill
                 className={`object-cover transition-opacity duration-300 ${videoReady ? "opacity-0" : "opacity-100"}`}
-                sizes="320px"
+                sizes="420px"
               />
               {!hasVideoStream && previewGif && (
                 // eslint-disable-next-line @next/next/no-img-element

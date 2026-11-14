@@ -36,8 +36,11 @@ function extractParam(searchParams, key) {
 
 function PlayerChrome({ children }) {
   return (
-    <div className="relative flex min-h-[100svh] flex-col items-center justify-start md:justify-center bg-black text-white" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="w-full max-w-[120rem] px-0 sm:px-4">{children}</div>
+    <div
+      className="relative flex h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-black text-white"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      <div className="flex h-full w-full items-center justify-center">{children}</div>
     </div>
   );
 }

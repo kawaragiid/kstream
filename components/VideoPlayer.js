@@ -1400,10 +1400,12 @@ export default function VideoPlayer({
         }
       }}
       style={{
-        aspectRatio: isFullscreen ? "auto" : "16 / 9",
+        aspectRatio: isFullscreen ? "auto" : isMobileViewport ? "16 / 9" : undefined,
         position: isFullscreen ? "fixed" : "relative",
         inset: isFullscreen ? 0 : "unset",
-        height: isFullscreen ? "100vh" : "auto",
+        width: "100%",
+        height: isFullscreen ? "100vh" : isMobileViewport ? "auto" : "100dvh",
+        maxHeight: "100dvh",
         zIndex: isFullscreen ? 50 : "auto",
       }}
     >
