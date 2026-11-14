@@ -228,7 +228,7 @@ export default async function PlayerPage(props) {
             video={trackerVideo}
             backHref={seriesHref}
             playbackId={currentEpisode.playbackId || ""}
-            src={currentEpisode.playbackId ? "" : currentEpisode.streamUrl || ""}
+            src={currentEpisode.streamUrl || ""}
             poster={currentEpisode.thumbnail || video.backdropUrl || video.posterUrl}
             title={fullTitle}
             subtitles={trackerVideo.subtitles}
@@ -277,7 +277,7 @@ export default async function PlayerPage(props) {
           video={trackerMovie}
           backHref={trackerMovie.href}
           playbackId={video.playbackId || ""}
-          src={video.playbackId ? "" : video.streamUrl || ""}
+          src={video.streamUrl || ""}
           poster={video.backdropUrl || video.posterUrl}
           title={video.title}
           subtitles={video.subtitles}
