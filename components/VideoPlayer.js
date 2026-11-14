@@ -15,64 +15,76 @@ const formatTime = (seconds = 0) => {
 
 const icons = {
   play: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M8 5v14l11-7z" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 sm:h-7 sm:w-7">
+      <path d="M7 4.5v15l12.5-7.5L7 4.5z" />
     </svg>
   ),
   pause: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 sm:h-7 sm:w-7">
+      <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
     </svg>
   ),
   back10: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 5v2.79L9.5 5.5 8 7l5 5 5-5-1.5-1.5L12 7.79V5z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 sm:h-7 sm:w-7">
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5" />
+      <text x="12" y="15.2" textAnchor="middle" fill="currentColor" stroke="none" fontSize="7.5" fontWeight="700" fontFamily="sans-serif">
+        10
+      </text>
     </svg>
   ),
   forward10: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 19v-2.79l2.5 2.29L16 17l-5-5-5 5 1.5 1.5L12 16.21V19z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 sm:h-7 sm:w-7">
+      <path d="M21 12a9 9 0 1 1-3-6.7L21 8" />
+      <path d="M21 3v5h-5" />
+      <text x="12" y="15.2" textAnchor="middle" fill="currentColor" stroke="none" fontSize="7.5" fontWeight="700" fontFamily="sans-serif">
+        10
+      </text>
     </svg>
   ),
   mute: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M16.5 12A4.5 4.5 0 0112 16.5V12H8v8h4a8 8 0 004.5-8z" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 sm:h-7 sm:w-7">
+      <path d="M11 5L6 9H2v6h4l5 4V5z" />
+      <path d="M22 9l-6 6M16 9l6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   ),
   sound: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M5 9v6h4l5 5V4L9 9H5z" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 sm:h-7 sm:w-7">
+      <path d="M11 5L6 9H2v6h4l5 4V5z" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   ),
   full: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M7 14H5v5h5v-2H7v-3zm12 3h-3v2h5v-5h-2v3zM7 7h3V5H5v5h2V7zm12 3V5h-5v2h3v3h2z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 sm:h-7 sm:w-7">
+      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
     </svg>
   ),
   exitFull: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 sm:h-7 sm:w-7">
+      <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
     </svg>
   ),
   subsOn: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 7H6v-2h5v2zm7 0h-5v-2h5v2zm-7 4H6v-2h5v2zm7 0h-5v-2h5v2z" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 sm:h-7 sm:w-7">
+      <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-9 8H5v-2h6v2zm8 0h-6v-2h6v2zm-8 4H5v-2h6v2zm8 0h-6v-2h6v2z" />
     </svg>
   ),
   subsOff: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 7H6v-2h5v2zm7 0h-5v-2h5v2zm-7 4H6v-2h5v2zm7 0h-5v-2h5v2z" />
-      <path d="M3 19l18-18" stroke="currentColor" strokeWidth="2" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 sm:h-7 sm:w-7">
+      <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-9 8H5v-2h6v2zm8 0h-6v-2h6v2zm-8 4H5v-2h6v2zm8 0h-6v-2h6v2z" opacity="0.55" />
+      <path d="M3 20L21 4" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
     </svg>
   ),
   episodes: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M4 6h2v2H4V6zm0 5h2v2H4v-2zm0 5h2v2H4v-2zm16-8V6H8.023v2H20zm0 5v-2H8.023v2H20zm0 5v-2H8.023v2H20z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6 sm:h-7 sm:w-7">
+      <rect x="4" y="6" width="16" height="14" rx="2" />
+      <path d="M7 2h10" />
+      <path d="M8 11h8M8 15h5" />
     </svg>
   ),
   next: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 sm:h-7 sm:w-7">
+      <path d="M5 5l10 7-10 7V5zM17 5h2.5v14H17V5z" />
     </svg>
   ),
 };
@@ -1273,11 +1285,15 @@ export default function VideoPlayer({
     large: 1.25,
     xlarge: 1.5,
   }[subtitleSize || autoSubtitleSize] || 1;
-  const overlayBackgroundClass = isFullscreen ? "bg-transparent" : "bg-gradient-to-b from-black/80 via-black/10 to-black/90";
+  const overlayBackgroundClass = isFullscreen
+    ? "bg-gradient-to-b from-black/75 via-transparent to-black/90"
+    : "bg-gradient-to-b from-black/80 via-transparent to-black/95";
   const showOverlay = controlsVisible;
-  const controlButtonClass = "inline-flex items-center justify-center rounded-full bg-white/10 text-white text-[10px] md:text-sm transition hover:bg-white/20 active:scale-95 h-10 w-10 min-h-[40px] min-w-[40px] md:h-auto md:w-auto md:min-h-[36px] md:px-3";
+  const controlButtonClass =
+    "inline-flex items-center justify-center rounded-full p-2 text-white/90 transition duration-150 hover:scale-110 hover:text-white active:scale-95 min-h-[40px] min-w-[40px] focus:outline-none focus:ring-2 focus:ring-white/40";
   const shouldShowBackdropGradient = !isFullscreen;
   const shouldRenderSubtitles = !isIOS && activeSubtitle !== "off" && subtitleLines.length > 0;
+  const remainingSeconds = Math.max(0, (duration || 0) - (currentTime || 0));
 
   const handleContainerTap = (event) => {
     if (isIOS || isEpisodePanelOpen) return;
@@ -1423,26 +1439,43 @@ export default function VideoPlayer({
 
       {!isPlaying && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <button type="button" onClick={togglePlay} className="pointer-events-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/90 text-black shadow-lg transition hover:bg-white">
-            {PLAY_LABEL}
+          <button
+            type="button"
+            onClick={togglePlay}
+            aria-label="Play"
+            className="pointer-events-auto flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full border border-white/25 bg-black/60 text-white shadow-2xl backdrop-blur-sm transition duration-200 hover:scale-110 hover:border-white/60 hover:bg-black/80 active:scale-95"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="ml-1 h-8 w-8 sm:h-10 sm:w-10">
+              <path d="M7 4.5v15l12.5-7.5L7 4.5z" />
+            </svg>
           </button>
         </div>
       )}
 
       {hasEpisodes && (
         <div
-          className={`pointer-events-auto absolute inset-y-0 right-0 w-full max-w-xs transform-gpu bg-black/85 backdrop-blur-md transition duration-300 ${
+          className={`pointer-events-auto absolute inset-y-0 right-0 z-30 flex w-full max-w-sm flex-col border-l border-white/10 bg-[#141414]/95 backdrop-blur-md transition duration-300 ${
             isEpisodePanelOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-full opacity-0"
           }`}
         >
-          <div className="flex items-center justify-between border-b border-white/10 p-4">
-            <span className="text-xs font-semibold uppercase tracking-widest text-white/70">Episode</span>
-            <button type="button" onClick={() => setEpisodePanelOpen(false)} className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-white/10">
-              Close
+          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <div>
+              <span className="text-sm font-bold tracking-wide text-white">Episodes</span>
+              {title && <p className="text-xs text-white/60 truncate max-w-[220px]">{title}</p>}
+            </div>
+            <button
+              type="button"
+              onClick={() => setEpisodePanelOpen(false)}
+              aria-label="Close episodes"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+                <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+              </svg>
             </button>
           </div>
-          <div className="max-h-full overflow-y-auto p-4">
-            <div className="space-y-3">
+          <div className="flex-1 overflow-y-auto p-3">
+            <div className="space-y-2">
               {episodeList.map((episode) => {
                 const isActive = episode.id === currentEpisode?.id;
                 return (
@@ -1450,14 +1483,34 @@ export default function VideoPlayer({
                     key={episode.id}
                     type="button"
                     onClick={() => handleEpisodeSelection(episode)}
-                    className={`w-full rounded-2xl border px-4 py-3 text-left transition ${isActive ? "border-brand bg-brand/20 text-white" : "border-white/10 bg-white/[0.08] text-white hover:border-white/30 hover:bg-white/[0.15]"}`}
+                    className={`group flex w-full items-start gap-3 rounded-md border-l-4 px-3 py-3 text-left transition ${
+                      isActive
+                        ? "border-[#E50914] bg-white/15 text-white"
+                        : "border-transparent bg-white/[0.04] text-white/90 hover:bg-white/10"
+                    }`}
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs font-semibold uppercase tracking-widest text-white/70">Episode {episode.number ?? ""}</span>
-                      {episode.duration ? <span className="text-[11px] font-medium text-white/50">{formatTime(episode.duration)}</span> : null}
+                    {episode.thumbnail ? (
+                      <div className="relative h-14 w-24 flex-shrink-0 overflow-hidden rounded bg-black/60">
+                        <img src={episode.thumbnail} alt={episode.title || ""} className="h-full w-full object-cover" />
+                        {isActive && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                            <span className="h-2.5 w-2.5 rounded-full bg-[#E50914]" />
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-xs font-bold ${isActive ? "text-[#E50914]" : "text-white/60"}`}>
+                          {episode.number ? `E${episode.number}` : "Episode"}
+                        </span>
+                        {episode.duration ? (
+                          <span className="text-[11px] font-medium tabular-nums text-white/50">{formatTime(episode.duration)}</span>
+                        ) : null}
+                      </div>
+                      <p className="mt-0.5 truncate text-sm font-semibold text-white">{episode.title}</p>
+                      {episode.overview && <p className="mt-1 text-xs leading-relaxed text-white/65 line-clamp-2">{episode.overview}</p>}
                     </div>
-                    <p className="mt-1 text-sm font-semibold text-white">{episode.title}</p>
-                    {episode.overview && <p className="mt-1 text-xs text-white/70 line-clamp-2">{episode.overview}</p>}
                   </button>
                 );
               })}
@@ -1478,62 +1531,129 @@ export default function VideoPlayer({
       ) : null}
 
       <div className={`pointer-events-none absolute inset-0 flex flex-col justify-between ${overlayBackgroundClass} transition-opacity duration-300 ${showOverlay ? "opacity-100" : "opacity-0"}`}>
-        <div className="flex items-start justify-between px-3 pt-3 sm:px-6 sm:pt-6 text-white drop-shadow">
-          <div className="flex min-w-0 items-center gap-3">
+        <div className="flex items-center justify-between px-4 pt-4 sm:px-8 sm:pt-6 text-white drop-shadow">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             {backHref ? (
               <button
                 type="button"
                 onClick={handleBack}
-                className={`pointer-events-auto inline-flex h-11 w-11 min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white transition duration-200 hover:border-white/40 hover:bg-black/70 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-0 ${
+                className={`pointer-events-auto inline-flex h-11 w-11 min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-full text-white transition duration-150 hover:scale-110 hover:bg-white/15 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50 ${
                   isIOS || showOverlay ? "opacity-100" : "opacity-0"
                 }`}
                 aria-label="Kembali"
+                title="Kembali"
               >
-                <BackIcon className="h-4 w-4" />
+                <BackIcon className="h-6 w-6" />
               </button>
             ) : null}
-            <div className="min-w-0 space-y-0.5 sm:space-y-1">
-              <p className="text-[10px] uppercase tracking-[0.35em] sm:tracking-[0.45em] text-white/60">Now Playing</p>
-              <h3 className="truncate text-sm font-semibold sm:text-lg md:text-2xl">{title}</h3>
+            <div className="min-w-0">
+              <h3 className="truncate text-base font-bold tracking-tight sm:text-xl md:text-2xl">{title}</h3>
               {currentEpisode && (
-                <p className="truncate text-xs text-white/70 md:text-sm">
-                  Episode {currentEpisode.number}: {currentEpisode.title}
+                <p className="truncate text-xs font-medium text-white/75 sm:text-sm">
+                  {currentEpisode.number ? `E${currentEpisode.number}: ` : ""}
+                  {currentEpisode.title}
                 </p>
               )}
             </div>
           </div>
         </div>
 
-        <div ref={controlBarRef} className="pointer-events-auto flex flex-col gap-2 px-2 pb-4 text-[11px] sm:text-xs md:text-sm">
-          <input type="range" min={0} max={100} step={0.1} value={progress} onChange={handleProgressChange} className="w-full accent-brand" />
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-              <button type="button" onClick={togglePlay} className={controlButtonClass}>
-                {isMobileViewport ? icons[isPlaying ? "pause" : "play"] : isPlaying ? "Pause" : "Play"}
+        <div ref={controlBarRef} className="pointer-events-auto flex flex-col gap-2.5 px-4 pb-4 sm:px-8 sm:pb-6 text-xs md:text-sm">
+          {/* Netflix Red Scrubber Bar */}
+          <div className="flex items-center gap-3">
+            <span className="hidden sm:inline-block w-12 text-right tabular-nums text-xs font-medium text-white/80">
+              {formatTime(currentTime)}
+            </span>
+            <div className="group/scrubber relative flex h-5 flex-1 items-center">
+              <div className="relative h-1 w-full overflow-visible rounded-full bg-white/25 transition-all duration-150 group-hover/scrubber:h-1.5">
+                <div
+                  className="h-full rounded-full bg-[#E50914] transition-[width] duration-75"
+                  style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                />
+                <div
+                  className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 scale-0 rounded-full bg-[#E50914] shadow-[0_0_8px_rgba(229,9,20,0.85)] transition-transform duration-150 group-hover/scrubber:scale-100"
+                  style={{ left: `${Math.min(100, Math.max(0, progress))}%` }}
+                />
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={0.1}
+                value={progress}
+                onChange={handleProgressChange}
+                aria-label="Seek video"
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              />
+            </div>
+            <span className="tabular-nums text-xs font-medium text-white/85">
+              -{formatTime(remainingSeconds)}
+            </span>
+          </div>
+
+          {/* Netflix Control Row */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1 sm:gap-2.5">
+              <button
+                type="button"
+                onClick={togglePlay}
+                className={controlButtonClass}
+                aria-label={isPlaying ? "Pause" : "Play"}
+                title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+              >
+                {icons[isPlaying ? "pause" : "play"]}
               </button>
-              <button type="button" onClick={() => seekBy(-10)} className={controlButtonClass}>
-                {isMobileViewport ? icons.back10 : "-10s"}
+              <button
+                type="button"
+                onClick={() => seekBy(-10)}
+                className={controlButtonClass}
+                aria-label="Mundur 10 detik"
+                title="Mundur 10 detik"
+              >
+                {icons.back10}
               </button>
-              <button type="button" onClick={() => seekBy(10)} className={controlButtonClass}>
-                {isMobileViewport ? icons.forward10 : "+10s"}
+              <button
+                type="button"
+                onClick={() => seekBy(10)}
+                className={controlButtonClass}
+                aria-label="Maju 10 detik"
+                title="Maju 10 detik"
+              >
+                {icons.forward10}
               </button>
-              <button type="button" onClick={toggleMute} className={controlButtonClass}>
-                {isMobileViewport ? icons[isMuted || volume === 0 ? "mute" : "sound"] : isMuted || volume === 0 ? "Mute" : "Sound"}
+              <button
+                type="button"
+                onClick={toggleMute}
+                className={controlButtonClass}
+                aria-label={isMuted || volume === 0 ? "Unmute" : "Mute"}
+                title={isMuted || volume === 0 ? "Unmute (M)" : "Mute (M)"}
+              >
+                {icons[isMuted || volume === 0 ? "mute" : "sound"]}
               </button>
               <div className="hidden items-center gap-2 lg:flex">
-                <input type="range" min={0} max={1} step={0.05} value={volume} onChange={handleVolumeChange} className="w-24 accent-brand" />
-                <span className="tabular-nums text-[10px] text-white/70 md:text-sm">
-                  {formatTime(currentTime)} / {formatTime(duration)}
-                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={volume}
+                  onChange={handleVolumeChange}
+                  aria-label="Volume"
+                  className="h-1 w-24 cursor-pointer accent-[#E50914]"
+                />
               </div>
+              {currentEpisode && (
+                <span className="ml-2 hidden truncate max-w-[260px] text-xs font-medium text-white/75 xl:inline">
+                  {title} · {currentEpisode.number ? `E${currentEpisode.number}` : ""} {currentEpisode.title}
+                </span>
+              )}
             </div>
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-              <span className="tabular-nums text-xs text-white/70 lg:hidden">
-                {formatTime(currentTime)} / {formatTime(duration)}
-              </span>
+
+            <div className="flex items-center gap-1 sm:gap-2.5">
               {!isMobileViewport && (
                 <select
-                  className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white transition hover:border-white/40 hover:bg-white/20 focus:outline-none"
+                  aria-label="Ukuran subtitle"
+                  className="cursor-pointer rounded-sm border border-white/20 bg-[#181818]/90 px-2.5 py-1.5 text-xs font-medium text-white/90 transition hover:border-white/50 focus:outline-none"
                   value={subtitleSize}
                   onChange={(event) => {
                     setSubtitleSize(event.target.value);
@@ -1541,7 +1661,7 @@ export default function VideoPlayer({
                   }}
                 >
                   {subtitleSizeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
+                    <option key={option.value} value={option.value} className="bg-[#181818] text-white">
                       {option.label}
                     </option>
                   ))}
@@ -1561,22 +1681,25 @@ export default function VideoPlayer({
                       showControlsTemporarily();
                     }}
                     className={controlButtonClass}
+                    aria-label={activeSubtitle === "off" ? "Nyalakan subtitle" : "Matikan subtitle"}
+                    title={activeSubtitle === "off" ? "Subtitles: Off" : "Subtitles: On"}
                   >
-                    {isMobileViewport ? icons[activeSubtitle === "off" ? "subsOff" : "subsOn"] : activeSubtitle === "off" ? "Subs: Off" : "Subs: On"}
+                    {icons[activeSubtitle === "off" ? "subsOff" : "subsOn"]}
                   </button>
                   {!isMobileViewport && (
                     <select
-                      className="rounded-full border border-white/20 bg-white/10 px-2 py-1 text-[10px] md:text-xs text-white"
+                      aria-label="Pilih subtitle"
+                      className="cursor-pointer rounded-sm border border-white/20 bg-[#181818]/90 px-2.5 py-1.5 text-xs font-medium text-white/90 transition hover:border-white/50 focus:outline-none"
                       value={activeSubtitle}
                       onChange={(e) => {
                         setActiveSubtitle(e.target.value);
                         showControlsTemporarily();
                       }}
                     >
-                      <option value="off">Subtitles: Off</option>
+                      <option value="off" className="bg-[#181818] text-white">Subtitles: Off</option>
                       {subtitleTracks.map((track) => (
-                        <option key={`${track.lang}-${track.url}`} value={track.lang || track.label}>
-                          Subtitles: {track.label || track.lang}
+                        <option key={`${track.lang}-${track.url}`} value={track.lang || track.label} className="bg-[#181818] text-white">
+                          {track.label || track.lang}
                         </option>
                       ))}
                     </select>
@@ -1584,17 +1707,35 @@ export default function VideoPlayer({
                 </>
               )}
               {hasEpisodes && (
-                <button type="button" onClick={handleEpisodePanelToggle} className={controlButtonClass}>
-                  {isMobileViewport ? icons.episodes : "Episode"}
+                <button
+                  type="button"
+                  onClick={handleEpisodePanelToggle}
+                  className={controlButtonClass}
+                  aria-label="Daftar episode"
+                  title="Episodes"
+                >
+                  {icons.episodes}
                 </button>
               )}
               {nextEpisode && (
-                <button type="button" onClick={handleNextEpisode} className={controlButtonClass}>
-                  {isMobileViewport ? icons.next : "Next"}
+                <button
+                  type="button"
+                  onClick={handleNextEpisode}
+                  className={controlButtonClass}
+                  aria-label="Episode berikutnya"
+                  title="Next Episode"
+                >
+                  {icons.next}
                 </button>
               )}
-              <button type="button" onClick={requestFullscreen} className={controlButtonClass}>
-                {isMobileViewport ? icons[isFullscreen ? "exitFull" : "full"] : isFullscreen ? "Exit" : "Full"}
+              <button
+                type="button"
+                onClick={requestFullscreen}
+                className={controlButtonClass}
+                aria-label={isFullscreen ? "Keluar layar penuh" : "Layar penuh"}
+                title={isFullscreen ? "Exit Fullscreen (F)" : "Fullscreen (F)"}
+              >
+                {icons[isFullscreen ? "exitFull" : "full"]}
               </button>
             </div>
           </div>
