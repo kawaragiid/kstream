@@ -1,26 +1,39 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { useMediaOverlay } from './MediaOverlayProvider';
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useMediaOverlay } from "./MediaOverlayProvider";
 
-const PLACEHOLDER_PORTRAIT = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450"><rect width="300" height="450" fill="%23111827"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23FFFFFF" font-size="28" font-family="Arial, sans-serif">Poster</text></svg>';
-const PLACEHOLDER_LANDSCAPE = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="%23111827"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23FFFFFF" font-size="28" font-family="Arial, sans-serif">Poster</text></svg>';
+const PLACEHOLDER_PORTRAIT =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450"><rect width="300" height="450" fill="%23141414"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23FFFFFF" font-size="24" font-family="Arial, sans-serif">Kstream</text></svg>';
+const PLACEHOLDER_LANDSCAPE =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="%23141414"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23FFFFFF" font-size="26" font-family="Arial, sans-serif">Kstream</text></svg>';
+
+function formatDuration(seconds) {
+  const total = Number(seconds || 0);
+  if (!total || Number.isNaN(total)) return "";
+  const mins = Math.round(total / 60);
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h}j ${m}m` : `${h}j`;
+}
 
 function getPreviewSources(item = {}) {
-  const trailer = item?.trailerUrl || '';
-  const previewAnimation = item?.previewAnimation || '';
-  const playbackId = item?.playbackId;
+  const trailer = item?.trailerUrl || "";
+  const previewAnimation = item?.previewAnimation || "";
+  const playbackId = item?.playbackId || item?.mux_playback_id || "";
   const lowerTrailer = trailer.toLowerCase();
-  const isGif = lowerTrailer.includes('.gif');
-  const isMp4 = lowerTrailer.includes('.mp4');
-  const isWebm = lowerTrailer.includes('.webm');
-  const fallbackGif = previewAnimation || (isGif ? trailer : '');
-  const previewVideo = trailer && (isMp4 || isWebm) ? trailer : '';
-  const poster = item?.posterUrl || item?.thumbnailUrl || PLACEHOLDER_LANDSCAPE;
+  const isGif = lowerTrailer.includes(".gif");
+  const isVideo = lowerTrailer.includes(".mp4") || lowerTrailer.includes(".webm");
+  const fallbackGif = previewAnimation || (isGif ? trailer : "");
+  const previewVideo = trailer && isVideo ? trailer : "";
+  const hlsUrl = !previewVideo && playbackId ? `https://stream.mux.com/${playbackId}.m3u8` : "";
+  const poster = item?.backdropUrl || item?.posterUrl || item?.thumbnailUrl || PLACEHOLDER_LANDSCAPE;
   return {
     previewVideo,
+    hlsUrl,
     previewGif: fallbackGif,
     poster,
     playbackId,
@@ -30,111 +43,181 @@ function getPreviewSources(item = {}) {
 export default function CardPoster({ item = {}, orientation: forcedOrientation }) {
   const router = useRouter();
   const { openMedia } = useMediaOverlay();
-  const typePath = item?.type === 'series' ? 'series' : 'movies';
-  const playbackType = item?.type === 'series' ? 'series' : 'movie';
-  const slugOrId = encodeURIComponent(item?.slug || item?.id || 'sample');
+  const typePath = item?.type === "series" ? "series" : "movies";
+  const playbackType = item?.type === "series" ? "series" : "movie";
+  const slugOrId = encodeURIComponent(item?.slug || item?.id || "sample");
   const detailHref = item?.href || `/${typePath}/${slugOrId}`;
   const watchHref = item?.watchHref || `/player?id=${slugOrId}&type=${playbackType}`;
-  const title = item?.title || 'Judul';
-  const orientation = forcedOrientation || item?.orientation || item?.posterOrientation || (playbackType === 'series' ? 'landscape' : 'portrait');
-  const isPortrait = orientation === 'portrait';
+  const title = item?.title || "Judul";
+  const orientation = forcedOrientation || "landscape";
+  const isPortrait = orientation === "portrait";
   const defaultPoster = isPortrait ? PLACEHOLDER_PORTRAIT : PLACEHOLDER_LANDSCAPE;
-  const [posterSrc, setPosterSrc] = useState(item?.posterUrl || item?.thumbnailUrl || defaultPoster);
-  const meta = item?.category || item?.genres?.[0] || item?.type;
-  const { previewVideo, previewGif, poster } = getPreviewSources(item);
+
+  const { previewVideo, hlsUrl, previewGif, poster } = getPreviewSources(item);
   const safePoster = poster || defaultPoster;
-  const progressValue = typeof item?.progress === 'number' ? Math.min(Math.max(item.progress, 0), 1) : null;
+  const [posterSrc, setPosterSrc] = useState(
+    isPortrait ? item?.posterUrl || safePoster : item?.backdropUrl || item?.posterUrl || safePoster
+  );
+  const progressValue = typeof item?.progress === "number" ? Math.min(Math.max(item.progress, 0), 1) : null;
 
   const [showPreview, setShowPreview] = useState(false);
-  const [previewAlign, setPreviewAlign] = useState('center');
+  const [previewAlign, setPreviewAlign] = useState("center");
+  const [muted, setMuted] = useState(true);
+  const [videoReady, setVideoReady] = useState(false);
+  const [videoFailed, setVideoFailed] = useState(false);
+
   const previewTimer = useRef(null);
   const cardRef = useRef(null);
+  const videoRef = useRef(null);
+  const hlsRef = useRef(null);
 
   useEffect(() => {
-    setPosterSrc(item?.posterUrl || item?.thumbnailUrl || defaultPoster);
-  }, [item?.posterUrl, item?.thumbnailUrl, defaultPoster]);
+    setPosterSrc(isPortrait ? item?.posterUrl || safePoster : item?.backdropUrl || item?.posterUrl || safePoster);
+  }, [item?.posterUrl, item?.backdropUrl, safePoster, isPortrait]);
 
   useEffect(() => {
     return () => {
-      if (previewTimer.current) {
-        clearTimeout(previewTimer.current);
+      if (previewTimer.current) clearTimeout(previewTimer.current);
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
       }
     };
   }, []);
 
-  const handleMouseEnter = (event) => {
-    if (typeof window === 'undefined') return;
-    if (!window.matchMedia('(hover: hover)').matches) return;
-    if (event?.nativeEvent?.pointerType === 'touch') return;
-    if (previewTimer.current) clearTimeout(previewTimer.current);
-    if (cardRef.current && typeof window !== 'undefined') {
-      const rect = cardRef.current.getBoundingClientRect();
-      const popoverHalfWidth = 208; // 26rem / 2
-      const centerX = rect.left + rect.width / 2;
-      if (centerX - popoverHalfWidth < 16) {
-        setPreviewAlign('left');
-      } else if (centerX + popoverHalfWidth > window.innerWidth - 16) {
-        setPreviewAlign('right');
+  // Attach HLS or MP4 trailer playback when hovered
+  useEffect(() => {
+    if (!showPreview) {
+      setVideoReady(false);
+      setVideoFailed(false);
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      return;
+    }
+
+    const videoEl = videoRef.current;
+    if (!videoEl) return;
+
+    let cancelled = false;
+
+    const startPlayback = () => {
+      if (cancelled || !videoEl) return;
+      try {
+        // Start slightly into the video for a more dynamic preview if no dedicated trailer
+        if (!previewVideo && videoEl.duration && videoEl.duration > 25 && videoEl.currentTime < 5) {
+          videoEl.currentTime = 12;
+        }
+        const playPromise = videoEl.play();
+        if (playPromise && typeof playPromise.catch === "function") {
+          playPromise.catch(() => {});
+        }
+      } catch {
+        // Ignore autoplay interruption
+      }
+    };
+
+    if (previewVideo) {
+      videoEl.src = previewVideo;
+      videoEl.addEventListener("loadeddata", startPlayback, { once: true });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (hlsUrl) {
+      if (videoEl.canPlayType("application/vnd.apple.mpegurl")) {
+        videoEl.src = hlsUrl;
+        videoEl.addEventListener("loadedmetadata", startPlayback, { once: true });
       } else {
-        setPreviewAlign('center');
+        import("hls.js")
+          .then(({ default: Hls }) => {
+            if (cancelled || !videoRef.current) return;
+            if (!Hls.isSupported()) {
+              setVideoFailed(true);
+              return;
+            }
+            const hls = new Hls({
+              maxBufferLength: 8,
+              maxMaxBufferLength: 12,
+              startLevel: 0,
+            });
+            hlsRef.current = hls;
+            hls.loadSource(hlsUrl);
+            hls.attachMedia(videoRef.current);
+            hls.on(Hls.Events.MANIFEST_PARSED, startPlayback);
+            hls.on(Hls.Events.ERROR, (_evt, data) => {
+              if (data?.fatal) {
+                setVideoFailed(true);
+              }
+            });
+          })
+          .catch(() => setVideoFailed(true));
       }
     }
-    previewTimer.current = window.setTimeout(() => setShowPreview(true), 200);
+
+    return () => {
+      cancelled = true;
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [showPreview, previewVideo, hlsUrl]);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = muted;
+    }
+  }, [muted]);
+
+  const handleMouseEnter = (event) => {
+    if (typeof window === "undefined") return;
+    if (!window.matchMedia("(hover: hover)").matches) return;
+    if (event?.nativeEvent?.pointerType === "touch") return;
+    if (previewTimer.current) clearTimeout(previewTimer.current);
+
+    if (cardRef.current) {
+      const rect = cardRef.current.getBoundingClientRect();
+      const popoverHalfWidth = 165; // w-80 (320px) / 2 + margin
+      const centerX = rect.left + rect.width / 2;
+      if (centerX - popoverHalfWidth < 20) {
+        setPreviewAlign("left");
+      } else if (centerX + popoverHalfWidth > window.innerWidth - 20) {
+        setPreviewAlign("right");
+      } else {
+        setPreviewAlign("center");
+      }
+    }
+    previewTimer.current = window.setTimeout(() => setShowPreview(true), 240);
   };
 
   const handleMouseLeave = () => {
     if (previewTimer.current) clearTimeout(previewTimer.current);
     setShowPreview(false);
+    setMuted(true);
   };
 
-  const previewMedia = () => {
-    if (previewVideo) {
-      const lower = previewVideo.toLowerCase();
-      const isMp4 = lower.includes('.mp4');
-      const isWebm = lower.includes('.webm');
-      return (
-        <video
-          className="aspect-video w-full rounded-t-3xl object-cover"
-          src={previewVideo}
-          autoPlay
-          loop
-          muted
-          playsInline
-          poster={safePoster}
-        >
-          {!isMp4 && !isWebm ? null : 'Browser Anda tidak mendukung video.'}
-        </video>
-      );
-    }
-    if (previewGif) {
-      return (
-        <img
-          src={previewGif}
-          alt={`${title} preview`}
-          className="aspect-video w-full rounded-t-3xl object-cover"
-          onError={(event) => {
-            event.currentTarget.src = safePoster;
-          }}
-        />
-      );
-    }
-    return (
-      <Image
-        src={safePoster}
-        alt={`${title} poster`}
-        width={320}
-        height={180}
-        className="aspect-video w-full rounded-t-3xl object-cover"
-      />
-    );
-  };
+  const genres = Array.isArray(item?.genres) && item.genres.length
+    ? item.genres.slice(0, 3)
+    : item?.category
+    ? [item.category]
+    : [];
+
+  const durationText =
+    playbackType === "series" && Array.isArray(item?.episodes) && item.episodes.length > 0
+      ? `${item.episodes.length} Episode`
+      : formatDuration(item?.duration);
+
+  const hasVideoStream = Boolean((previewVideo || hlsUrl) && !videoFailed);
 
   return (
     <div
       ref={cardRef}
       data-card="true"
       data-href={detailHref}
-      className="relative cursor-pointer select-none active:scale-95 transition-transform duration-150"
+      className={`relative cursor-pointer select-none ${showPreview ? "z-40" : "z-10"}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onFocus={handleMouseEnter}
@@ -142,78 +225,199 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
       role="button"
       tabIndex={0}
       aria-label={`Tonton ${title}`}
-      onClick={() => openMedia(item, { origin: 'card' })}
+      onClick={() => openMedia(item, { origin: "card" })}
       onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
+        if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          openMedia(item, { origin: 'card' });
+          openMedia(item, { origin: "card" });
         }
       }}
     >
-      <div className="group block">
+      {/* Base Card */}
+      <div className="group relative block">
         <div
-          className={`relative ${isPortrait ? 'aspect-[2/3]' : 'aspect-video'} overflow-hidden rounded-xl bg-surface-100 shadow-poster transition-transform duration-300 group-hover:-translate-y-1`}
+          className={`relative ${
+            isPortrait ? "aspect-[2/3]" : "aspect-video"
+          } overflow-hidden rounded-[4px] bg-[#181818] shadow-[0_4px_14px_rgba(0,0,0,0.45)] transition-transform duration-200 active:scale-95`}
         >
           <Image
             src={posterSrc}
             alt={title}
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-105"
-            sizes="(max-width: 640px) 36vw, (max-width: 768px) 28vw, (max-width: 1024px) 20vw, 15vw"
+            sizes="(max-width: 640px) 62vw, (max-width: 768px) 40vw, (max-width: 1024px) 27vw, 19vw"
             onError={() => setPosterSrc(defaultPoster)}
           />
+          {/* Subtle Netflix K Badge */}
+          <span className="absolute left-2 top-2 inline-flex h-4 w-4 items-center justify-center rounded-[2px] bg-[#E50914] text-[10px] font-black text-white shadow">
+            K
+          </span>
+          {/* Bottom title gradient on base card */}
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent px-2.5 pb-2 pt-6">
+            <p className="line-clamp-1 text-xs sm:text-[13px] font-semibold text-white drop-shadow">{title}</p>
+          </div>
           {progressValue !== null && (
-            <div className="absolute inset-x-0 bottom-0 h-1.5 bg-white/10">
-              <div className="h-full bg-brand" style={{ width: `${progressValue * 100}%` }} />
+            <div className="absolute inset-x-0 bottom-0 h-1 bg-white/25">
+              <div className="h-full bg-[#E50914]" style={{ width: `${progressValue * 100}%` }} />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-black/10 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <div className="absolute inset-x-0 bottom-0 p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-            <p className="line-clamp-1 text-sm font-semibold text-white">{title}</p>
-            {meta && <p className="text-xs text-white/60">{meta}</p>}
-          </div>
         </div>
-        <p className="mt-2 line-clamp-1 text-sm font-medium text-text-secondary group-hover:text-text-primary">
-          {title}
-        </p>
       </div>
+
+      {/* Netflix Expanded Hover Mini-Card with Instant Trailer Playback */}
       {showPreview && (
         <div
           data-popover="true"
-          className={`absolute top-2 z-40 hidden md:block ${
-            previewAlign === 'left'
-              ? 'left-0'
-              : previewAlign === 'right'
-              ? 'right-0'
-              : 'left-1/2 -translate-x-1/2'
+          className={`absolute top-1/2 -translate-y-1/2 z-50 hidden md:block ${
+            previewAlign === "left"
+              ? "left-0 origin-left"
+              : previewAlign === "right"
+              ? "right-0 origin-right"
+              : "left-1/2 -translate-x-1/2 origin-center"
           }`}
         >
-          <div className="w-[26rem] overflow-hidden rounded-3xl border border-white/10 bg-surface-100/95 shadow-2xl backdrop-blur-xl transition-all duration-200 ease-out">
-            {previewMedia()}
-            <div className="space-y-3 p-5">
-              <div className="flex items-center gap-3">
+          <div className="w-[320px] overflow-hidden rounded-md bg-[#181818] text-white shadow-[0_14px_40px_rgba(0,0,0,0.9)] ring-1 ring-white/15 animate-in fade-in zoom-in-95 duration-150">
+            {/* 16:9 Live Video Preview */}
+            <div className="relative aspect-video w-full bg-black overflow-hidden">
+              <Image
+                src={safePoster}
+                alt={`${title} poster`}
+                fill
+                className={`object-cover transition-opacity duration-300 ${videoReady ? "opacity-0" : "opacity-100"}`}
+                sizes="320px"
+              />
+              {!hasVideoStream && previewGif && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previewGif}
+                  alt={`${title} preview`}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              )}
+              {hasVideoStream && (
+                <video
+                  ref={videoRef}
+                  className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+                    videoReady ? "opacity-100" : "opacity-0"
+                  }`}
+                  autoPlay
+                  loop
+                  muted={muted}
+                  playsInline
+                  onPlaying={() => setVideoReady(true)}
+                  onCanPlay={() => setVideoReady(true)}
+                  onError={() => setVideoFailed(true)}
+                />
+              )}
+
+              {/* Bottom vignette + Title overlay */}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#181818] via-transparent to-black/20" />
+              <p className="pointer-events-none absolute bottom-2 left-3 right-12 line-clamp-1 text-sm font-bold text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]">
+                {title}
+              </p>
+
+              {/* Netflix Mute / Unmute Button */}
+              {hasVideoStream && (
                 <button
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
-                    router.push(watchHref);
+                    setMuted((prev) => !prev);
                   }}
-                  className="inline-flex items-center justify-center rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black shadow-sm transition hover:bg-white/80"
+                  className="absolute bottom-2 right-2.5 flex h-7 w-7 items-center justify-center rounded-full border border-white/50 bg-black/55 text-white/90 transition hover:border-white hover:bg-black/80"
+                  aria-label={muted ? "Nyalakan suara trailer" : "Matikan suara trailer"}
                 >
-                  Play
+                  {muted ? (
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5L6 9H2v6h4l5 4V5z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M23 9l-6 6M17 9l6 6" />
+                    </svg>
+                  ) : (
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5L6 9H2v6h4l5 4V5z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" />
+                    </svg>
+                  )}
                 </button>
+              )}
+            </div>
+
+            {/* Netflix Action Buttons & Metadata */}
+            <div className="space-y-2.5 px-3.5 pb-3.5 pt-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  {/* Play Circle */}
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      router.push(watchHref);
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black transition hover:bg-white/85 active:scale-95"
+                    aria-label={`Putar ${title}`}
+                  >
+                    <svg className="h-4 w-4 translate-x-[1px]" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </button>
+                  {/* Detail / Info Circle */}
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      router.push(detailHref);
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-white/45 bg-white/5 text-white transition hover:border-white hover:bg-white/15 active:scale-95"
+                    aria-label={`Buka halaman ${title}`}
+                    title="Halaman Detail"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Expand Overlay Info */}
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center rounded-full border border-white/20 px-3 py-1.5 text-xs font-semibold text-white transition hover:border-white/40 hover:bg-white/10"
                   onClick={(event) => {
                     event.stopPropagation();
-                    openMedia(item, { origin: 'card' });
+                    openMedia(item, { origin: "card" });
                   }}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-white/45 bg-white/5 text-white transition hover:border-white hover:bg-white/15 active:scale-95"
+                  aria-label={`Info lengkap ${title}`}
+                  title="Info Lengkap"
                 >
-                  Info
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+                  </svg>
                 </button>
               </div>
-              <p className="line-clamp-3 text-xs leading-relaxed text-text-muted">{item?.overview || item?.synopsis}</p>
+
+              {/* Match / Year / Maturity / Duration */}
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                <span className="text-[#46d369]">Gratis</span>
+                {item?.releaseYear && <span className="text-white/80">{item.releaseYear}</span>}
+                <span className="rounded-[2px] border border-white/40 px-1 py-[1px] text-[10px] leading-none text-white/80">
+                  {item?.maturityRating || "13+"}
+                </span>
+                {durationText && <span className="text-white/75">{durationText}</span>}
+                <span className="rounded-[2px] border border-white/35 px-1 py-[1px] text-[9px] leading-none text-white/70">
+                  HD
+                </span>
+              </div>
+
+              {/* Dot-separated Genres */}
+              {genres.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-white/85">
+                  {genres.map((g, idx) => (
+                    <span key={g} className="inline-flex items-center gap-1.5">
+                      {idx > 0 && <span className="h-1 w-1 rounded-full bg-white/40" />}
+                      <span>{g}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

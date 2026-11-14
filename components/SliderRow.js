@@ -60,7 +60,7 @@ export default function SliderRow({
   }
 
   return (
-    <section className="space-y-3">
+    <section className="relative z-10 space-y-3 hover:z-30 focus-within:z-30">
       <div className="flex items-center justify-between gap-4">
         {title && <h2 className="text-xl font-semibold text-text-primary">{title}</h2>}
         {actionHref && hasItems && (
@@ -76,13 +76,13 @@ export default function SliderRow({
         {arrowButtons}
         <div
           ref={scrollRef}
-          className="-mx-4 -my-4 flex gap-4 overflow-x-auto no-scrollbar scroll-smooth px-4 py-8 snap-x snap-mandatory scroll-pl-4 [-webkit-overflow-scrolling:touch]"
+          className="-mx-4 -my-20 flex gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar scroll-smooth px-4 py-20 snap-x snap-mandatory scroll-pl-4 [-webkit-overflow-scrolling:touch]"
         >
           {hasItems
             ? items.map((item) => (
                 <div
                   key={`${item.type || "item"}-${item.id}`}
-                  className="w-[36vw] shrink-0 snap-start sm:w-[28vw] md:w-[20vw] lg:w-[16vw] xl:w-[14vw]"
+                  className="w-[62vw] shrink-0 snap-start sm:w-[40vw] md:w-[27vw] lg:w-[21vw] xl:w-[18.5vw]"
                 >
                   <CardPoster item={item} orientation={orientation} />
                 </div>
@@ -90,7 +90,7 @@ export default function SliderRow({
             : [...Array(6)].map((_, i) => (
                 <div
                   key={i}
-                  className={`w-[36vw] shrink-0 snap-start sm:w-[28vw] md:w-[20vw] lg:w-[16vw] xl:w-[14vw] ${skeletonOrientationClass} animate-pulse rounded-xl bg-surface-200`}
+                  className={`w-[62vw] shrink-0 snap-start sm:w-[40vw] md:w-[27vw] lg:w-[21vw] xl:w-[18.5vw] ${skeletonOrientationClass} animate-pulse rounded-[4px] bg-surface-200`}
                 />
               ))}
         </div>
