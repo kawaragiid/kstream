@@ -361,16 +361,18 @@ export default function VideoPlayer({
     return () => window.removeEventListener("resize", syncWidth);
   }, []);
 
-  // Deteksi Safari iOS
+  // Deteksi iOS / iPadOS (Safari, Chrome iOS, Firefox iOS — semua memakai WebKit)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const ua = window.navigator.userAgent;
-    const isIOSDevice = /iPad|iPhone|iPod/.test(ua);
-    const isWebkit = /WebKit/.test(ua) && !/CriOS|FxiOS/.test(ua);
+    const ua = window.navigator.userAgent || "";
+    const isIOSDevice =
+      /iPad|iPhone|iPod/.test(ua) ||
+      (window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1);
+    const isWebkit = /WebKit/.test(ua);
     setIsIOS(isIOSDevice && isWebkit);
   }, []);
 
-  // Deteksi orientasi & auto fullscreen di landscape
+  // Deteksi orientasi & auto fullscreen di landscape (Android Chrome / non-iOS)
   useEffect(() => {
     if (isIOS) return;
     let orientationTimer = null;
@@ -389,7 +391,7 @@ export default function VideoPlayer({
             window.innerWidth > window.innerHeight;
         const isMobileViewportNow =
           Math.min(window.innerWidth, window.innerHeight) <= MOBILE_SCREEN_WIDTH;
-        if (isLandscape && isMobileViewportNow) {
+        if (isLandscape && isMobileViewportNow && !video.paused) {
           (containerRef.current || video).requestFullscreen?.().catch(() => {});
         } else if (!isLandscape && document.fullscreenElement) {
           document.exitFullscreen?.().catch(() => {});
@@ -397,43 +399,37 @@ export default function VideoPlayer({
       }, 150);
     };
     window.addEventListener("orientationchange", handleOrientation);
+    window.screen?.orientation?.addEventListener?.("change", handleOrientation);
     return () => {
       if (orientationTimer) {
         window.clearTimeout(orientationTimer);
       }
       window.removeEventListener("orientationchange", handleOrientation);
+      window.screen?.orientation?.removeEventListener?.("change", handleOrientation);
     };
   }, [isIOS]);
 
-  // Handler untuk masuk ke mode landscape fullscreen di mobile
+  // Handler untuk masuk ke mode landscape fullscreen di mobile (dipicu interaksi pengguna)
   const enterMobileFullscreen = useCallback(async () => {
     const video = videoRef.current;
     const container = containerRef.current || video;
-    if (!video) return;
+    if (!video || isIOS) return;
 
     try {
-      if (isIOS && video.webkitEnterFullscreen) {
-        await video.webkitEnterFullscreen();
-        return;
-      }
       if (window.innerWidth <= MOBILE_SCREEN_WIDTH) {
-        // iOS Safari specific method
-        if (video.webkitEnterFullscreen) {
-          await video.webkitEnterFullscreen();
-        }
-        // Standard methods
-        else if (container?.requestFullscreen) {
+        if (container?.requestFullscreen) {
           await container.requestFullscreen();
         } else if (container?.webkitRequestFullscreen) {
           await container.webkitRequestFullscreen();
+        } else if (video.webkitEnterFullscreen) {
+          await video.webkitEnterFullscreen();
         }
-        // Request landscape orientation
-        if (screen.orientation && screen.orientation.lock) {
-          await screen.orientation.lock("landscape");
+        if (screen.orientation?.lock) {
+          await screen.orientation.lock("landscape").catch(() => {});
         }
       }
-    } catch (err) {
-      console.warn("Failed to enter mobile fullscreen:", err);
+    } catch {
+      // Browser mobile mewajibkan gesture langsung untuk fullscreen; abaikan diam-diam
     }
   }, [isIOS]);
 
@@ -668,19 +664,31 @@ export default function VideoPlayer({
       };
 
       if (videoSrc.includes(".m3u8")) {
+        // Pada iOS/iPadOS, gunakan native Apple HLS secara langsung tanpa memuat bundle hls.js
+        if (isIOS && media.canPlayType("application/vnd.apple.mpegurl")) {
+          attachNativeResume();
+          media.src = videoSrc;
+          return;
+        }
         try {
           const { default: Hls } = await import("hls.js");
           if (isCancelled() || videoRef.current !== media) return;
           if (Hls?.isSupported()) {
             detachHls();
             const isDataSaverActive = Boolean(capSettingsRef.current?.dataSaver);
+            const isMobileDevice =
+              typeof window !== "undefined" && window.innerWidth <= MOBILE_SCREEN_WIDTH;
             const hls = new Hls({
               enableWorker: true,
               lowLatencyMode: false,
-              maxBufferLength: isDataSaverActive ? 12 : 20,
-              maxMaxBufferLength: isDataSaverActive ? 24 : 40,
-              backBufferLength: 30,
-              maxBufferSize: (isDataSaverActive ? 15 : 30) * 1000 * 1000,
+              startLevel: -1,
+              abrEwmaDefaultEstimate: isDataSaverActive ? 500_000 : 1_500_000,
+              maxBufferLength: isDataSaverActive ? 10 : isMobileDevice ? 15 : 20,
+              maxMaxBufferLength: isDataSaverActive ? 20 : isMobileDevice ? 30 : 40,
+              backBufferLength: isMobileDevice ? 15 : 30,
+              maxBufferSize: (isDataSaverActive ? 12 : isMobileDevice ? 20 : 30) * 1000 * 1000,
+              maxBufferHole: 0.5,
+              nudgeMaxRetry: 5,
               capLevelToPlayerSize: true,
             });
             if (isCancelled() || videoRef.current !== media) {
@@ -826,7 +834,7 @@ export default function VideoPlayer({
       attachNativeResume();
       media.src = videoSrc;
     },
-    [detachHls, videoSrc]
+    [detachHls, isIOS, videoSrc]
   );
 
   useEffect(() => {
@@ -1902,7 +1910,7 @@ export default function VideoPlayer({
   return (
     <div
       ref={containerRef}
-      className="relative bg-black overflow-hidden w-full max-w-full"
+      className="relative bg-black overflow-hidden w-full max-w-full touch-manipulation"
       onClick={handleContainerTap}
       onMouseMove={showControlsTemporarily}
       onMouseLeave={() => {
@@ -1925,10 +1933,10 @@ export default function VideoPlayer({
         <video
           ref={videoRef}
           className="w-full h-full object-contain bg-black"
-          src={videoSrc || src || undefined}
           poster={poster || undefined}
           title={title}
           crossOrigin="anonymous"
+          preload="metadata"
           controls
           autoPlay={autoplay}
           playsInline
@@ -1962,6 +1970,7 @@ export default function VideoPlayer({
           poster={poster || undefined}
           title={title}
           crossOrigin="anonymous"
+          preload="metadata"
           muted={isMuted}
           playsInline
           x-webkit-airplay="allow"
