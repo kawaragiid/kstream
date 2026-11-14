@@ -3,10 +3,9 @@
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import FavoriteButton from "./FavoriteButton";
 import { useMediaOverlay } from "./MediaOverlayProvider";
 import { useAuth } from "../hooks/useAuth";
-import { getUserHistory } from "../lib/firestore";
+import { getUserHistory, isFavorite, toggleFavorite } from "../lib/firestore";
 import { formatDuration } from "../lib/helpers";
 
 function toMillis(value) {
@@ -15,8 +14,87 @@ function toMillis(value) {
   return 0;
 }
 
+function formatMetaList(value) {
+  if (Array.isArray(value)) {
+    const filtered = value.map((item) => String(item || "").trim()).filter(Boolean);
+    return filtered.length ? filtered.join(", ") : null;
+  }
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+  return null;
+}
+
+function ModalFavoriteButton({ video }) {
+  const router = useRouter();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [favorite, setFavorite] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (!user || !video?.id) {
+      setFavorite(false);
+      return;
+    }
+    isFavorite(user.uid, video.id)
+      .then((state) => {
+        if (active) setFavorite(state);
+      })
+      .catch(() => {
+        if (active) setFavorite(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user, video?.id]);
+
+  const handleToggle = async () => {
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await toggleFavorite(user.uid, video);
+      if (typeof result?.isFavorite === "boolean") {
+        setFavorite(result.isFavorite);
+      }
+    } catch (err) {
+      console.warn("Gagal mengubah status favorit:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleToggle}
+      disabled={loading}
+      aria-label={favorite ? "Hapus dari Favorit" : "Tambah ke Favorit"}
+      title={favorite ? "Hapus dari Favorit" : "Tambah ke Favorit"}
+      className={`inline-flex h-10 w-10 items-center justify-center rounded-full border-2 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+        favorite
+          ? "border-white bg-white/15 text-white hover:bg-white/25"
+          : "border-white/50 bg-[#2a2a2a]/70 text-white hover:border-white hover:bg-[#2a2a2a]"
+      }`}
+    >
+      {favorite ? (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ) : (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 function EpisodeListSection({ episodes = [], onPlay, resumeEpisodeId }) {
-  // Multi-season detection for series with multiple seasons (satisfies T3-COMB-05)
   const seasons = useMemo(() => {
     return Array.from(
       new Set(episodes.map((ep) => Number(ep.seasonNumber || 1)))
@@ -40,84 +118,99 @@ function EpisodeListSection({ episodes = [], onPlay, resumeEpisodeId }) {
   if (!episodes.length) return null;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base sm:text-lg font-semibold text-white">Episode Tersedia</h3>
-        <span className="text-xs uppercase tracking-widest text-white/60">
-          {visibleEpisodes.length} episode
-        </span>
+    <div className="border-t border-white/10 pt-6 space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-baseline gap-3">
+          <h3 className="text-lg sm:text-xl font-bold text-white">Episode</h3>
+          <span className="text-xs text-white/50">{visibleEpisodes.length} episode</span>
+        </div>
+
+        {seasons.length > 1 && (
+          <select
+            aria-label="Pilih Season"
+            value={selectedSeason}
+            onChange={(e) => setSelectedSeason(Number(e.target.value))}
+            className="rounded-[4px] border border-white/25 bg-[#242424] px-3.5 py-2 text-sm font-semibold text-white outline-none transition hover:border-white/50 focus:border-white"
+          >
+            {seasons.map((season) => (
+              <option key={season} value={season} className="bg-[#242424] text-white">
+                Season {season}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
-      {/* Season swipe selector if series has >1 season */}
-      {seasons.length > 1 && (
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-          {seasons.map((season) => (
+      <div className="divide-y divide-white/10">
+        {visibleEpisodes.map((episode, index) => {
+          const epNumber = episode.number ?? episode.order ?? index + 1;
+          const isResume = resumeEpisodeId === episode.id;
+
+          return (
             <button
-              key={season}
+              key={episode.id}
               type="button"
-              onClick={() => setSelectedSeason(season)}
-              className={`flex-shrink-0 min-h-[38px] rounded-full px-4 py-1.5 text-xs font-semibold transition active:scale-95 ${
-                selectedSeason === season
-                  ? "bg-white text-black shadow-sm"
-                  : "border border-white/15 bg-white/5 text-white/80 hover:border-white/30"
+              onClick={() => onPlay(episode)}
+              className={`group flex w-full items-center gap-3 sm:gap-5 rounded-md px-2 sm:px-4 py-4 text-left transition hover:bg-white/[0.08] active:bg-white/[0.12] ${
+                isResume ? "bg-white/[0.04]" : ""
               }`}
             >
-              Season {season}
-            </button>
-          ))}
-        </div>
-      )}
+              <span className="w-6 sm:w-8 flex-shrink-0 text-center text-base sm:text-xl font-medium text-white/60">
+                {epNumber}
+              </span>
 
-      {/* Episode list without nested overflow-y-auto to eliminate inner scroll trap */}
-      <div className="flex flex-col gap-3">
-        {visibleEpisodes.map((episode) => (
-          <button
-            key={episode.id}
-            type="button"
-            className="group flex items-center gap-3 sm:gap-4 rounded-2xl border border-white/10 bg-white/[0.06] p-2.5 sm:p-3 text-left transition hover:border-white/40 hover:bg-white/[0.12] active:scale-[0.99] active:bg-white/[0.15]"
-            onClick={() => onPlay(episode)}
-          >
-            {/* Scaled thumbnail: w-28 sm:w-40 aspect-video */}
-            <div className="relative aspect-video w-28 sm:w-40 flex-shrink-0 overflow-hidden rounded-xl bg-black">
-              {episode.thumbnail ? (
-                <Image
-                  src={episode.thumbnail}
-                  alt={episode.title || `Episode ${episode.number}`}
-                  fill
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  sizes="(max-width: 640px) 112px, 160px"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-white/5 text-[10px] sm:text-xs uppercase tracking-[0.2em] text-white/40">
-                  Episode
-                </div>
-              )}
-            </div>
+              <div className="relative aspect-video w-28 sm:w-36 flex-shrink-0 overflow-hidden rounded-[4px] bg-black/70">
+                {episode.thumbnail ? (
+                  <Image
+                    src={episode.thumbnail}
+                    alt={episode.title || `Episode ${epNumber}`}
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    sizes="(max-width: 640px) 112px, 144px"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-white/5 text-[10px] uppercase tracking-widest text-white/40">
+                    Ep {epNumber}
+                  </div>
+                )}
 
-            {/* Defensive flex container with min-w-0 to prevent squashing */}
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                <span className="flex-shrink-0 rounded-full bg-white/[0.08] px-2 py-0.5 text-[10px] sm:text-[11px] uppercase tracking-widest text-white/80">
-                  Ep {episode.number ?? episode.order ?? ""}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-xs sm:text-sm font-semibold text-white">
-                  {episode.title}
-                </span>
-                {resumeEpisodeId === episode.id && (
-                  <span className="flex-shrink-0 text-[11px] sm:text-xs font-semibold uppercase tracking-widest text-brand">
-                    Lanjutkan
+                <div className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-black/60 text-white">
+                    <svg className="ml-0.5 h-4 w-4 fill-current" viewBox="0 0 24 24">
+                      <polygon points="5 3 19 12 5 21 5 3" />
+                    </svg>
                   </span>
+                </div>
+              </div>
+
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-sm sm:text-[15px] font-semibold text-white">
+                      {episode.title || `Episode ${epNumber}`}
+                    </span>
+                    {isResume && (
+                      <span className="flex-shrink-0 rounded-[3px] bg-white/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
+                        Lanjutkan
+                      </span>
+                    )}
+                  </div>
+                  {episode.duration ? (
+                    <span className="flex-shrink-0 text-xs sm:text-sm text-white/60">
+                      {formatDuration(episode.duration)}
+                    </span>
+                  ) : null}
+                </div>
+
+                {episode.overview && (
+                  <p className="line-clamp-2 text-xs sm:text-[13px] leading-relaxed text-white/60">
+                    {episode.overview}
+                  </p>
                 )}
               </div>
-              {episode.overview && (
-                <p className="line-clamp-2 text-xs text-white/70">{episode.overview}</p>
-              )}
-              <div className="text-[10px] sm:text-[11px] uppercase tracking-widest text-white/50">
-                {episode.duration ? formatDuration(episode.duration) : "Durasi tidak tersedia"}
-              </div>
-            </div>
-          </button>
-        ))}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -282,11 +375,38 @@ export default function MediaOverlayRoot() {
     }
   }, [isOpen, handleClose]);
 
-  const metadataPills = useMemo(() => {
-    if (!detail) return [];
-    const releaseYear = detail.releaseDate ? new Date(detail.releaseDate).getFullYear() : null;
-    return [releaseYear, detail.category, detail.isPremium ? "Premium" : "Free"].filter(Boolean);
+  const releaseYear = useMemo(() => {
+    const raw = detail?.releaseDate || detail?.year || media?.releaseDate || media?.year;
+    if (!raw) return null;
+    if (typeof raw === "number") return raw;
+    const parsed = new Date(raw).getFullYear();
+    return Number.isNaN(parsed) ? null : parsed;
+  }, [detail, media]);
+
+  const maturityRating = useMemo(() => {
+    const value = detail?.maturityRating || detail?.ageRating || detail?.rating;
+    if (value) return String(value);
+    return detail?.isPremium ? "18+" : "13+";
   }, [detail]);
+
+  const seasonCount = useMemo(() => {
+    if (detail?.type !== "series") return 0;
+    if (detail?.episodes?.length) {
+      return new Set(detail.episodes.map((ep) => Number(ep.seasonNumber || 1))).size;
+    }
+    return Number(detail?.seasonCount || detail?.seasons || 1);
+  }, [detail]);
+
+  const heroImageUrl =
+    detail?.backdropUrl || detail?.posterUrl || media?.backdropUrl || media?.posterUrl || "";
+
+  const castLabel = formatMetaList(detail?.cast || detail?.actors) || "Tidak tersedia";
+  const genreLabel =
+    formatMetaList(detail?.genres || detail?.genre) || detail?.category || "Tidak tersedia";
+  const directorLabel =
+    formatMetaList(detail?.director || detail?.directors) || "Tidak tersedia";
+  const languageLabel =
+    formatMetaList(detail?.language || detail?.languages) || "Tidak tersedia";
 
   const resumeEpisode = useMemo(() => {
     if (detail?.type !== "series" || !historyEntry?.episodeId) return null;
@@ -337,25 +457,25 @@ export default function MediaOverlayRoot() {
   if (!isOpen) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[120] flex items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8">
-      {/* Backdrop with touch-none dismiss */}
+    <div className="pointer-events-none fixed inset-0 z-[120] flex items-center justify-center p-0 sm:p-4 md:p-6">
+      {/* Smooth dark backdrop */}
       <div
-        className="pointer-events-auto absolute inset-0 bg-black/80 backdrop-blur-md touch-none"
+        className="pointer-events-auto absolute inset-0 bg-black/75 backdrop-blur-sm touch-none"
         onClick={handleClose}
         aria-hidden="true"
       />
 
-      {/* Modal Dialog Container: full-screen on mobile, centered floating dialog on desktop */}
+      {/* Netflix Title Detail Popup Modal */}
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={detail?.title || "Detail Konten"}
-        className="pointer-events-auto relative z-[121] flex h-[100dvh] w-full max-w-6xl flex-col overflow-hidden rounded-none bg-surface-100 text-white shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-3xl"
+        aria-label={detail?.title || media?.title || "Detail Konten"}
+        className="pointer-events-auto relative z-[121] h-[100dvh] w-full max-w-4xl overflow-y-auto overscroll-contain rounded-none bg-[#181818] text-white shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-lg"
       >
-        {/* Close Button: >= 44x44px accessible hit target with safe-area top clearance & SVG icon */}
+        {/* Crisp top-right close button */}
         <button
           type="button"
-          className="absolute right-3.5 sm:right-4 z-30 inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-black/70 text-white shadow-lg backdrop-blur-md transition hover:bg-black/90 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/40"
+          className="absolute right-3.5 sm:right-4 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#181818]/80 text-white shadow-lg backdrop-blur-sm transition hover:bg-[#181818] active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/40"
           onClick={handleClose}
           aria-label="Tutup modal detail"
           style={{
@@ -376,104 +496,147 @@ export default function MediaOverlayRoot() {
           </svg>
         </button>
 
-        {/* Backdrop Banner */}
-        {detail?.backdropUrl ? (
-          <div className="relative aspect-[16/9] w-full flex-shrink-0 overflow-hidden">
+        {/* Top 16:9 Hero Section */}
+        <div className="relative aspect-video w-full overflow-hidden bg-black">
+          {heroImageUrl ? (
             <Image
-              src={detail.backdropUrl}
-              alt={detail.title || "Detail Backdrop"}
+              src={heroImageUrl}
+              alt={detail?.title || media?.title || "Detail Backdrop"}
               fill
               className="object-cover"
-              sizes="(max-width: 768px) 100vw, 1152px"
+              sizes="(max-width: 896px) 100vw, 896px"
               priority
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/0" />
-          </div>
-        ) : (
-          <div className="relative aspect-[16/9] w-full flex-shrink-0 bg-gradient-to-br from-black to-surface-200" />
-        )}
+          ) : (
+            <div className="h-full w-full bg-gradient-to-br from-neutral-900 to-[#181818]" />
+          )}
 
-        {/* Modal Content Scroll Container: unified overflow with overscroll-contain & pb-safe */}
-        <div
-          className="relative flex-1 space-y-6 sm:space-y-8 overflow-y-auto overscroll-contain px-4 pb-8 pt-4 sm:px-10 sm:pt-6"
-          style={{
-            paddingBottom: "max(2rem, env(safe-area-inset-bottom, 2rem))",
-          }}
-        >
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/60">
-                {detail?.type === "series" ? "Series" : "Film"}
-              </p>
-              <h2 className="break-words text-2xl font-bold leading-tight sm:text-3xl md:text-4xl">
-                {detail?.title || media?.title}
-              </h2>
-            </div>
+          {/* #181818 bottom gradient fade */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#181818] via-[#181818]/35 to-transparent" />
 
-            {metadataPills.length > 0 && (
-              <div className="flex flex-wrap gap-2 sm:gap-3 text-[11px] font-semibold uppercase tracking-widest text-white/60">
-                {metadataPills.map((pill) => (
-                  <span key={pill} className="rounded-full border border-white/20 px-3 py-0.5 sm:py-1">
-                    {pill}
-                  </span>
-                ))}
-              </div>
-            )}
+          {/* Hero Title + Primary Actions */}
+          <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 sm:gap-4 px-5 pb-5 sm:px-8 sm:pb-7">
+            <h2 className="max-w-2xl break-words text-2xl font-bold leading-tight text-white drop-shadow-md sm:text-3xl md:text-4xl">
+              {detail?.title || media?.title}
+            </h2>
 
-            {detail?.overview && (
-              <p className="max-w-3xl text-sm leading-relaxed text-white/80">{detail.overview}</p>
-            )}
-
-            {/* Action Buttons: Full-width on mobile with >= 44px touch targets */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={handlePlayNow}
-                disabled={loading || !ready || (detail?.type === "series" && !detail?.episodes?.length)}
-                className="inline-flex w-full sm:w-auto min-h-[44px] items-center justify-center gap-2.5 rounded-full bg-white px-6 py-3 text-sm font-semibold text-black shadow-lg transition hover:bg-white/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-white/50"
+                disabled={
+                  loading ||
+                  !ready ||
+                  (detail?.type === "series" && !detail?.episodes?.length)
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-[4px] bg-white px-5 sm:px-6 py-2.5 text-sm font-bold text-black shadow-md transition hover:bg-white/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-white/50"
               >
                 <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
                   <polygon points="5 3 19 12 5 21 5 3" />
                 </svg>
-                <span>Tonton sekarang</span>
+                <span>Putar</span>
               </button>
 
-              <div className="w-full sm:w-auto [&>button]:w-full [&>button]:sm:w-auto [&>button]:min-h-[44px] [&>button]:justify-center [&>button]:rounded-full [&>button]:px-5 [&>button]:py-2.5 [&>button]:text-sm">
-                {detail && <FavoriteButton video={detail} />}
-              </div>
+              {detail && <ModalFavoriteButton video={detail} />}
 
-              {historyEntry?.progress > 0.05 && detail?.type === "movie" && (
-                <span className="self-start sm:self-auto rounded-full border border-white/15 px-3 py-1.5 text-xs uppercase tracking-widest text-white/60">
-                  Lanjutkan dari {Math.round((historyEntry.progress || 0) * 100)}%
+              {historyEntry?.progress > 0.05 && detail?.type !== "series" && (
+                <span className="rounded-[4px] border border-white/20 bg-black/50 px-2.5 py-1 text-xs font-medium text-white/80">
+                  Lanjutkan {Math.round((historyEntry.progress || 0) * 100)}%
                 </span>
               )}
 
               {detail?.type === "series" && resumeEpisode && (
-                <span className="self-start sm:self-auto rounded-full border border-white/15 px-3 py-1.5 text-xs uppercase tracking-widest text-white/60">
-                  Lanjutkan Episode {resumeEpisode.number}
+                <span className="rounded-[4px] border border-white/20 bg-black/50 px-2.5 py-1 text-xs font-medium text-white/80">
+                  Lanjutkan Ep {resumeEpisode.number ?? resumeEpisode.order ?? ""}
                 </span>
               )}
             </div>
           </div>
+        </div>
 
+        {/* Metadata + Conditional Episodes */}
+        <div
+          className="space-y-8 px-5 pb-8 pt-3 sm:px-8 sm:pt-4"
+          style={{
+            paddingBottom: "max(2rem, env(safe-area-inset-bottom, 2rem))",
+          }}
+        >
           {loading && (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-6 text-sm text-white/70">
+            <div className="rounded-md border border-white/10 bg-white/[0.04] p-5 text-sm text-white/70">
               Memuat detail konten...
             </div>
           )}
 
           {error && (
-            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-6 text-sm text-red-200">
+            <div className="rounded-md border border-red-500/20 bg-red-500/10 p-5 text-sm text-red-200">
               {error}
             </div>
           )}
 
-          {!loading && !error && detail?.type === "series" && detail?.episodes?.length > 0 && (
-            <EpisodeListSection
-              episodes={detail.episodes}
-              onPlay={handlePlayEpisode}
-              resumeEpisodeId={resumeEpisode?.id || firstEpisode?.id}
-            />
+          {!loading && !error && detail && (
+            <>
+              {/* Two-column Netflix Metadata Grid */}
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:gap-8">
+                {/* Left Column: Year, Maturity Rating, Duration/Seasons, Overview */}
+                <div className="space-y-4 md:col-span-2">
+                  <div className="flex flex-wrap items-center gap-2.5 text-sm">
+                    {releaseYear && (
+                      <span className="font-semibold text-white/90">{releaseYear}</span>
+                    )}
+                    <span className="rounded-[2px] border border-white/40 px-1.5 py-0.5 text-xs font-medium leading-none text-white/90">
+                      {maturityRating}
+                    </span>
+                    {detail.type === "series" ? (
+                      <span className="text-white/80">
+                        {seasonCount} Season
+                      </span>
+                    ) : detail.duration ? (
+                      <span className="text-white/80">
+                        {formatDuration(detail.duration)}
+                      </span>
+                    ) : null}
+                    {detail.isPremium && (
+                      <span className="rounded-[2px] border border-white/30 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/80">
+                        Premium
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-sm sm:text-[15px] leading-relaxed text-white/90">
+                    {detail.overview || "Tidak ada sinopsis tersedia."}
+                  </p>
+                </div>
+
+                {/* Right Column: Pemeran, Genre, Sutradara, Bahasa */}
+                <div className="space-y-2.5 text-xs sm:text-[13px] leading-relaxed">
+                  <div>
+                    <span className="text-white/50">Pemeran: </span>
+                    <span className="text-white/90">{castLabel}</span>
+                  </div>
+                  <div>
+                    <span className="text-white/50">Genre: </span>
+                    <span className="text-white/90">{genreLabel}</span>
+                  </div>
+                  <div>
+                    <span className="text-white/50">Sutradara: </span>
+                    <span className="text-white/90">{directorLabel}</span>
+                  </div>
+                  <div>
+                    <span className="text-white/50">Bahasa: </span>
+                    <span className="text-white/90">{languageLabel}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Conditional Series Episodes Section */}
+              {detail.type === "series" && detail.episodes?.length > 0 && (
+                <EpisodeListSection
+                  episodes={detail.episodes}
+                  onPlay={handlePlayEpisode}
+                  resumeEpisodeId={resumeEpisode?.id || firstEpisode?.id}
+                />
+              )}
+            </>
           )}
         </div>
       </div>

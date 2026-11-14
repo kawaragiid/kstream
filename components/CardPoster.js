@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMediaOverlay } from "./MediaOverlayProvider";
@@ -61,12 +62,13 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
   const progressValue = typeof item?.progress === "number" ? Math.min(Math.max(item.progress, 0), 1) : null;
 
   const [showPreview, setShowPreview] = useState(false);
-  const [previewAlign, setPreviewAlign] = useState("center");
+  const [popoverPos, setPopoverPos] = useState(null);
   const [muted, setMuted] = useState(true);
   const [videoReady, setVideoReady] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
 
   const previewTimer = useRef(null);
+  const leaveTimer = useRef(null);
   const cardRef = useRef(null);
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
@@ -78,6 +80,7 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
   useEffect(() => {
     return () => {
       if (previewTimer.current) clearTimeout(previewTimer.current);
+      if (leaveTimer.current) clearTimeout(leaveTimer.current);
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
@@ -172,31 +175,74 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
     }
   }, [muted]);
 
+  const updatePopoverPosition = () => {
+    if (typeof window === "undefined" || !cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const popoverWidth = window.innerWidth >= 1024 ? 400 : 360;
+    const minLeft = 16;
+    const maxLeft = Math.max(minLeft, window.innerWidth - popoverWidth - 16);
+    const rawLeft = rect.left + rect.width / 2 - popoverWidth / 2;
+    const left = Math.min(Math.max(rawLeft, minLeft), maxLeft);
+
+    const estimatedHalfHeight = popoverWidth === 400 ? 180 : 168;
+    const minTop = Math.min(estimatedHalfHeight + 16, window.innerHeight / 2);
+    const maxTop = Math.max(window.innerHeight - estimatedHalfHeight - 16, window.innerHeight / 2);
+    const rawTop = rect.top + rect.height / 2;
+    const top = Math.min(Math.max(rawTop, minTop), maxTop);
+
+    setPopoverPos({ left, top, width: popoverWidth });
+  };
+
+  useEffect(() => {
+    if (!showPreview) return;
+    const handleReposition = () => updatePopoverPosition();
+    window.addEventListener("scroll", handleReposition, { passive: true, capture: true });
+    window.addEventListener("resize", handleReposition, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleReposition, { capture: true });
+      window.removeEventListener("resize", handleReposition);
+    };
+  }, [showPreview]);
+
   const handleMouseEnter = (event) => {
     if (typeof window === "undefined") return;
     if (!window.matchMedia("(hover: hover)").matches) return;
     if (event?.nativeEvent?.pointerType === "touch") return;
-    if (previewTimer.current) clearTimeout(previewTimer.current);
-
-    if (cardRef.current) {
-      const rect = cardRef.current.getBoundingClientRect();
-      const popoverHalfWidth = 165; // w-80 (320px) / 2 + margin
-      const centerX = rect.left + rect.width / 2;
-      if (centerX - popoverHalfWidth < 20) {
-        setPreviewAlign("left");
-      } else if (centerX + popoverHalfWidth > window.innerWidth - 20) {
-        setPreviewAlign("right");
-      } else {
-        setPreviewAlign("center");
-      }
+    if (leaveTimer.current) {
+      clearTimeout(leaveTimer.current);
+      leaveTimer.current = null;
     }
-    previewTimer.current = window.setTimeout(() => setShowPreview(true), 240);
+    if (previewTimer.current) {
+      clearTimeout(previewTimer.current);
+      previewTimer.current = null;
+    }
+
+    updatePopoverPosition();
+    if (!showPreview) {
+      previewTimer.current = window.setTimeout(() => {
+        updatePopoverPosition();
+        setShowPreview(true);
+      }, 240);
+    }
+  };
+
+  const handlePopoverMouseEnter = () => {
+    if (leaveTimer.current) {
+      clearTimeout(leaveTimer.current);
+      leaveTimer.current = null;
+    }
   };
 
   const handleMouseLeave = () => {
-    if (previewTimer.current) clearTimeout(previewTimer.current);
-    setShowPreview(false);
-    setMuted(true);
+    if (previewTimer.current) {
+      clearTimeout(previewTimer.current);
+      previewTimer.current = null;
+    }
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+    leaveTimer.current = window.setTimeout(() => {
+      setShowPreview(false);
+      setMuted(true);
+    }, 120);
   };
 
   const genres = Array.isArray(item?.genres) && item.genres.length
@@ -264,21 +310,28 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
         </div>
       </div>
 
-      {/* Netflix Expanded Hover Mini-Card with Instant Trailer Playback */}
-      {showPreview && (
-        <div
-          data-popover="true"
-          className={`absolute top-1/2 -translate-y-1/2 z-50 hidden md:block ${
-            previewAlign === "left"
-              ? "left-0 origin-left"
-              : previewAlign === "right"
-              ? "right-0 origin-right"
-              : "left-1/2 -translate-x-1/2 origin-center"
-          }`}
-        >
-          <div className="w-[380px] lg:w-[420px] overflow-hidden rounded-md bg-[#181818] text-white shadow-[0_18px_48px_rgba(0,0,0,0.92)] ring-1 ring-white/20 animate-in fade-in zoom-in-95 duration-150">
-            {/* 16:9 Live Video Preview */}
-            <div className="relative aspect-video w-full bg-black overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
+      {/* Netflix Expanded Hover Mini-Card with Instant Trailer Playback (Portaled to avoid edge/overflow clipping) */}
+      {showPreview &&
+        popoverPos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            data-popover="true"
+            onMouseEnter={handlePopoverMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            style={{
+              position: "fixed",
+              left: `${popoverPos.left}px`,
+              top: `${popoverPos.top}px`,
+              width: `${popoverPos.width}px`,
+              transform: "translateY(-50%)",
+              zIndex: 60,
+            }}
+            className="hidden md:block"
+          >
+            <div className="w-full overflow-hidden rounded-md bg-[#181818] text-white shadow-[0_18px_48px_rgba(0,0,0,0.92)] ring-1 ring-white/20 animate-in fade-in zoom-in-95 duration-150">
+              {/* 16:9 Live Video Preview */}
+              <div className="relative aspect-video w-full overflow-hidden bg-black" style={{ aspectRatio: "16 / 9" }}>
               <Image
                 src={safePoster}
                 alt={`${title} poster`}
@@ -365,11 +418,11 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
-                      router.push(detailHref);
+                      openMedia(item, { origin: "card" });
                     }}
                     className="flex h-8 w-8 items-center justify-center rounded-full border border-white/45 bg-white/5 text-white transition hover:border-white hover:bg-white/15 active:scale-95"
-                    aria-label={`Buka halaman ${title}`}
-                    title="Halaman Detail"
+                    aria-label={`Info ${title}`}
+                    title="Info Lengkap"
                   >
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
@@ -420,8 +473,9 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
               )}
             </div>
           </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
