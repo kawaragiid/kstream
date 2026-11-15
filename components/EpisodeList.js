@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatDuration } from '../lib/helpers';
+import KLogoBadge from './KLogoBadge';
 
 const FALLBACK_THUMB = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="%230f172a"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23FFFFFF" font-size="26" font-family="Arial, sans-serif">Episode</text></svg>';
 
@@ -36,6 +37,7 @@ function EpisodeCard({ episode, href }) {
           sizes="(max-width: 640px) 112px, (max-width: 1024px) 160px, 192px"
           onError={() => setThumbSrc(FALLBACK_THUMB)}
         />
+        <KLogoBadge size="xs" />
         {!isAvailable && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/55 px-2 text-center">
             <span className="rounded-md border border-amber-400/40 bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-300">

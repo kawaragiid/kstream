@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useMediaOverlay } from "./MediaOverlayProvider";
 import { useAuth } from "../hooks/useAuth";
 import { readUserDoc, toggleFavorite } from "../lib/firestore";
+import KLogoBadge from "./KLogoBadge";
 
 const FAVORITES_CACHE_TTL_MS = 30000;
 const favoritesCache = new Map();
@@ -111,6 +112,7 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
   const popoverRef = useRef(null);
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
+  const lastInputTouchRef = useRef(false);
 
   useEffect(() => {
     setPosterSrc(isPortrait ? item?.posterUrl || safePoster : item?.backdropUrl || item?.posterUrl || safePoster);
@@ -303,11 +305,22 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
     }
   };
 
-  const handleMouseEnter = (event) => {
+  const handlePointerEnter = (event) => {
     if (typeof window === "undefined") return;
-    if (window.innerWidth < 768) return;
-    if (!window.matchMedia("(hover: hover)").matches) return;
-    if (event?.nativeEvent?.pointerType === "touch") return;
+    const pointerType = event?.pointerType || event?.nativeEvent?.pointerType || "";
+    if (pointerType === "touch") {
+      lastInputTouchRef.current = true;
+      return;
+    }
+    if (pointerType) {
+      lastInputTouchRef.current = false;
+    } else if (lastInputTouchRef.current) {
+      return;
+    }
+    // Untuk keyboard focus (tanpa pointerType), batasi ke layar >= 768px atau perangkat yang mendukung hover
+    if (!pointerType && window.innerWidth < 768 && !window.matchMedia("(any-hover: hover)").matches) {
+      return;
+    }
     if (leaveTimer.current) {
       clearTimeout(leaveTimer.current);
       leaveTimer.current = null;
@@ -333,7 +346,9 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
     }
   };
 
-  const handleMouseLeave = () => {
+  const handleMouseLeave = (event) => {
+    const pointerType = event?.pointerType || event?.nativeEvent?.pointerType || "";
+    if (pointerType === "touch") return;
     if (previewTimer.current) {
       clearTimeout(previewTimer.current);
       previewTimer.current = null;
@@ -377,9 +392,12 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
       data-card="true"
       data-href={detailHref}
       className={`relative cursor-pointer select-none ${showPreview ? "z-40" : "z-10"}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onFocus={handleMouseEnter}
+      onPointerDown={(event) => {
+        lastInputTouchRef.current = event.pointerType === "touch";
+      }}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handleMouseLeave}
+      onFocus={handlePointerEnter}
       onBlur={handleBlur}
       role="button"
       tabIndex={0}
@@ -407,6 +425,7 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
             sizes="(max-width: 640px) 62vw, (max-width: 768px) 40vw, (max-width: 1024px) 27vw, 19vw"
             onError={() => setPosterSrc(defaultPoster)}
           />
+          <KLogoBadge size={isPortrait ? "sm" : "xs"} />
           {/* Bottom title gradient on base card */}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent px-2.5 pb-2 pt-6">
             <p className="line-clamp-1 text-xs sm:text-[13px] font-semibold text-white drop-shadow">{title}</p>
@@ -427,8 +446,8 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
           <div
             ref={popoverRef}
             data-popover="true"
-            onMouseEnter={handlePopoverMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            onPointerEnter={handlePopoverMouseEnter}
+            onPointerLeave={handleMouseLeave}
             onFocus={handlePopoverMouseEnter}
             onBlur={handleBlur}
             onKeyDown={(event) => event.stopPropagation()}
@@ -440,7 +459,7 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
               transform: "translateY(-50%)",
               zIndex: 60,
             }}
-            className="hidden md:block"
+            className="block"
           >
             <div className="w-full max-h-[calc(100vh-24px)] overflow-y-auto overflow-x-hidden rounded-md bg-[#181818] text-white shadow-[0_18px_48px_rgba(0,0,0,0.92)] ring-1 ring-white/20 animate-in fade-in zoom-in-95 duration-150">
               {/* 16:9 Live Video Preview */}

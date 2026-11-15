@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMediaOverlay } from "./MediaOverlayProvider";
+import KLogoBadge from "./KLogoBadge";
 
 export default function Top10Row({ title = "Top 10 Hari Ini", items = [] }) {
   const { openMedia } = useMediaOverlay();
@@ -114,6 +115,7 @@ export default function Top10Row({ title = "Top 10 Hari Ini", items = [] }) {
                       {item.title}
                     </div>
                   )}
+                  <KLogoBadge size="xs" />
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-2 opacity-100 transition-opacity md:opacity-0 md:group-hover/card:opacity-100 md:group-focus-visible/card:opacity-100">
                     <p className="truncate text-[11px] font-semibold text-white">{item.title}</p>
                   </div>
