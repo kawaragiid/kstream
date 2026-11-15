@@ -259,12 +259,12 @@ export default function Navbar({ categories = [] }) {
     <header className={`${headerPositionClass} transition-colors duration-300 ${headerSurfaceClass}`}>
       <nav aria-label="Navigasi Utama" className="w-full">
         <div className="mx-auto flex h-14 sm:h-16 max-w-[1600px] items-center gap-3 sm:gap-5 px-3.5 sm:px-6 lg:px-10 text-white/85">
-          {/* Mobile Hamburger */}
+          {/* Tablet Hamburger (HP < md tetap clean tanpa hamburger) */}
           <button
             ref={hamburgerButtonRef}
             type="button"
             onClick={handleToggleMobileNav}
-            className="inline-flex h-10 w-10 min-h-[44px] min-w-[44px] -ml-1.5 items-center justify-center rounded-md text-white/90 transition hover:bg-white/10 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914]/70 lg:hidden"
+            className="hidden md:inline-flex h-10 w-10 min-h-[44px] min-w-[44px] -ml-1.5 items-center justify-center rounded-md text-white/90 transition hover:bg-white/10 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E50914]/70 lg:hidden"
             aria-label="Menu navigasi"
             aria-expanded={mobileNavOpen}
             aria-controls="mobile-nav-drawer"
@@ -331,14 +331,6 @@ export default function Navbar({ categories = [] }) {
                 Daftar Saya
               </Link>
             )}
-            <Link
-              href="/search"
-              className={`transition-colors duration-150 hover:text-white/75 ${
-                pathname === "/search" ? "text-white font-semibold" : "text-[#e5e5e5]"
-              }`}
-            >
-              Cari
-            </Link>
 
             <Link
               href="/premium/upgrade"
@@ -548,7 +540,7 @@ export default function Navbar({ categories = [] }) {
                       className="flex min-h-[40px] items-center px-4 py-2 transition hover:bg-white/10 hover:text-white"
                       role="menuitem"
                     >
-                      Kelola Profil
+                      Pengaturan Profil
                     </Link>
                     <div className="my-1 border-t border-white/15" />
                     <button
@@ -585,11 +577,11 @@ export default function Navbar({ categories = [] }) {
 
       </nav>
 
-      {/* Fixed Slide-Over Drawer Modal (lg:hidden) */}
+      {/* Fixed Slide-Over Drawer Modal (tablet md..lg only; hidden on HP < md) */}
       {mobileNavOpen && (
         <div
           id="mobile-nav-drawer"
-          className="fixed inset-0 z-50 lg:hidden"
+          className="fixed inset-0 z-50 hidden md:block lg:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Menu navigasi"
@@ -662,17 +654,6 @@ export default function Navbar({ categories = [] }) {
                   }`}
                 >
                   Baru & Populer
-                </Link>
-                <Link
-                  href="/search"
-                  onClick={() => setMobileNavOpen(false)}
-                  className={`flex min-h-[44px] items-center rounded-md px-3.5 py-2.5 transition ${
-                    pathname === "/search"
-                      ? "border-l-[3px] border-[#E50914] bg-white/10 font-semibold text-white pl-3"
-                      : "text-white/80 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  Cari
                 </Link>
                 {user && (
                   <Link
