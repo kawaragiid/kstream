@@ -70,18 +70,18 @@ function ModalFavoriteButton({ video, initialFavorite = false, redirectPath = "/
       disabled={loading}
       aria-label={favorite ? "Hapus dari Favorit" : "Tambah ke Favorit"}
       title={favorite ? "Hapus dari Favorit" : "Tambah ke Favorit"}
-      className={`inline-flex h-10 w-10 items-center justify-center rounded-full border-2 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+      className={`inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border-2 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
         favorite
           ? "border-white bg-white/15 text-white hover:bg-white/25"
           : "border-white/50 bg-[#2a2a2a]/70 text-white hover:border-white hover:bg-[#2a2a2a]"
       }`}
     >
       {favorite ? (
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polyline points="20 6 9 17 4 12" />
         </svg>
       ) : (
-        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
@@ -128,7 +128,7 @@ function EpisodeListSection({ seriesId, episodes = [], onPlay, resumeEpisodeId }
             aria-label="Pilih Season"
             value={effectiveSeason}
             onChange={(e) => setSelectedSeason(Number(e.target.value))}
-            className="rounded-[4px] border border-white/25 bg-[#242424] px-3.5 py-2 text-sm font-semibold text-white outline-none transition hover:border-white/50 focus:border-white"
+            className="min-h-[44px] rounded-[4px] border border-white/25 bg-[#242424] px-3.5 py-2 text-sm font-semibold text-white outline-none transition hover:border-white/50 focus:border-white"
           >
             {seasons.map((season) => (
               <option key={season} value={season} className="bg-[#242424] text-white">
@@ -191,9 +191,9 @@ function EpisodeListSection({ seriesId, episodes = [], onPlay, resumeEpisodeId }
                 )}
 
                 {isAvailable && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/35 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/35 transition-opacity duration-200 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100">
                     <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-black/60 text-white">
-                      <svg className="ml-0.5 h-4 w-4 fill-current" viewBox="0 0 24 24">
+                      <svg className="ml-0.5 h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
                         <polygon points="5 3 19 12 5 21 5 3" />
                       </svg>
                     </span>
@@ -564,7 +564,7 @@ export default function MediaOverlayRoot() {
         {/* Crisp top-right close button */}
         <button
           type="button"
-          className="absolute right-3.5 sm:right-4 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#181818]/80 text-white shadow-lg backdrop-blur-sm transition hover:bg-[#181818] active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/40"
+          className="absolute right-3.5 sm:right-4 z-30 inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#181818]/80 text-white shadow-lg backdrop-blur-sm transition hover:bg-[#181818] active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/40"
           onClick={handleClose}
           aria-label="Tutup modal detail"
           style={{
@@ -579,6 +579,7 @@ export default function MediaOverlayRoot() {
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
+            aria-hidden="true"
           >
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
@@ -621,7 +622,7 @@ export default function MediaOverlayRoot() {
                 }
                 className="inline-flex items-center justify-center gap-2 rounded-[4px] bg-white px-5 sm:px-6 py-2.5 text-sm font-bold text-black shadow-md transition hover:bg-white/90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-white/50"
               >
-                <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
+                <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
                   <polygon points="5 3 19 12 5 21 5 3" />
                 </svg>
                 <span>
@@ -675,7 +676,7 @@ export default function MediaOverlayRoot() {
               <button
                 type="button"
                 onClick={() => setRetryNonce((n) => n + 1)}
-                className="rounded-[4px] border border-red-400/40 bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-500/35"
+                className="min-h-[44px] rounded-[4px] border border-red-400/40 bg-red-500/20 px-4 py-2 text-xs font-semibold text-white transition hover:bg-red-500/35"
               >
                 Coba Lagi
               </button>

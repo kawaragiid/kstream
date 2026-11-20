@@ -67,8 +67,14 @@ export default async function RootLayout({ children }) {
         className="min-h-screen bg-[#141414] text-text-primary antialiased selection:bg-brand selection:text-white"
       >
         <Providers>
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:rounded-md focus:bg-[#E50914] focus:px-4 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-white"
+          >
+            Lewati ke konten utama
+          </a>
           <Navbar categories={categories} />
-          <main className="min-h-screen bg-[#141414] text-text-primary">
+          <main id="main-content" className="min-h-screen bg-[#141414] text-text-primary">
             {children}
           </main>
           <Footer />

@@ -25,9 +25,11 @@ export default function Navbar({ categories = [] }) {
   const [avatarError, setAvatarError] = useState(false);
 
   const menuRef = useRef(null);
+  const profileButtonRef = useRef(null);
   const genreRef = useRef(null);
   const genreButtonRef = useRef(null);
   const searchRef = useRef(null);
+  const searchButtonRef = useRef(null);
   const searchOverlayRef = useRef(null);
   const searchInputRef = useRef(null);
 
@@ -143,11 +145,17 @@ export default function Navbar({ categories = [] }) {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         const wasGenreOpen = genreMenuOpen;
+        const wasMenuOpen = menuOpen;
+        const wasSearchOpen = searchOpen;
         setMenuOpen(false);
         setGenreMenuOpen(false);
         setSearchOpen(false);
         if (wasGenreOpen) {
           genreButtonRef.current?.focus();
+        } else if (wasMenuOpen) {
+          profileButtonRef.current?.focus();
+        } else if (wasSearchOpen) {
+          setTimeout(() => searchButtonRef.current?.focus(), 0);
         }
       }
     };
@@ -156,6 +164,42 @@ export default function Navbar({ categories = [] }) {
       return () => window.removeEventListener("keydown", handleKeyDown);
     }
   }, [menuOpen, genreMenuOpen, searchOpen]);
+
+  // Trap Tab/Shift+Tab inside search input + live search overlay while open
+  useEffect(() => {
+    if (!showSearchOverlay) return undefined;
+    const handleTabTrap = (event) => {
+      if (event.key !== "Tab") return;
+      const selector =
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      const searchEls = Array.from(searchRef.current?.querySelectorAll(selector) || []);
+      const overlayEls = Array.from(searchOverlayRef.current?.querySelectorAll(selector) || []);
+      const focusable = [...searchEls, ...overlayEls].filter((el) => {
+        if (el.hasAttribute("disabled") || el.getAttribute("aria-hidden") === "true") return false;
+        const style = window.getComputedStyle(el);
+        return style.display !== "none" && style.visibility !== "hidden";
+      });
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (!focusable.includes(active)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handleTabTrap);
+    return () => window.removeEventListener("keydown", handleTabTrap);
+  }, [showSearchOverlay]);
 
   const handleToggleProfileMenu = () => {
     setMenuOpen((prev) => {
@@ -179,6 +223,7 @@ export default function Navbar({ categories = [] }) {
     setSearchQuery("");
     setSearchResults([]);
     setSearchError("");
+    setTimeout(() => searchButtonRef.current?.focus(), 0);
   };
 
   const handleSearchSubmit = (e) => {
@@ -245,6 +290,42 @@ export default function Navbar({ categories = [] }) {
     }
   };
 
+  const handleProfileKeyDown = (event) => {
+    if (!menuOpen) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        setGenreMenuOpen(false);
+        setSearchOpen(false);
+        setMenuOpen(true);
+        setTimeout(() => {
+          const items = menuRef.current?.querySelectorAll('[role="menuitem"]');
+          if (!items?.length) return;
+          if (event.key === "ArrowUp") items[items.length - 1].focus();
+          else items[0].focus();
+        }, 20);
+      }
+      return;
+    }
+
+    const items = Array.from(menuRef.current?.querySelectorAll('[role="menuitem"]') || []);
+    if (!items.length) return;
+    const currentIndex = items.indexOf(document.activeElement);
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      items[(currentIndex + 1) % items.length].focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      items[(currentIndex - 1 + items.length) % items.length].focus();
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      items[0].focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      items[items.length - 1].focus();
+    }
+  };
+
   if (hideChrome) {
     return null;
   }
@@ -257,9 +338,9 @@ export default function Navbar({ categories = [] }) {
 
   return (
     <>
-      <header className={`${headerPositionClass} transition-colors duration-300 ${headerSurfaceClass}`}>
+      <header className={`${headerPositionClass} pt-[env(safe-area-inset-top)] transition-colors duration-300 ${headerSurfaceClass}`}>
         <nav aria-label="Navigasi Utama" className="w-full">
-          <div className="mx-auto flex h-14 sm:h-16 max-w-[1600px] items-center gap-3 sm:gap-5 px-3.5 sm:px-6 lg:px-10 text-white/85">
+          <div className="mx-auto flex h-14 sm:h-16 max-w-[1600px] items-center gap-3 sm:gap-5 pl-[max(0.875rem,env(safe-area-inset-left))] pr-[max(0.875rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] lg:pl-[max(2.5rem,env(safe-area-inset-left))] lg:pr-[max(2.5rem,env(safe-area-inset-right))] text-white/85">
             {/* Netflix-style Brand Wordmark + Logo (disembunyikan sementara di HP saat input search terbuka agar lega) */}
             <Link
               href="/"
@@ -317,8 +398,8 @@ export default function Navbar({ categories = [] }) {
 
               <Link
                 href="/premium/upgrade"
-                className={`transition-colors duration-150 hover:text-[#ff4b55] ${
-                  pathname === "/premium/upgrade" ? "text-white font-semibold" : "text-[#E50914] font-semibold"
+                className={`transition-colors duration-150 hover:text-[#ff858d] ${
+                  pathname === "/premium/upgrade" ? "text-white font-semibold" : "text-[#ff5c66] font-semibold"
                 }`}
               >
                 Donasi
@@ -341,6 +422,7 @@ export default function Navbar({ categories = [] }) {
                       className={`h-3.5 w-3.5 transition-transform duration-150 ${genreMenuOpen ? "rotate-180" : ""}`}
                       viewBox="0 0 20 20"
                       fill="currentColor"
+                      aria-hidden="true"
                     >
                       <path
                         fillRule="evenodd"
@@ -388,7 +470,7 @@ export default function Navbar({ categories = [] }) {
                     onSubmit={handleSearchSubmit}
                     className="flex w-full sm:w-64 md:w-72 items-center rounded-md border border-white/85 bg-black/85 px-2.5 py-1.5 transition-all duration-200"
                   >
-                    <svg className="mr-2 h-4 w-4 shrink-0 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <svg className="mr-2 h-4 w-4 shrink-0 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
                       <circle cx="11" cy="11" r="7" />
                       <path strokeLinecap="round" d="M20 20l-3.5-3.5" />
                     </svg>
@@ -404,22 +486,23 @@ export default function Navbar({ categories = [] }) {
                     <button
                       type="button"
                       onClick={handleCloseSearch}
-                      className="ml-1.5 rounded p-0.5 text-white/70 hover:text-white"
+                      className="ml-1 -my-1.5 -mr-1.5 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-white/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                       aria-label="Tutup pencarian"
                     >
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
                         <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
                   </form>
                 ) : (
                   <button
+                    ref={searchButtonRef}
                     type="button"
                     onClick={handleOpenSearch}
                     className="inline-flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-white transition hover:text-white/75 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                     aria-label="Cari film atau series"
                   >
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
                       <circle cx="11" cy="11" r="7" />
                       <path strokeLinecap="round" d="M20 20l-3.5-3.5" />
                     </svg>
@@ -431,8 +514,9 @@ export default function Navbar({ categories = [] }) {
               {loading ? (
                 <div className="h-8 w-8 shrink-0 rounded-[4px] bg-white/10 animate-pulse" />
               ) : user ? (
-                <div className="relative flex shrink-0 items-center" ref={menuRef}>
+                <div className="relative flex shrink-0 items-center" ref={menuRef} onKeyDown={handleProfileKeyDown}>
                   <button
+                    ref={profileButtonRef}
                     type="button"
                     onClick={handleToggleProfileMenu}
                     className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-1 text-white transition hover:opacity-90 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
@@ -462,6 +546,7 @@ export default function Navbar({ categories = [] }) {
                       }`}
                       viewBox="0 0 20 20"
                       fill="currentColor"
+                      aria-hidden="true"
                     >
                       <path
                         fillRule="evenodd"
@@ -483,21 +568,21 @@ export default function Navbar({ categories = [] }) {
                       <nav className="mt-1.5 flex flex-col text-[13px] text-white/85">
                         <Link
                           href="/profile/history"
-                          className="flex min-h-[40px] items-center px-4 py-2 transition hover:bg-white/10 hover:text-white"
+                          className="flex min-h-[44px] items-center px-4 py-2 transition hover:bg-white/10 hover:text-white"
                           role="menuitem"
                         >
                           Riwayat Tonton
                         </Link>
                         <Link
                           href="/profile/favorites"
-                          className="flex min-h-[40px] items-center px-4 py-2 transition hover:bg-white/10 hover:text-white"
+                          className="flex min-h-[44px] items-center px-4 py-2 transition hover:bg-white/10 hover:text-white"
                           role="menuitem"
                         >
                           Daftar Saya
                         </Link>
                         <Link
                           href="/profile/settings"
-                          className="flex min-h-[40px] items-center px-4 py-2 transition hover:bg-white/10 hover:text-white"
+                          className="flex min-h-[44px] items-center px-4 py-2 transition hover:bg-white/10 hover:text-white"
                           role="menuitem"
                         >
                           Pengaturan Profil
@@ -506,7 +591,7 @@ export default function Navbar({ categories = [] }) {
                         <button
                           type="button"
                           onClick={handleLogout}
-                          className="flex min-h-[40px] w-full items-center px-4 py-2 text-left text-white/80 transition hover:bg-white/10 hover:text-white"
+                          className="flex min-h-[44px] w-full items-center px-4 py-2 text-left text-white/80 transition hover:bg-white/10 hover:text-white"
                           role="menuitem"
                           disabled={signingOut}
                         >
@@ -520,13 +605,13 @@ export default function Navbar({ categories = [] }) {
                 <div className="flex shrink-0 items-center gap-2 text-xs sm:text-sm font-semibold">
                   <Link
                     href="/register"
-                    className="hidden sm:inline-flex min-h-[36px] items-center rounded-[4px] border border-white/25 px-3 py-1.5 text-white transition hover:border-white/60 hover:bg-white/10"
+                    className="hidden sm:inline-flex min-h-[44px] items-center rounded-[4px] border border-white/25 px-3 py-1.5 text-white transition hover:border-white/60 hover:bg-white/10"
                   >
                     Daftar
                   </Link>
                   <Link
                     href="/login"
-                    className="inline-flex min-h-[36px] items-center rounded-[4px] bg-[#E50914] px-3.5 py-1.5 text-white shadow transition hover:bg-[#f6121d] active:scale-95"
+                    className="inline-flex min-h-[44px] items-center rounded-[4px] bg-[#E50914] px-3.5 py-1.5 text-white shadow transition hover:bg-[#f6121d] active:scale-95"
                   >
                     Masuk
                   </Link>
@@ -542,6 +627,7 @@ export default function Navbar({ categories = [] }) {
         <div
           ref={searchOverlayRef}
           role="dialog"
+          aria-modal="true"
           aria-label="Hasil pencarian langsung"
           className="fixed inset-x-0 top-14 sm:top-16 bottom-0 z-40 overflow-y-auto bg-[#141414]/95 px-4 py-6 sm:px-8 lg:px-12 backdrop-blur-xl"
         >
@@ -554,7 +640,7 @@ export default function Navbar({ categories = [] }) {
               <button
                 type="button"
                 onClick={handleCloseSearch}
-                className="rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/85 transition hover:bg-white/15 hover:text-white"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-white/15 bg-white/5 px-3.5 py-1.5 text-xs font-semibold text-white/85 transition hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
                 Tutup
               </button>

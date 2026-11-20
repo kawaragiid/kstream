@@ -10,9 +10,11 @@ export default function FavoriteButton({ video, className = "" }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [favorite, setFavorite] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     let active = true;
+    setErrorMsg('');
     if (!user || !video?.id) {
       setFavorite(false);
       return;
@@ -39,6 +41,7 @@ export default function FavoriteButton({ video, className = "" }) {
       return;
     }
     setLoading(true);
+    setErrorMsg('');
     try {
       const result = await toggleFavorite(user.uid, video);
       if (typeof result?.isFavorite === 'boolean') {
@@ -46,25 +49,34 @@ export default function FavoriteButton({ video, className = "" }) {
       }
     } catch (err) {
       console.warn('Gagal mengubah status favorit:', err);
+      setErrorMsg('Gagal memperbarui favorit. Coba lagi.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <button
-      type="button"
-      onClick={handleToggle}
-      className={`inline-flex items-center justify-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 min-h-[44px] ${
-        favorite
-          ? 'border-brand/60 bg-brand/10 text-white hover:bg-brand/20'
-          : 'border-white/30 bg-white/5 text-white hover:bg-white/10'
-      } ${className}`}
-      disabled={loading}
-      aria-label={favorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit'}
-    >
-      {loading ? 'Menyimpan...' : favorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit'}
-    </button>
+    <div className="inline-flex flex-col items-start gap-1.5">
+      <button
+        type="button"
+        onClick={handleToggle}
+        aria-pressed={favorite}
+        className={`inline-flex items-center justify-center gap-2 rounded-full border px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-60 min-h-[44px] ${
+          favorite
+            ? 'border-brand/60 bg-brand/10 text-white hover:bg-brand/20'
+            : 'border-white/30 bg-white/5 text-white hover:bg-white/10'
+        } ${className}`}
+        disabled={loading}
+        aria-label={favorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit'}
+      >
+        {loading ? 'Menyimpan...' : favorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit'}
+      </button>
+      {errorMsg && (
+        <p role="alert" className="text-xs text-rose-300">
+          {errorMsg}
+        </p>
+      )}
+    </div>
   );
 }
 

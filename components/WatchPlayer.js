@@ -574,7 +574,8 @@ export default function WatchPlayer({
         {poster && !posterError && (
           <img
             src={poster}
-            alt={title || 'Preview'}
+            alt=""
+            aria-hidden="true"
             onError={() => setPosterError(true)}
             className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 blur-xl scale-105"
           />
@@ -607,7 +608,7 @@ export default function WatchPlayer({
           </div>
           <Link
             href={backHref || video?.href || '/'}
-            className="mt-4 inline-block text-xs text-white/55 hover:text-white"
+            className="mt-4 inline-flex min-h-[44px] items-center px-3 py-2 text-xs text-white/65 hover:text-white"
           >
             ← Kembali ke Katalog
           </Link>
@@ -619,7 +620,12 @@ export default function WatchPlayer({
   if (mediaLoading && !resolvedSrc) {
     return (
       <div className="relative flex h-[100dvh] w-full items-center justify-center overflow-hidden bg-black text-white">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-[#E50914]" />
+        <div
+          role="status"
+          className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-[#E50914] motion-reduce:animate-none"
+        >
+          <span className="sr-only">Memuat pemutar video...</span>
+        </div>
       </div>
     );
   }
@@ -630,7 +636,8 @@ export default function WatchPlayer({
         {poster && !posterError && (
           <img
             src={poster}
-            alt={title || 'Premium'}
+            alt=""
+            aria-hidden="true"
             onError={() => setPosterError(true)}
             className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 blur-xl scale-105"
           />

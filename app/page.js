@@ -154,7 +154,7 @@ export default async function HomePage() {
             </p>
             <Link
               href="/search"
-              className="mt-5 inline-flex min-h-[40px] items-center rounded-[4px] bg-[#E50914] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#f6121d]"
+              className="mt-5 inline-flex min-h-[44px] items-center rounded-[4px] bg-[#E50914] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#f6121d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             >
               Cari Tayangan
             </Link>
@@ -187,7 +187,7 @@ export default async function HomePage() {
             <div className="mx-auto flex w-full max-w-[120rem] justify-end px-4">
               <Link
                 href="/search"
-                className="text-xs font-semibold uppercase tracking-widest text-white/60 transition hover:text-white"
+                className="inline-flex min-h-[44px] items-center rounded px-1 text-xs font-semibold uppercase tracking-widest text-white/60 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
                 Lihat semua kategori &rarr;
               </Link>

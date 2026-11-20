@@ -64,7 +64,7 @@ export default function HomeHistoryRow() {
     };
   }, [user?.uid, fetchHistory]);
 
-  if (!user || items.length === 0) {
+  if (!user || (!loading && items.length === 0)) {
     return null;
   }
 

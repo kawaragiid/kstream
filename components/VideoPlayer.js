@@ -325,7 +325,14 @@ export default function VideoPlayer({
   const [autoplayMuted, setAutoplayMuted] = useState(false);
   const hlsRetryCountRef = useRef(0);
   const episodeDrawerRef = useRef(null);
+  const episodeCloseBtnRef = useRef(null);
   const settingsPopoverRef = useRef(null);
+  const settingsCloseBtnRef = useRef(null);
+  const previousEpisodeFocusRef = useRef(null);
+  const previousSettingsFocusRef = useRef(null);
+  const previousIosLangFocusRef = useRef(null);
+  const prevPopoverOpenRef = useRef({ episode: false, settings: false, iosLang: false });
+  const [isVolumeSliderOpen, setIsVolumeSliderOpen] = useState(false);
   const activeSubtitleRef = useRef(activeSubtitle);
   const capSettingsRef = useRef({ isGuest, dataSaver });
   useEffect(() => {
@@ -335,7 +342,7 @@ export default function VideoPlayer({
     capSettingsRef.current = { isGuest, dataSaver };
   }, [isGuest, dataSaver]);
   useEffect(() => {
-    hasOpenPopoverRef.current = isSettingsOpen || isEpisodePanelOpen;
+    hasOpenPopoverRef.current = isSettingsOpen || isEpisodePanelOpen || isIosLangOpen;
   }, [isSettingsOpen, isEpisodePanelOpen, isIosLangOpen]);
 
   useEffect(() => {
@@ -1756,7 +1763,7 @@ export default function VideoPlayer({
     : "bg-gradient-to-b from-black/80 via-transparent to-black/95";
   const showOverlay = controlsVisible;
   const controlButtonClass =
-    "inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-2 text-white/95 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.22)] transition duration-150 hover:scale-105 hover:border-white/35 hover:bg-white/20 hover:text-white active:scale-95 min-h-[40px] min-w-[40px] focus:outline-none focus:ring-2 focus:ring-white/40";
+    "inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-2 text-white/95 backdrop-blur-xl shadow-[0_4px_16px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.22)] transition duration-150 hover:scale-105 hover:border-white/35 hover:bg-white/20 hover:text-white active:scale-95 motion-reduce:transition-none motion-reduce:transform-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100 min-h-[44px] min-w-[44px] focus:outline-none focus:ring-2 focus:ring-white/40";
   useEffect(() => {
     setNextEpisodeDismissed(false);
     setQualityLevels([]);
@@ -1973,6 +1980,71 @@ export default function VideoPlayer({
     };
   }, [isSettingsOpen, isEpisodePanelOpen, isIosLangOpen]);
 
+  // Focus management on open/close for Episode drawer, Settings popover, and iOS Language popover
+  useEffect(() => {
+    const prev = prevPopoverOpenRef.current;
+
+    if (isEpisodePanelOpen && !prev.episode) {
+      previousEpisodeFocusRef.current = document.activeElement;
+      window.requestAnimationFrame(() => {
+        if (episodeCloseBtnRef.current) {
+          episodeCloseBtnRef.current.focus();
+        } else {
+          episodeDrawerRef.current
+            ?.querySelector('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')
+            ?.focus();
+        }
+      });
+    } else if (!isEpisodePanelOpen && prev.episode) {
+      const target = previousEpisodeFocusRef.current;
+      previousEpisodeFocusRef.current = null;
+      if (target && typeof target.focus === "function" && target.isConnected) {
+        target.focus();
+      }
+    }
+
+    if (isSettingsOpen && !prev.settings) {
+      previousSettingsFocusRef.current = document.activeElement;
+      window.requestAnimationFrame(() => {
+        if (settingsCloseBtnRef.current) {
+          settingsCloseBtnRef.current.focus();
+        } else {
+          settingsPopoverRef.current
+            ?.querySelector('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')
+            ?.focus();
+        }
+      });
+    } else if (!isSettingsOpen && prev.settings) {
+      const target = previousSettingsFocusRef.current;
+      previousSettingsFocusRef.current = null;
+      if (target && typeof target.focus === "function" && target.isConnected) {
+        target.focus();
+      }
+    }
+
+    if (isIosLangOpen && !prev.iosLang) {
+      previousIosLangFocusRef.current = document.activeElement;
+      window.requestAnimationFrame(() => {
+        const dialog = iosLangPopoverRef.current?.querySelector('[role="dialog"]');
+        dialog
+          ?.querySelector('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')
+          ?.focus();
+      });
+    } else if (!isIosLangOpen && prev.iosLang) {
+      const target = previousIosLangFocusRef.current;
+      previousIosLangFocusRef.current = null;
+      if (target && typeof target.focus === "function" && target.isConnected) {
+        target.focus();
+      }
+    }
+
+    prevPopoverOpenRef.current = {
+      episode: isEpisodePanelOpen,
+      settings: isSettingsOpen,
+      iosLang: isIosLangOpen,
+    };
+  }, [isEpisodePanelOpen, isSettingsOpen, isIosLangOpen]);
+
   const handleContainerTap = (event) => {
     if (isIOS || isEpisodePanelOpen) return;
     if (controlBarRef.current?.contains(event.target)) return;
@@ -2048,7 +2120,7 @@ export default function VideoPlayer({
             <button
               type="button"
               onClick={handleBack}
-              className="inline-flex h-10 min-h-[40px] items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
+              className="inline-flex h-11 min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white transition duration-200 hover:bg-white/20 active:scale-95 motion-reduce:transition-none motion-reduce:transform-none motion-reduce:active:scale-100 focus:outline-none focus:ring-2 focus:ring-white/50"
               aria-label="Kembali"
             >
               <BackIcon className="h-4 w-4" />
@@ -2065,7 +2137,7 @@ export default function VideoPlayer({
                   data-ios-lang-trigger="true"
                   onClick={() => setIsIosLangOpen((prev) => !prev)}
                   aria-expanded={isIosLangOpen}
-                  className="inline-flex h-10 min-h-[40px] items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  className="inline-flex h-11 min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white transition duration-200 hover:bg-white/20 active:scale-95 motion-reduce:transition-none motion-reduce:transform-none motion-reduce:active:scale-100 focus:outline-none focus:ring-2 focus:ring-white/50"
                   aria-label="Pengaturan bahasa audio dan subtitle"
                 >
                   {icons.subsOn}
@@ -2079,7 +2151,7 @@ export default function VideoPlayer({
                   >
                     {audioTracks.length > 1 && (
                       <div className="space-y-1.5">
-                        <p className="text-[11px] font-semibold text-white/60">Audio / Dubbing</p>
+                        <p className="text-[11px] font-semibold text-white/65">Audio / Dubbing</p>
                         <div className="flex flex-wrap gap-1.5">
                           {audioTracks.map((track) => {
                             const active = activeAudioTrack === track.index;
@@ -2088,7 +2160,7 @@ export default function VideoPlayer({
                                 key={`${track.index}-${track.lang || track.name}`}
                                 type="button"
                                 onClick={() => handleAudioTrackChange(track.index)}
-                                className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                                className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                                   active
                                     ? "bg-[#E50914] text-white shadow"
                                     : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
@@ -2103,12 +2175,12 @@ export default function VideoPlayer({
                     )}
                     {subtitleTracks.length > 0 && (
                       <div className="space-y-1.5">
-                        <p className="text-[11px] font-semibold text-white/60">Subtitle</p>
+                        <p className="text-[11px] font-semibold text-white/65">Subtitle</p>
                         <div className="flex flex-wrap gap-1.5">
                           <button
                             type="button"
                             onClick={() => setActiveSubtitle("off")}
-                            className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                            className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                               activeSubtitle === "off"
                                 ? "bg-white text-black shadow"
                                 : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
@@ -2125,7 +2197,7 @@ export default function VideoPlayer({
                                 key={`${track.lang}-${track.url || track.label}`}
                                 type="button"
                                 onClick={() => setActiveSubtitle(trackVal)}
-                                className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                                className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                                   active
                                     ? "bg-[#E50914] text-white shadow"
                                     : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
@@ -2139,14 +2211,14 @@ export default function VideoPlayer({
                       </div>
                     )}
                     <div className="space-y-1.5">
-                      <p className="text-[11px] font-semibold text-white/60">Kecepatan Putar</p>
+                      <p className="text-[11px] font-semibold text-white/65">Kecepatan Putar</p>
                       <div className="flex flex-wrap gap-1.5">
                         {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
                           <button
                             key={rate}
                             type="button"
                             onClick={() => handlePlaybackRateChange({ target: { value: rate } })}
-                            className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                            className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                               playbackRate === rate
                                 ? "bg-white text-black shadow"
                                 : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
@@ -2167,7 +2239,7 @@ export default function VideoPlayer({
                 data-ios-episode-trigger="true"
                 onClick={handleEpisodePanelToggle}
                 aria-expanded={isEpisodePanelOpen}
-                className="inline-flex h-10 min-h-[40px] items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white transition duration-200 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
+                className="inline-flex h-11 min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 text-xs font-semibold text-white transition duration-200 hover:bg-white/20 active:scale-95 motion-reduce:transition-none motion-reduce:transform-none motion-reduce:active:scale-100 focus:outline-none focus:ring-2 focus:ring-white/50"
                 aria-label="Daftar episode"
               >
                 {icons.episodes}
@@ -2290,7 +2362,7 @@ export default function VideoPlayer({
                           : isFullscreen
                           ? 1.5
                           : 1;
-                      return `${+(baseVw * subtitleSizeScale).toFixed(2)}vw`;
+                      return `clamp(14px, ${+(baseVw * subtitleSizeScale).toFixed(2)}vw, 42px)`;
                     })(),
                     lineHeight: 1.35,
                     maxWidth: "90%",
@@ -2366,7 +2438,7 @@ export default function VideoPlayer({
             type="button"
             onClick={togglePlay}
             aria-label="Putar"
-            className="pointer-events-auto flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white shadow-[0_12px_40px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-2xl transition duration-200 hover:scale-110 hover:border-white/60 hover:bg-white/25 active:scale-95"
+            className="pointer-events-auto flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white shadow-[0_12px_40px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.35)] backdrop-blur-2xl transition duration-200 hover:scale-110 hover:border-white/60 hover:bg-white/25 active:scale-95 motion-reduce:transition-none motion-reduce:transform-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"
           >
             <svg viewBox="0 0 24 24" fill="currentColor" className="ml-1 h-8 w-8 sm:h-10 sm:w-10 drop-shadow">
               <path d="M7 4.5v15l12.5-7.5L7 4.5z" />
@@ -2383,20 +2455,21 @@ export default function VideoPlayer({
           aria-label="Daftar Episode"
           aria-hidden={!isEpisodePanelOpen}
           inert={!isEpisodePanelOpen ? "" : undefined}
-          className={`pointer-events-auto absolute inset-y-0 right-0 z-30 flex w-full max-w-sm flex-col border-l border-white/15 bg-black/65 backdrop-blur-2xl shadow-[-12px_0_40px_rgba(0,0,0,0.65)] transition duration-300 ${
+          className={`pointer-events-auto absolute inset-y-0 right-0 z-30 flex w-full max-w-sm flex-col border-l border-white/15 bg-black/65 backdrop-blur-2xl shadow-[-12px_0_40px_rgba(0,0,0,0.65)] transition duration-300 motion-reduce:transition-none motion-reduce:transform-none ${
             isEpisodePanelOpen ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-full opacity-0"
           }`}
         >
           <div className="flex items-center justify-between border-b border-white/15 px-5 py-4">
             <div>
               <span className="text-sm font-bold tracking-wide text-white">Daftar Episode</span>
-              {title && <p className="text-xs text-white/60 truncate max-w-[220px]">{title}</p>}
+              {title && <p className="text-xs text-white/65 truncate max-w-[220px]">{title}</p>}
             </div>
             <button
+              ref={episodeCloseBtnRef}
               type="button"
               onClick={() => setEpisodePanelOpen(false)}
               aria-label="Tutup daftar episode"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20"
+              className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20 motion-reduce:transition-none"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
                 <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
@@ -2417,7 +2490,7 @@ export default function VideoPlayer({
                 .map(([seasonNum, seasonEps], _, allGroups) => (
                   <div key={seasonNum} className="space-y-2">
                     {allGroups.length > 1 && (
-                      <p className="px-1 text-[11px] font-bold uppercase tracking-wider text-white/55">
+                      <p className="px-1 text-[11px] font-bold uppercase tracking-wider text-white/65">
                         Season {seasonNum}
                       </p>
                     )}
@@ -2433,9 +2506,9 @@ export default function VideoPlayer({
                             if (!isPlayable) return;
                             handleEpisodeSelection(episode);
                           }}
-                          className={`group flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition ${
+                          className={`group flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition motion-reduce:transition-none ${
                             !isPlayable
-                              ? "cursor-not-allowed border-white/5 bg-white/[0.02] text-white/40 opacity-60"
+                              ? "cursor-not-allowed border-white/5 bg-white/[0.02] text-white/65 opacity-60"
                               : isActive
                               ? "border-[#E50914]/60 bg-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
                               : "border-white/5 bg-white/[0.05] text-white/90 hover:border-white/15 hover:bg-white/10"
@@ -2446,6 +2519,8 @@ export default function VideoPlayer({
                               <img
                                 src={episode.thumbnail}
                                 alt={episode.title || ""}
+                                loading="lazy"
+                                decoding="async"
                                 onError={(e) => {
                                   e.currentTarget.style.display = "none";
                                 }}
@@ -2460,15 +2535,15 @@ export default function VideoPlayer({
                           ) : null}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
-                              <span className={`text-xs font-bold ${isActive ? "text-[#E50914]" : "text-white/60"}`}>
+                              <span className={`text-xs font-bold ${isActive ? "text-[#E50914]" : "text-white/65"}`}>
                                 {episode.number ? `E${episode.number}` : "Episode"}
                               </span>
                               {!isPlayable ? (
-                                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-white/60">
+                                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-white/65">
                                   Belum Tersedia
                                 </span>
                               ) : episode.duration ? (
-                                <span className="text-[11px] font-medium tabular-nums text-white/50">{formatTime(episode.duration)}</span>
+                                <span className="text-[11px] font-medium tabular-nums text-white/65">{formatTime(episode.duration)}</span>
                               ) : null}
                             </div>
                             <p className="mt-0.5 truncate text-sm font-semibold text-white">{episode.title}</p>
@@ -2485,7 +2560,7 @@ export default function VideoPlayer({
       )}
 
       {!isIOS && (
-      <div className={`pointer-events-none absolute inset-0 flex flex-col justify-between ${overlayBackgroundClass} transition-opacity duration-300 ${showOverlay ? "opacity-100" : "opacity-0"}`}>
+      <div className={`pointer-events-none absolute inset-0 flex flex-col justify-between ${overlayBackgroundClass} transition-opacity duration-300 motion-reduce:transition-none ${showOverlay ? "opacity-100" : "opacity-0"}`}>
         {/* Top Bar */}
         <div className="flex items-center justify-between px-4 pt-4 sm:px-6 sm:pt-5 text-white drop-shadow">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
@@ -2493,7 +2568,7 @@ export default function VideoPlayer({
               <button
                 type="button"
                 onClick={handleBack}
-                className={`pointer-events-auto inline-flex h-11 w-11 min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] transition duration-150 hover:scale-105 hover:bg-white/20 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50 ${
+                className={`pointer-events-auto inline-flex h-11 w-11 min-h-[44px] min-w-[44px] flex-shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.22)] transition duration-150 hover:scale-105 hover:bg-white/20 active:scale-95 motion-reduce:transition-none motion-reduce:transform-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100 focus:outline-none focus:ring-2 focus:ring-white/50 ${
                   isIOS || showOverlay ? "opacity-100" : "opacity-0"
                 }`}
                 aria-label="Kembali"
@@ -2527,9 +2602,10 @@ export default function VideoPlayer({
               <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                 <span className="text-xs font-bold uppercase tracking-widest text-white/70">Pengaturan Pemutaran</span>
                 <button
+                  ref={settingsCloseBtnRef}
                   type="button"
                   onClick={() => setIsSettingsOpen(false)}
-                  className="rounded-full p-1 text-white/60 transition hover:bg-white/10 hover:text-white"
+                  className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-white/65 transition hover:bg-white/10 hover:text-white motion-reduce:transition-none"
                   aria-label="Tutup pengaturan"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
@@ -2556,7 +2632,7 @@ export default function VideoPlayer({
                     <button
                       type="button"
                       onClick={() => handleQualityChange({ target: { value: -1 } })}
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                      className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                         selectedQuality === -1
                           ? "bg-[#E50914] text-white shadow"
                           : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
@@ -2580,9 +2656,9 @@ export default function VideoPlayer({
                           disabled={isLocked}
                           title={lockTitle}
                           onClick={() => handleQualityChange({ target: { value: lvl.index } })}
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                          className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                             isLocked
-                              ? "cursor-not-allowed border border-white/10 bg-white/5 text-white/35"
+                              ? "cursor-not-allowed border border-white/10 bg-white/5 text-white/65 opacity-60"
                               : selectedQuality === lvl.index
                               ? "bg-[#E50914] text-white shadow"
                               : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
@@ -2597,14 +2673,14 @@ export default function VideoPlayer({
               )}
 
               <div className="space-y-1.5">
-                <p className="text-[11px] font-semibold text-white/60">Kecepatan Putar</p>
+                <p className="text-[11px] font-semibold text-white/65">Kecepatan Putar</p>
                 <div className="flex flex-wrap gap-1.5">
                   {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
                     <button
                       key={rate}
                       type="button"
                       onClick={() => handlePlaybackRateChange({ target: { value: rate } })}
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                      className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                         playbackRate === rate
                           ? "bg-white text-black shadow"
                           : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
@@ -2618,7 +2694,7 @@ export default function VideoPlayer({
 
               {audioTracks.length > 1 && (
                 <div className="space-y-1.5">
-                  <p className="text-[11px] font-semibold text-white/60">Audio / Dubbing</p>
+                  <p className="text-[11px] font-semibold text-white/65">Audio / Dubbing</p>
                   <div className="flex flex-wrap gap-1.5">
                     {audioTracks.map((track) => {
                       const active = activeAudioTrack === track.index;
@@ -2627,7 +2703,7 @@ export default function VideoPlayer({
                           key={`${track.index}-${track.lang || track.name}`}
                           type="button"
                           onClick={() => handleAudioTrackChange(track.index)}
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                          className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                             active
                               ? "bg-[#E50914] text-white shadow"
                               : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
@@ -2643,7 +2719,7 @@ export default function VideoPlayer({
 
               {subtitleTracks.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[11px] font-semibold text-white/60">Subtitle</p>
+                  <p className="text-[11px] font-semibold text-white/65">Subtitle</p>
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
@@ -2651,7 +2727,7 @@ export default function VideoPlayer({
                         setActiveSubtitle("off");
                         showControlsTemporarily();
                       }}
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                      className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                         activeSubtitle === "off"
                           ? "bg-white text-black shadow"
                           : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
@@ -2670,7 +2746,7 @@ export default function VideoPlayer({
                             setActiveSubtitle(trackVal);
                             showControlsTemporarily();
                           }}
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                          className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                             active
                               ? "bg-[#E50914] text-white shadow"
                               : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
@@ -2685,7 +2761,7 @@ export default function VideoPlayer({
               )}
 
               <div className="space-y-1.5">
-                <p className="text-[11px] font-semibold text-white/60">Ukuran Teks Subtitle</p>
+                <p className="text-[11px] font-semibold text-white/65">Ukuran Teks Subtitle</p>
                 <div className="flex flex-wrap gap-1.5">
                   {subtitleSizeOptions.map((option) => (
                     <button
@@ -2695,7 +2771,7 @@ export default function VideoPlayer({
                         setSubtitleSize(option.value);
                         showControlsTemporarily();
                       }}
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                      className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                         subtitleSize === option.value
                           ? "bg-white text-black shadow"
                           : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
@@ -2708,7 +2784,7 @@ export default function VideoPlayer({
               </div>
 
               <div className="space-y-1.5">
-                <p className="text-[11px] font-semibold text-white/60">Warna Teks Subtitle</p>
+                <p className="text-[11px] font-semibold text-white/65">Warna Teks Subtitle</p>
                 <div className="flex flex-wrap items-center gap-2">
                   {subtitleColorOptions.map((opt) => (
                     <button
@@ -2720,7 +2796,7 @@ export default function VideoPlayer({
                       }}
                       aria-label={`Warna ${opt.label}`}
                       title={opt.label}
-                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+                      className={`flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                         subtitleColor === opt.value
                           ? "border-white bg-white/15 text-white shadow"
                           : "border-white/15 bg-white/5 text-white/75 hover:bg-white/10"
@@ -2737,7 +2813,7 @@ export default function VideoPlayer({
               </div>
 
               <div className="space-y-1.5">
-                <p className="text-[11px] font-semibold text-white/60">Latar Belakang Subtitle</p>
+                <p className="text-[11px] font-semibold text-white/65">Latar Belakang Subtitle</p>
                 <div className="flex flex-wrap gap-1.5">
                   {subtitleBgOptions.map((opt) => (
                     <button
@@ -2747,7 +2823,7 @@ export default function VideoPlayer({
                         setSubtitleBg(opt.value);
                         showControlsTemporarily();
                       }}
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                      className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                         subtitleBg === opt.value
                           ? "bg-white text-black shadow"
                           : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
@@ -2760,7 +2836,7 @@ export default function VideoPlayer({
               </div>
 
               <div className="space-y-1.5">
-                <p className="text-[11px] font-semibold text-white/60">Gaya Pinggiran Teks</p>
+                <p className="text-[11px] font-semibold text-white/65">Gaya Pinggiran Teks</p>
                 <div className="flex flex-wrap gap-1.5">
                   {subtitleEdgeOptions.map((opt) => (
                     <button
@@ -2770,7 +2846,7 @@ export default function VideoPlayer({
                         setSubtitleEdge(opt.value);
                         showControlsTemporarily();
                       }}
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                      className={`inline-flex min-h-[44px] items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition motion-reduce:transition-none ${
                         subtitleEdge === opt.value
                           ? "bg-white text-black shadow"
                           : "border border-white/15 bg-white/5 text-white/80 hover:bg-white/15"
@@ -2814,13 +2890,13 @@ export default function VideoPlayer({
                 {formatTime(currentTime)}
               </span>
               <div className="group/scrubber relative flex h-5 flex-1 items-center">
-                <div className="relative h-1 w-full overflow-visible rounded-full bg-white/25 transition-all duration-150 group-hover/scrubber:h-1.5">
+                <div className="relative h-1 w-full overflow-visible rounded-full bg-white/25 transition-all duration-150 motion-reduce:transition-none group-hover/scrubber:h-1.5 group-active/scrubber:h-1.5 group-focus-within/scrubber:h-1.5 group-focus-within/scrubber:ring-2 group-focus-within/scrubber:ring-white/60 group-focus-within/scrubber:ring-offset-2 group-focus-within/scrubber:ring-offset-black/80">
                   <div
-                    className="h-full rounded-full bg-[#E50914] transition-[width] duration-75"
+                    className="h-full rounded-full bg-[#E50914] transition-[width] duration-75 motion-reduce:transition-none"
                     style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
                   />
                   <div
-                    className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 scale-0 rounded-full bg-[#E50914] shadow-[0_0_10px_rgba(229,9,20,0.9)] transition-transform duration-150 group-hover/scrubber:scale-100"
+                    className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 scale-0 rounded-full bg-[#E50914] shadow-[0_0_10px_rgba(229,9,20,0.9)] transition-transform duration-150 motion-reduce:transition-none group-hover/scrubber:scale-100 group-active/scrubber:scale-100 group-focus-within/scrubber:scale-100"
                     style={{ left: `${Math.min(100, Math.max(0, progress))}%` }}
                   />
                 </div>
@@ -2832,7 +2908,7 @@ export default function VideoPlayer({
                   value={progress}
                   onChange={handleProgressChange}
                   aria-label="Seek video"
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  className="absolute -inset-y-3 inset-x-0 min-h-[44px] w-full cursor-pointer opacity-0"
                 />
               </div>
               <span className="tabular-nums text-xs font-medium text-white/85">
@@ -2880,7 +2956,26 @@ export default function VideoPlayer({
                   >
                     {icons[isMuted || volume === 0 ? "mute" : "sound"]}
                   </button>
-                  <div className="hidden lg:flex w-0 overflow-hidden opacity-0 transition-all duration-200 group-hover/vol:w-24 group-hover/vol:opacity-100 focus-within:w-24 focus-within:opacity-100 items-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsVolumeSliderOpen((prev) => !prev);
+                      showControlsTemporarily();
+                    }}
+                    aria-label="Atur volume"
+                    aria-expanded={isVolumeSliderOpen}
+                    title="Atur Volume"
+                    className="hidden lg:inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/15 bg-white/5 px-2 text-xs font-semibold text-white/80 transition hover:bg-white/15 hover:text-white motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-white/40"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden="true">
+                      <path d={isVolumeSliderOpen ? "M15 18l-6-6 6-6" : "M9 18l6-6-6-6"} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  <div
+                    className={`hidden lg:flex overflow-hidden transition-all duration-200 motion-reduce:transition-none group-hover/vol:w-24 group-hover/vol:opacity-100 group-focus-within/vol:w-24 group-focus-within/vol:opacity-100 items-center ${
+                      isVolumeSliderOpen ? "w-24 opacity-100" : "w-0 opacity-0"
+                    }`}
+                  >
                     <input
                       type="range"
                       min={0}
@@ -2975,7 +3070,7 @@ export default function VideoPlayer({
       {seekIndicator && (
         <div
           key={seekIndicator.key}
-          className={`pointer-events-none absolute top-1/2 -translate-y-1/2 z-20 flex flex-col items-center justify-center rounded-full bg-black/65 px-5 py-3 text-white backdrop-blur-sm animate-pulse ${
+          className={`pointer-events-none absolute top-1/2 -translate-y-1/2 z-20 flex flex-col items-center justify-center rounded-full bg-black/65 px-5 py-3 text-white backdrop-blur-sm animate-pulse motion-reduce:animate-none ${
             seekIndicator.side === "left" ? "left-8 sm:left-16" : "right-8 sm:right-16"
           }`}
         >
@@ -2985,7 +3080,7 @@ export default function VideoPlayer({
 
       {showNextEpisodeCountdown && (
         <div className="pointer-events-auto absolute bottom-24 right-4 sm:right-8 z-30 w-72 sm:w-80 rounded-md border border-white/15 bg-[#141414]/95 p-4 text-white shadow-2xl backdrop-blur-md">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-white/65">
             Episode berikutnya dalam {Math.ceil(remainingSeconds)} detik
           </p>
           <p className="mt-1 truncate text-sm font-bold text-white">
@@ -2996,7 +3091,7 @@ export default function VideoPlayer({
             <button
               type="button"
               onClick={handleNextEpisode}
-              className="flex-1 rounded-[4px] bg-white px-3 py-1.5 text-xs font-bold text-black transition hover:bg-white/85"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-[4px] bg-white px-3 py-2 text-xs font-bold text-black transition hover:bg-white/85 motion-reduce:transition-none"
             >
               Putar Sekarang
             </button>
@@ -3006,7 +3101,7 @@ export default function VideoPlayer({
                 setNextEpisodeDismissed(true);
                 onCancelAutoAdvance?.();
               }}
-              className="rounded-[4px] border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/20"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-[4px] border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/20 motion-reduce:transition-none"
             >
               Batal
             </button>

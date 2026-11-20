@@ -18,9 +18,9 @@ function EpisodeCard({ episode, href }) {
     setThumbSrc(episode.thumbnail || FALLBACK_THUMB);
   }, [episode.thumbnail]);
 
-  const cardClassName = `group flex gap-3 sm:gap-4 rounded-2xl border border-white/10 bg-surface-100/60 p-3 sm:p-4 backdrop-blur transition-all duration-200 ${
+  const cardClassName = `group flex gap-3 sm:gap-4 rounded-2xl border border-white/10 bg-surface-100/60 p-3 sm:p-4 backdrop-blur transition-all duration-200 motion-reduce:transition-none ${
     isAvailable && href
-      ? 'hover:border-brand hover:bg-white/5 active:scale-[0.99]'
+      ? 'hover:border-brand hover:bg-white/5 active:scale-[0.99] motion-reduce:active:scale-100'
       : !isAvailable
       ? 'cursor-not-allowed opacity-65'
       : ''
@@ -33,7 +33,7 @@ function EpisodeCard({ episode, href }) {
           src={thumbSrc}
           alt={episode.title || (hasEpNum ? `Episode ${epNum}` : 'Episode')}
           fill
-          className={`object-cover transition-transform duration-300 ${isAvailable ? 'group-hover:scale-105' : ''}`}
+          className={`object-cover transition-transform duration-300 motion-reduce:transition-none ${isAvailable ? 'group-hover:scale-105 motion-reduce:group-hover:scale-100' : ''}`}
           sizes="(max-width: 640px) 112px, (max-width: 1024px) 160px, 192px"
           onError={() => setThumbSrc(FALLBACK_THUMB)}
         />
@@ -156,7 +156,7 @@ export default function EpisodeList({ episodes = [], baseHref = '' }) {
                 tabIndex={isSelected ? 0 : -1}
                 onClick={() => setSelectedSeason(season)}
                 onKeyDown={(e) => handleTabKeyDown(e, index)}
-                className={`flex-shrink-0 snap-start inline-flex items-center justify-center rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition-all duration-200 min-h-[38px] active:scale-95 ${
+                className={`flex-shrink-0 snap-start inline-flex items-center justify-center rounded-full px-4 py-2 text-xs sm:text-sm font-semibold transition-all duration-200 min-h-[44px] active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100 ${
                   isSelected
                     ? 'bg-white text-black shadow-sm'
                     : 'border border-white/15 bg-white/5 text-white/80 hover:border-white/30 hover:bg-white/10'

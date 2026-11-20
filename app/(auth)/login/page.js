@@ -176,59 +176,72 @@ function LoginForm() {
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
-          <div>
+          <div className="space-y-1.5">
+            <label htmlFor="login-email" className="block text-xs font-medium text-white/80">
+              Email
+            </label>
             <input
-              aria-label="Email"
+              id="login-email"
               autoComplete="email"
-              className="w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-3.5 text-sm text-white placeholder:text-white/50 focus:border-white/50 focus:bg-[#454545] focus:outline-none"
-              placeholder="Email"
+              className="w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-3.5 text-sm text-white placeholder:text-white/65 focus:border-white/50 focus:bg-[#454545] focus:outline-none"
+              placeholder="nama@email.com"
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               required
             />
           </div>
-          <div className="relative">
-            <input
-              aria-label="Password"
-              autoComplete="current-password"
-              className="w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-3.5 pr-11 text-sm text-white placeholder:text-white/50 focus:border-white/50 focus:bg-[#454545] focus:outline-none"
-              placeholder="Password"
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((prev) => !prev)}
-              aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 transition hover:text-white"
-            >
-              {showPassword ? (
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                </svg>
-              ) : (
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-              )}
-            </button>
+          <div className="space-y-1.5">
+            <label htmlFor="login-password" className="block text-xs font-medium text-white/80">
+              Password
+            </label>
+            <div className="relative">
+              <input
+                id="login-password"
+                autoComplete="current-password"
+                className="w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-3.5 pr-12 text-sm text-white placeholder:text-white/65 focus:border-white/50 focus:bg-[#454545] focus:outline-none"
+                placeholder="Masukkan password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center text-white/65 transition hover:text-white motion-reduce:transition-none"
+              >
+                {showPassword ? (
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
 
-          {error && <p className="rounded-[4px] bg-[#e87c03]/15 px-3 py-2 text-xs text-[#e87c03]">{error}</p>}
+          {error && (
+            <p role="alert" className="rounded-[4px] bg-[#e87c03]/15 px-3 py-2 text-xs text-[#e87c03]">
+              {error}
+            </p>
+          )}
 
           <button
-            className="w-full rounded-[4px] bg-[#E50914] py-3.5 text-sm font-bold text-white transition hover:bg-[#f40612] disabled:cursor-not-allowed disabled:opacity-60"
+            type="submit"
+            className="min-h-[44px] w-full rounded-[4px] bg-[#E50914] py-3.5 text-sm font-bold text-white transition hover:bg-[#f40612] motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isSubmitting}
           >
             {loading ? 'Memproses...' : 'Masuk'}
           </button>
         </form>
 
-        <div className="relative text-center text-xs uppercase tracking-widest text-white/40">
+        <div className="relative text-center text-xs uppercase tracking-widest text-white/65">
           <div className="absolute left-0 top-1/2 w-full -translate-y-1/2 border-t border-white/10" aria-hidden="true" />
           <span className="relative z-10 bg-black/80 px-3">atau</span>
         </div>
@@ -237,7 +250,7 @@ function LoginForm() {
           type="button"
           onClick={onGoogleLogin}
           disabled={isSubmitting}
-          className="flex w-full items-center justify-center gap-3 rounded-[4px] border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex min-h-[44px] w-full items-center justify-center gap-3 rounded-[4px] border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
             <path fill="#EA4335" d="M12 10.2v4h5.6c-.24 1.44-1.68 4.2-5.6 4.2-3.36 0-6.1-2.76-6.1-6.2s2.74-6.2 6.1-6.2c1.92 0 3.2.82 3.94 1.54l2.68-2.6C16.84 3.16 14.64 2.2 12 2.2 6.86 2.2 2.7 6.38 2.7 11.6S6.86 21 12 21c5.56 0 9.3-3.92 9.3-9.44 0-.64-.08-1.12-.18-1.6H12z" />
@@ -245,13 +258,13 @@ function LoginForm() {
           {googleLoading ? 'Menghubungkan...' : 'Masuk dengan Google'}
         </button>
 
-        <div className="flex items-center justify-between pt-2 text-xs text-white/60">
-          <Link href={`/forgot-password${redirectQuery}`} className="hover:text-white hover:underline">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-xs text-white/65">
+          <Link href={`/forgot-password${redirectQuery}`} className="inline-flex min-h-[44px] items-center py-2 hover:text-white hover:underline">
             Lupa password?
           </Link>
           <span>
             Baru di Kstream?{' '}
-            <Link href={`/register${redirectQuery}`} className="font-semibold text-white hover:underline">
+            <Link href={`/register${redirectQuery}`} className="inline-flex min-h-[44px] items-center py-2 font-semibold text-white hover:underline">
               Daftar sekarang
             </Link>
           </span>

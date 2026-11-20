@@ -1,3 +1,4 @@
+import Link from "next/link";
 import CardPoster from "../../../../components/CardPoster";
 
 export const revalidate = 300;
@@ -34,8 +35,14 @@ export default async function TrendingPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-md border border-white/10 bg-[#181818] p-10 text-center">
+          <div className="flex flex-col items-center gap-4 rounded-md border border-white/10 bg-[#181818] p-10 text-center">
             <p className="text-sm text-white/65">Belum ada konten trending saat ini.</p>
+            <Link
+              href="/"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 motion-reduce:transition-none"
+            >
+              Jelajahi Katalog
+            </Link>
           </div>
         )}
       </div>

@@ -81,22 +81,34 @@ function ForgotPasswordForm() {
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
-          <div>
+          <div className="space-y-1.5">
+            <label htmlFor="reset-email" className="block text-xs font-medium text-white/80">
+              Email
+            </label>
             <input
-              aria-label="Email"
+              id="reset-email"
               autoComplete="email"
-              className="w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-3.5 text-sm text-white placeholder:text-white/50 focus:border-white/50 focus:bg-[#454545] focus:outline-none"
-              placeholder="Email"
+              className="w-full rounded-[4px] border border-transparent bg-[#333333] px-4 py-3.5 text-sm text-white placeholder:text-white/65 focus:border-white/50 focus:bg-[#454545] focus:outline-none"
+              placeholder="nama@email.com"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
-          {message && <p className="rounded-[4px] bg-emerald-500/15 px-3 py-2 text-xs text-emerald-300">{message}</p>}
-          {error && <p className="rounded-[4px] bg-[#e87c03]/15 px-3 py-2 text-xs text-[#e87c03]">{error}</p>}
+          {message && (
+            <p role="status" aria-live="polite" className="rounded-[4px] bg-emerald-500/15 px-3 py-2 text-xs text-emerald-300">
+              {message}
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="rounded-[4px] bg-[#e87c03]/15 px-3 py-2 text-xs text-[#e87c03]">
+              {error}
+            </p>
+          )}
           <button
-            className="w-full rounded-[4px] bg-[#E50914] py-3.5 text-sm font-bold text-white transition hover:bg-[#f40612] disabled:cursor-not-allowed disabled:opacity-60"
+            type="submit"
+            className="min-h-[44px] w-full rounded-[4px] bg-[#E50914] py-3.5 text-sm font-bold text-white transition hover:bg-[#f40612] motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60"
             disabled={loading || cooldown > 0}
           >
             {loading
@@ -107,9 +119,9 @@ function ForgotPasswordForm() {
           </button>
         </form>
 
-        <p className="text-center text-xs text-white/60">
+        <p className="text-center text-xs text-white/65">
           Kembali ke{" "}
-          <Link href={`/login${redirectQuery}`} className="font-semibold text-white hover:underline">
+          <Link href={`/login${redirectQuery}`} className="inline-flex min-h-[44px] items-center py-2 font-semibold text-white hover:underline">
             halaman masuk
           </Link>
         </p>

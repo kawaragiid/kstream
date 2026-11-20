@@ -91,7 +91,7 @@ function UnavailablePlayerState({ title, message, backHref }) {
         <p className="text-sm text-white/65">{message}</p>
         <Link
           href={backHref}
-          className="mt-2 inline-flex items-center gap-2 rounded-md bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90"
+          className="mt-2 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-md bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90 motion-reduce:transition-none"
         >
           Kembali
         </Link>

@@ -99,7 +99,7 @@ export default async function SeriesDetailPage({ params }) {
   return (
     <div className="space-y-10 sm:space-y-14 pb-12 sm:pb-16">
       <div className="w-full">
-        <section className="relative -mt-14 sm:-mt-16 w-full min-h-[70vh] sm:min-h-[78vh] overflow-hidden bg-[#141414] text-white">
+        <section className="relative -mt-14 sm:-mt-16 w-full min-h-[min(70vh,560px)] sm:min-h-[78vh] overflow-hidden bg-[#141414] text-white">
           {(series.backdropUrl || series.posterUrl) && (
             <Image
               src={series.backdropUrl || series.posterUrl}
@@ -112,7 +112,7 @@ export default async function SeriesDetailPage({ params }) {
           )}
           <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-[#141414]/35 to-black/40" />
-          <div className="relative z-10 mx-auto flex min-h-[70vh] sm:min-h-[78vh] w-full max-w-[120rem] flex-col justify-end gap-4 sm:gap-6 px-4 pb-10 pt-28 sm:px-8 sm:pb-14 lg:px-12">
+          <div className="relative z-10 mx-auto flex min-h-[min(70vh,560px)] sm:min-h-[78vh] w-full max-w-[120rem] flex-col justify-end gap-4 sm:gap-6 px-4 pb-10 pt-20 sm:pt-28 sm:px-8 sm:pb-14 lg:px-12">
             <div className="max-w-3xl space-y-4">
               <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold leading-tight tracking-tight break-words drop-shadow-lg">{series.title}</h1>
               <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 text-xs font-semibold tracking-wider text-white/85">
@@ -136,22 +136,22 @@ export default async function SeriesDetailPage({ params }) {
               </div>
               <p className="text-sm leading-relaxed text-white/85 md:text-base break-words line-clamp-4">{series.overview}</p>
               {(series.cast?.length > 0 || series.director || originInfo) && (
-                <div className="grid gap-1 pt-1 text-xs text-white/70 sm:text-sm">
+                <div className="grid gap-1 pt-1 text-xs text-white/75 sm:text-sm">
                   {series.cast?.length > 0 && (
                     <p className="break-words">
-                      <span className="text-white/45">Pemeran: </span>
+                      <span className="text-white/65">Pemeran: </span>
                       {series.cast.join(", ")}
                     </p>
                   )}
                   {series.director && (
                     <p className="break-words">
-                      <span className="text-white/45">Sutradara / Kreator: </span>
+                      <span className="text-white/65">Sutradara / Kreator: </span>
                       {series.director}
                     </p>
                   )}
                   {originInfo && (
                     <p className="break-words">
-                      <span className="text-white/45">Negara &amp; Bahasa: </span>
+                      <span className="text-white/65">Negara &amp; Bahasa: </span>
                       {originInfo}
                     </p>
                   )}
@@ -163,9 +163,9 @@ export default async function SeriesDetailPage({ params }) {
               {hasPlayableEpisode && (
                 <Link
                   href={watchHref}
-                  className="inline-flex w-full sm:w-auto min-h-[44px] items-center justify-center gap-2 rounded-[4px] bg-white px-7 py-2.5 font-bold text-black shadow-lg hover:bg-white/85 active:scale-95 transition text-sm sm:text-base"
+                  className="inline-flex w-full sm:w-auto min-h-[44px] items-center justify-center gap-2 rounded-[4px] bg-white px-7 py-2.5 font-bold text-black shadow-lg hover:bg-white/85 active:scale-95 transition motion-reduce:transition-none motion-reduce:active:scale-100 text-sm sm:text-base"
                 >
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden="true">
                     <path d="M7 4.5v15l12.5-7.5L7 4.5z" />
                   </svg>
                   Putar {primaryEpisode?.number ? `S${String(primaryEpisode.seasonNumber || 1).padStart(2, "0")}E${String(primaryEpisode.number).padStart(2, "0")}` : "Episode 1"}
@@ -184,7 +184,7 @@ export default async function SeriesDetailPage({ params }) {
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold text-white">Episode</h2>
           {episodes.length > 0 && (
-            <span className="text-xs uppercase tracking-widest text-white/50">{episodes.length} episode</span>
+            <span className="text-xs uppercase tracking-widest text-white/65">{episodes.length} episode</span>
           )}
         </div>
         <EpisodeList

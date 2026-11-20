@@ -97,9 +97,31 @@ function SearchContent() {
           <p className="text-sm text-white/60">Temukan film, anime, atau series favoritmu.</p>
         </div>
         <SearchBar onSearch={handleSearch} initialValue={initialQuery} loading={loading} />
-        {loading && <p className="text-sm text-white/60">Mencari...</p>}
-        {error && <p className="text-sm text-rose-400">{error}</p>}
-        {results.length > 0 && (
+        <div aria-live="polite" className="min-h-[1.25rem]">
+          {loading && <p className="text-sm text-white/65">Mencari...</p>}
+          {!loading && !error && hasSearched && results.length > 0 && (
+            <p className="text-sm text-white/65">Menampilkan {results.length} hasil pencarian.</p>
+          )}
+        </div>
+        {error && (
+          <p role="alert" className="text-sm text-rose-400">
+            {error}
+          </p>
+        )}
+        {loading && (
+          <div
+            aria-hidden="true"
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4"
+          >
+            {Array.from({ length: 10 }).map((_, index) => (
+              <div
+                key={`search-skeleton-${index}`}
+                className="aspect-[2/3] w-full animate-pulse rounded-lg border border-white/10 bg-white/10 motion-reduce:animate-none"
+              />
+            ))}
+          </div>
+        )}
+        {!loading && results.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
             {results.map((item) => (
               <CardPoster key={`${item.type || "item"}-${item.id}`} item={item} />

@@ -55,9 +55,12 @@ export default function SliderRow({
     const firstCard = container.querySelector(":scope > div > div") || container.querySelector(":scope > div");
     const cardWidth = firstCard?.offsetWidth || 320;
     const amount = cardWidth * DEFAULT_SCROLL_FACTOR;
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     container.scrollBy({
       left: direction === "next" ? amount : -amount,
-      behavior: "smooth",
+      behavior: prefersReduced ? "auto" : "smooth",
     });
   }, []);
 
@@ -70,9 +73,11 @@ export default function SliderRow({
             type="button"
             aria-label="Gulir ke kiri"
             onClick={() => handleScroll("prev")}
-            className="absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-white/15 bg-black/75 p-2.5 text-white shadow-lg transition hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white md:flex"
+            className="absolute left-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-white/15 bg-black/75 p-2.5 text-white shadow-lg transition motion-reduce:transition-none hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white md:flex"
           >
-            &larr;
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-5 w-5" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
         )}
         {canScrollRight && (
@@ -80,9 +85,11 @@ export default function SliderRow({
             type="button"
             aria-label="Gulir ke kanan"
             onClick={() => handleScroll("next")}
-            className="absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-white/15 bg-black/75 p-2.5 text-white shadow-lg transition hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white md:flex"
+            className="absolute right-2 top-1/2 z-20 hidden -translate-y-1/2 rounded-full border border-white/15 bg-black/75 p-2.5 text-white shadow-lg transition motion-reduce:transition-none hover:bg-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white md:flex"
           >
-            &rarr;
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-5 w-5" aria-hidden="true">
+              <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </button>
         )}
       </>
@@ -100,7 +107,7 @@ export default function SliderRow({
         {actionHref && hasItems && (
           <Link
             href={actionHref}
-            className="text-xs font-semibold uppercase tracking-widest text-text-muted transition hover:text-text-primary"
+            className="inline-flex min-h-[44px] items-center rounded px-1 text-xs font-semibold uppercase tracking-widest text-text-muted transition motion-reduce:transition-none hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           >
             {actionLabel}
           </Link>
@@ -110,7 +117,7 @@ export default function SliderRow({
         {arrowButtons}
         <div
           ref={scrollRef}
-          className="-mx-4 flex gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar scroll-smooth px-4 py-1 snap-x snap-mandatory scroll-pl-4 [-webkit-overflow-scrolling:touch]"
+          className="-mx-4 flex gap-2 sm:gap-2.5 overflow-x-auto no-scrollbar scroll-smooth motion-reduce:scroll-auto px-4 py-1 snap-x snap-mandatory scroll-pl-4 [-webkit-overflow-scrolling:touch]"
         >
           {hasItems
             ? validItems.map((item, idx) => (
@@ -124,7 +131,7 @@ export default function SliderRow({
             : [...Array(6)].map((_, i) => (
                 <div
                   key={i}
-                  className={`w-[62vw] shrink-0 snap-start sm:w-[40vw] md:w-[27vw] lg:w-[21vw] xl:w-[18.5vw] ${skeletonOrientationClass} animate-pulse rounded-[4px] bg-surface-200`}
+                  className={`w-[62vw] shrink-0 snap-start sm:w-[40vw] md:w-[27vw] lg:w-[21vw] xl:w-[18.5vw] ${skeletonOrientationClass} animate-pulse motion-reduce:animate-none rounded-[4px] bg-surface-200`}
                 />
               ))}
         </div>

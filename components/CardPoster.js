@@ -312,15 +312,10 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
       lastInputTouchRef.current = true;
       return;
     }
-    if (pointerType) {
-      lastInputTouchRef.current = false;
-    } else if (lastInputTouchRef.current) {
+    if (pointerType !== "mouse" && pointerType !== "pen") {
       return;
     }
-    // Untuk keyboard focus (tanpa pointerType), batasi ke layar >= 768px atau perangkat yang mendukung hover
-    if (!pointerType && window.innerWidth < 768 && !window.matchMedia("(any-hover: hover)").matches) {
-      return;
-    }
+    lastInputTouchRef.current = false;
     if (leaveTimer.current) {
       clearTimeout(leaveTimer.current);
       leaveTimer.current = null;
@@ -391,13 +386,12 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
       ref={cardRef}
       data-card="true"
       data-href={detailHref}
-      className={`relative cursor-pointer select-none ${showPreview ? "z-40" : "z-10"}`}
+      className={`relative cursor-pointer select-none rounded-[4px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white ${showPreview ? "z-40" : "z-10"}`}
       onPointerDown={(event) => {
         lastInputTouchRef.current = event.pointerType === "touch";
       }}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handleMouseLeave}
-      onFocus={handlePointerEnter}
       onBlur={handleBlur}
       role="button"
       tabIndex={0}
@@ -415,13 +409,13 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
         <div
           className={`relative ${
             isPortrait ? "aspect-[2/3]" : "aspect-video"
-          } overflow-hidden rounded-[4px] bg-[#181818] shadow-[0_4px_14px_rgba(0,0,0,0.45)] transition-transform duration-200 active:scale-95`}
+          } overflow-hidden rounded-[4px] bg-[#181818] shadow-[0_4px_14px_rgba(0,0,0,0.45)] transition-transform duration-200 active:scale-95 motion-reduce:transition-none motion-reduce:transform-none motion-reduce:active:scale-100`}
         >
           <Image
             src={posterSrc}
             alt={title}
             fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            className="object-cover transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:transform-none motion-reduce:group-hover:scale-100"
             sizes="(max-width: 640px) 62vw, (max-width: 768px) 40vw, (max-width: 1024px) 27vw, 19vw"
             onError={() => setPosterSrc(defaultPoster)}
           />
@@ -461,7 +455,7 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
             }}
             className="block"
           >
-            <div className="w-full max-h-[calc(100vh-24px)] overflow-y-auto overflow-x-hidden rounded-md bg-[#181818] text-white shadow-[0_18px_48px_rgba(0,0,0,0.92)] ring-1 ring-white/20 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-full max-h-[calc(100vh-24px)] overflow-y-auto overflow-x-hidden rounded-md bg-[#181818] text-white shadow-[0_18px_48px_rgba(0,0,0,0.92)] ring-1 ring-white/20 animate-in fade-in zoom-in-95 duration-150 motion-reduce:animate-none motion-reduce:transition-none">
               {/* 16:9 Live Video Preview */}
               <div className="relative aspect-video w-full overflow-hidden bg-black" style={{ aspectRatio: "16 / 9" }}>
               <Image
@@ -511,16 +505,16 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
                     event.stopPropagation();
                     setMuted((prev) => !prev);
                   }}
-                  className="absolute bottom-2 right-2.5 flex h-7 w-7 items-center justify-center rounded-full border border-white/50 bg-black/55 text-white/90 transition hover:border-white hover:bg-black/80"
+                  className="absolute bottom-2 right-2.5 flex h-8 w-8 min-h-[40px] min-w-[40px] [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px] items-center justify-center rounded-full border border-white/50 bg-black/55 text-white/90 transition motion-reduce:transition-none hover:border-white hover:bg-black/80"
                   aria-label={muted ? "Nyalakan suara trailer" : "Matikan suara trailer"}
                 >
                   {muted ? (
-                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M11 5L6 9H2v6h4l5 4V5z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M23 9l-6 6M17 9l6 6" />
                     </svg>
                   ) : (
-                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M11 5L6 9H2v6h4l5 4V5z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" />
                     </svg>
@@ -544,10 +538,10 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
                       }
                       router.push(watchHref);
                     }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-black transition hover:bg-white/85 active:scale-95"
+                    className="flex h-9 w-9 min-h-[40px] min-w-[40px] [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px] items-center justify-center rounded-full bg-white text-black transition motion-reduce:transition-none motion-reduce:transform-none hover:bg-white/85 active:scale-95"
                     aria-label={`Putar ${title}`}
                   >
-                    <svg className="h-4 w-4 translate-x-[1px]" viewBox="0 0 24 24" fill="currentColor">
+                    <svg className="h-4 w-4 translate-x-[1px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path d="M8 5v14l11-7z" />
                     </svg>
                   </button>
@@ -556,7 +550,7 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
                     type="button"
                     onClick={handleToggleFavorite}
                     disabled={favLoading}
-                    className={`flex h-8 w-8 items-center justify-center rounded-full border transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+                    className={`flex h-9 w-9 min-h-[40px] min-w-[40px] [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px] items-center justify-center rounded-full border transition motion-reduce:transition-none motion-reduce:transform-none active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
                       favorite
                         ? "border-white bg-white/15 text-white hover:bg-white/25"
                         : "border-white/45 bg-white/5 text-white hover:border-white hover:bg-white/15"
@@ -565,11 +559,11 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
                     title={favorite ? "Hapus dari Daftar Saya" : "Tambah ke Daftar Saya"}
                   >
                     {favorite ? (
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     ) : (
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
                       </svg>
                     )}
@@ -583,11 +577,11 @@ export default function CardPoster({ item = {}, orientation: forcedOrientation }
                     event.stopPropagation();
                     openMedia(item, { origin: "card" });
                   }}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-white/45 bg-white/5 text-white transition hover:border-white hover:bg-white/15 active:scale-95"
+                  className="flex h-9 w-9 min-h-[40px] min-w-[40px] [@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px] items-center justify-center rounded-full border border-white/45 bg-white/5 text-white transition motion-reduce:transition-none motion-reduce:transform-none hover:border-white hover:bg-white/15 active:scale-95"
                   aria-label={`Info lengkap ${title}`}
                   title="Info Lengkap"
                 >
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
                   </svg>
                 </button>

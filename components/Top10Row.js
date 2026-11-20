@@ -32,7 +32,10 @@ export default function Top10Row({ title = "Top 10 Hari Ini", items = [] }) {
     const node = scrollerRef.current;
     if (!node) return;
     const distance = Math.max(300, node.clientWidth * 0.75);
-    node.scrollBy({ left: direction * distance, behavior: "smooth" });
+    const prefersReduced =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    node.scrollBy({ left: direction * distance, behavior: prefersReduced ? "auto" : "smooth" });
   };
 
   return (
@@ -47,9 +50,9 @@ export default function Top10Row({ title = "Top 10 Hari Ini", items = [] }) {
             type="button"
             onClick={() => scrollByAmount(-1)}
             aria-label="Geser kiri"
-            className="hidden md:flex absolute left-0 top-0 bottom-4 z-20 w-10 items-center justify-center rounded-r bg-black/60 text-white opacity-0 transition hover:bg-black/80 group-hover/row:opacity-100 focus-visible:opacity-100"
+            className="hidden md:flex absolute left-0 top-0 bottom-4 z-20 w-10 items-center justify-center rounded-r bg-black/60 text-white [@media(hover:hover)]:opacity-0 transition motion-reduce:transition-none hover:bg-black/80 group-hover/row:opacity-100 focus-visible:opacity-100"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-6 w-6">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-6 w-6" aria-hidden="true">
               <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
@@ -58,7 +61,7 @@ export default function Top10Row({ title = "Top 10 Hari Ini", items = [] }) {
         <div
           ref={scrollerRef}
           onScroll={updateScrollBounds}
-          className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 no-scrollbar scroll-smooth"
+          className="-mx-4 px-4 flex gap-4 sm:gap-6 overflow-x-auto pb-4 no-scrollbar scroll-smooth motion-reduce:scroll-auto [-webkit-overflow-scrolling:touch]"
         >
           {topItems.map((item, idx) => {
             const rank = idx + 1;
@@ -75,7 +78,7 @@ export default function Top10Row({ title = "Top 10 Hari Ini", items = [] }) {
               >
                 <svg
                   viewBox={rank >= 10 ? "0 0 135 140" : "0 0 95 140"}
-                  className="h-28 sm:h-36 md:h-40 w-auto flex-shrink-0 -mr-4 sm:-mr-5 z-0 transition-transform duration-200 group-hover/card:scale-105"
+                  className="h-28 sm:h-36 md:h-40 w-auto flex-shrink-0 -mr-4 sm:-mr-5 z-0 transition-transform duration-200 group-hover/card:scale-105 motion-reduce:transition-none motion-reduce:transform-none motion-reduce:group-hover/card:scale-100"
                   aria-hidden="true"
                 >
                   <text
@@ -94,7 +97,7 @@ export default function Top10Row({ title = "Top 10 Hari Ini", items = [] }) {
                   </text>
                 </svg>
 
-                <div className="relative z-10 h-32 w-24 sm:h-40 sm:w-28 md:h-44 md:w-32 overflow-hidden rounded-[4px] bg-[#1f1f1f] shadow-lg ring-1 ring-white/10 transition duration-200 group-hover/card:scale-105 group-hover/card:ring-white/40 group-focus-visible/card:ring-2 group-focus-visible/card:ring-white">
+                <div className="relative z-10 h-32 w-24 sm:h-40 sm:w-28 md:h-44 md:w-32 overflow-hidden rounded-[4px] bg-[#1f1f1f] shadow-lg ring-1 ring-white/10 transition duration-200 group-hover/card:scale-105 group-hover/card:ring-white/40 group-focus-visible/card:ring-2 group-focus-visible/card:ring-white motion-reduce:transition-none motion-reduce:transform-none motion-reduce:group-hover/card:scale-100">
                   {imageSrc ? (
                     <Image
                       src={imageSrc}
@@ -116,7 +119,7 @@ export default function Top10Row({ title = "Top 10 Hari Ini", items = [] }) {
                     </div>
                   )}
                   <KLogoBadge size="xs" />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-2 opacity-100 transition-opacity md:opacity-0 md:group-hover/card:opacity-100 md:group-focus-visible/card:opacity-100">
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-2 opacity-100 transition-opacity motion-reduce:transition-none [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/card:opacity-100 [@media(hover:hover)]:group-focus-visible/card:opacity-100">
                     <p className="truncate text-[11px] font-semibold text-white">{item.title}</p>
                   </div>
                 </div>
@@ -130,9 +133,9 @@ export default function Top10Row({ title = "Top 10 Hari Ini", items = [] }) {
             type="button"
             onClick={() => scrollByAmount(1)}
             aria-label="Geser kanan"
-            className="hidden md:flex absolute right-0 top-0 bottom-4 z-20 w-10 items-center justify-center rounded-l bg-black/60 text-white opacity-0 transition hover:bg-black/80 group-hover/row:opacity-100 focus-visible:opacity-100"
+            className="hidden md:flex absolute right-0 top-0 bottom-4 z-20 w-10 items-center justify-center rounded-l bg-black/60 text-white [@media(hover:hover)]:opacity-0 transition motion-reduce:transition-none hover:bg-black/80 group-hover/row:opacity-100 focus-visible:opacity-100"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-6 w-6">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-6 w-6" aria-hidden="true">
               <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
